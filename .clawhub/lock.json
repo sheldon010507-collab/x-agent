@@ -1,0 +1,109 @@
+{
+  "version": 1,
+  "skills": {
+    "tavily-search": {
+      "version": "1.0.0",
+      "installedAt": 1773113485148
+    },
+    "self-improving-agent": {
+      "version": "3.0.0",
+      "installedAt": 1773113493353
+    },
+    "find-skills": {
+      "version": "0.1.0",
+      "installedAt": 1773113499389
+    },
+    "gog": {
+      "version": "1.0.0",
+      "installedAt": 1773113504710
+    },
+    "agent-browser": {
+      "version": "0.2.0",
+      "installedAt": 1773113603630
+    },
+    "github": {
+      "version": "1.0.0",
+      "installedAt": 1773113608895
+    },
+    "git": {
+      "version": "1.0.7",
+      "installedAt": 1773115720496
+    },
+    "free-ride": {
+      "version": "1.0.4",
+      "installedAt": 1773430304872
+    },
+    "database-operations": {
+      "version": "1.0.0",
+      "installedAt": 1774207676507
+    },
+    "api-dev": {
+      "version": "1.0.0",
+      "installedAt": 1774207677013
+    },
+    "sql-toolkit": {
+      "version": "1.0.0",
+      "installedAt": 1774207677052
+    },
+    "api-designer": {
+      "version": "0.1.0",
+      "installedAt": 1774207677504
+    },
+    "security-auditor": {
+      "version": "1.0.0",
+      "installedAt": 1774207735754
+    },
+    "pr-reviewer": {
+      "version": "1.0.1",
+      "installedAt": 1774207736919
+    },
+    "e2e-testing-patterns": {
+      "version": "1.0.0",
+      "installedAt": 1774207735961
+    },
+    "quack-code-review": {
+      "version": "1.0.0",
+      "installedAt": 1774207736068
+    },
+    "test-runner": {
+      "version": "1.0.0",
+      "installedAt": 1774207735863
+    },
+    "clean-code-review": {
+      "version": "1.0.0",
+      "installedAt": 1774207736374
+    },
+    "docker-essentials": {
+      "version": "1.0.0",
+      "installedAt": 1774207714639
+    },
+    "react-expert": {
+      "version": "0.1.0",
+      "installedAt": 1774207715594
+    },
+    "devops": {
+      "version": "1.0.0",
+      "installedAt": 1774207717327
+    },
+    "tailwindcss": {
+      "version": "1.0.0",
+      "installedAt": 1774207718790
+    },
+    "docker-compose": {
+      "version": "1.0.0",
+      "installedAt": 1774207719522
+    },
+    "nextjs-expert": {
+      "version": "1.0.0",
+      "installedAt": 1774207721128
+    },
+    "shadcn-ui": {
+      "version": "1.0.0",
+      "installedAt": 1774207723504
+    },
+    "security-audit-toolkit": {
+      "version": "1.0.0",
+      "installedAt": 1774207736310
+    }
+  }
+}
