@@ -1,167 +1,266 @@
-# X 智能运营 Agent v2.0
+# X-Agent v2.0
 
-**多 Niche 内容自动化系统** - Telegram + OpenClaw 驱动
+**X (Twitter) 热点监控 + 智能内容生产 + 自动复盘系统**
 
-[![Status](https://img.shields.io/badge/status-complete-brightgreen)](https://github.com/sheldon010507-collab/x-agent)
-[![Progress](https://img.shields.io/badge/progress-100%25-brightgreen)](https://github.com/sheldon010507-collab/x-agent)
-[![Score](https://img.shields.io/badge/code%20score-90/100-brightgreen)](https://github.com/sheldon010507-collab/x-agent)
-[![Python](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org/)
-[![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/sheldon010507-collab/x-agent)
+[![Status](https://img.shields.io/badge/status-production--ready-brightgreen)](https://github.com/sheldon010507-collab/x-agent)
+[![Version](https://img.shields.io/badge/version-2.0.0-blue)](https://github.com/sheldon010507-collab/x-agent)
+[![Completion](https://img.shields.io/badge/completion-95%25-brightgreen)](https://github.com/sheldon010507-collab/x-agent/blob/main/CODE_REVIEW_COMPLETE.md)
+[![Code Quality](https://img.shields.io/badge/code%20quality-90/100-blue)](https://github.com/sheldon010507-collab/x-agent/blob/main/CODE_REVIEW_COMPLETE.md)
+[![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ---
 
-## 🎯 项目简介
+## 📖 简介
 
-X智能运营Agent是一个为**任意Niche**（英语市场为主）构建的智能内容运营系统。通过Telegram Bot实现热点监控、智能内容生成、自动化评论和每日复盘，帮助运营者把每天找热点、写文案、刷评论的时间压缩到最低，专注高质量内容制作和账号私域转化。
+X-Agent v2.0 是一个**多 Niche 内容自动化运营系统**，基于 Telegram + OpenClaw 驱动，实现：
+
+- 🔥 **热点监控**: 多平台采集（X + Reddit + Google Trends），复合评分筛选
+- 🤖 **智能生成**: A 类推文 / B 类视频脚本 / C 类评论，AI 自动生成
+- 🎭 **Niche 语气**: 7 种专属语气风格（成人用品、AI 工具、美妆、健身、加密、搞笑、自定义）
+- ⚙️ **自动化**: 定时采集、自动评论、智能发布、每日复盘
+
+**核心价值**: 把每天找热点、写文案、刷评论的时间压缩到最低，专注高质量 B 类内容制作和账号私域转化。
 
 ---
 
 ## ✨ 核心功能
 
-### 🔥 热点监控
-- **多平台采集**: X Trending + Reddit + Google Trends
-- **复合评分**: Relevance(40%) + Velocity(30%) + Authority(15%) + Convergence(15%)
-- **智能分级**: ≥80分立即推送，60-79分存库，<60分丢弃
+### 1. 热点采集与评分
 
-### 🤖 智能生成
-- **A类 - AI全自动推文**: 3条备选，5种角度（Hot take/Data/互动投票/产品推荐/Cheeky）
-- **B类 - 30秒视频脚本**: 含分镜建议和发布时间建议
-- **C类 - 智能评论**: 带emoji + 问题结尾，提升回复率
+**多平台数据源**:
+- X (Twitter) Trending - UK/US
+- Reddit - 多 Subreddit
+- Google Trends - UK/US
+- 自定义关键词监控
 
-### 🎭 Niche语气注入
-支持7种专属语气，切换Niche时自动注入所有生成内容：
+**复合评分公式** (满分 100):
+```
+总分 = Relevance(40%) + Velocity(30%) + Authority(15%) + Convergence(15%)
+```
+
+**智能推送策略**:
+- **≥80 分**: 立即 Telegram 推送 + 自动生成评论
+- **60-79 分**: 存库，每日 21:00 汇总展示
+- **<60 分**: 自动丢弃
+
+### 2. 内容生成（3 种类型）
+
+#### A 类 - AI 全自动推文
+- 每次生成 3 条备选
+- 支持角度：Hot take / Data / Interactive Poll / Product Recommendation / Cheeky
+- 自动带相关 hashtag
+- 符合 Niche 语气风格
+
+#### B 类 - 视频脚本
+- 30 秒分镜脚本（精确到秒）
+- 包含：开场钩子 (0-5s) + 主体内容 (5-20s) + CTA(20-30s)
+- 配图关键词建议
+- 最佳发布时间建议（UK 时间）
+
+#### C 类 - 智能评论
+- 长度 ≤ 120 字符
+- 必带 emoji + 问题结尾（提升回复率）
+- 30% 概率自然带 CTA
+- OpenClaw 自动执行（随机延迟 10-30 秒防检测）
+
+### 3. Niche 语气注入
 
 | Niche | 语气风格 | 典型句式 |
-|-------|----------|----------|
-| adult | cheeky, 暗示, 感性 | "you deserve this 😏" |
-| ai_tools | 极客, 效率, 前沿 | "unpopular opinion:" |
-| beauty | 种草, 姐妹情, 精致 | "girlies this is worth every penny 💅" |
-| fitness | 励志, 数据, 挑战 | "no excuses. day X of Y ✅" |
-| crypto | FOMO, alpha, 社群 | "not financial advice but..." |
-| humor | 无厘头, 自黑, meme | "me: *does thing* also me:" |
-| custom | 完全可编辑 | 用户自定义 |
+|-------|---------|---------|
+| **adult** | cheeky、暗示、感性、大胆 | "you deserve this 😏" |
+| **ai_tools** | 极客、效率、前沿、干货 | "unpopular opinion:" |
+| **beauty** | 种草、姐妹情、精致、真实测评 | "girlies this is worth every penny 💅" |
+| **fitness** | 励志、数据、挑战、社群 | "no excuses." |
+| **crypto** | FOMO、alpha、社群信任 | "not financial advice but…" |
+| **humor** | 无厘头、自黑、meme 引用 | "me: *does thing* also me:" |
+| **custom** | 用户自定义 | 完全自定义 |
 
-### ⚙️ 自动化功能
-- **定时热点采集**: 每2小时自动采集
-- **自动智能评论**: 可设每日上限（默认15条）
-- **每日复盘报告**: 21:00 UK时间自动生成
-- **点赞/RT开关**: 可独立控制，各有每日上限
+### 4. Telegram Bot 交互
 
-### 📊 数据驱动
-- **Supabase云数据库**: PostgreSQL，完整数据追踪
-- **5张数据表**: trends, content_queue, daily_log, strategy, automation_settings
-- **策略版本管理**: 记录每次策略调整
+**完整指令集** (12 个指令):
+- `/start` - 今日热点概览 + 快捷菜单
+- `/set_niche` - 切换 Niche（全局立即生效）
+- `/research` - 立即深度研究任意话题
+- `/trends` - 当前热点列表（按评分排序）
+- `/create` - 主动创建内容
+- `/queue` - 待发布草稿队列
+- `/log` - 快捷录入今日数据
+- `/report` - 查看复盘报告
+- `/strategy` - 查看当前内容策略
+- `/settings` - 自动化开关面板
+- `/llm` - LLM 供应商切换
 
----
+**Inline 按钮交互**:
+- 生成 A 类/B 类内容
+- 生成评论
+- 一键复制
+- OpenClaw 自动发布
+- 重新生成
 
-## 🏗️ 项目结构
+### 5. 自动化设置
 
-```
-x-agent-v2/
-├── main.py                    # 入口文件
-├── requirements.txt           # Python依赖
-├── .env.example              # 环境变量模板
-├── .gitignore                # Git忽略配置
-├── LICENSE                   # MIT开源协议
-│
-├── modules/                  # 核心模块（全部完成）
-│   ├── config.py             # 配置管理
-│   ├── database.py           # Supabase操作
-│   ├── llm_router.py         # LLM多供应商路由
-│   ├── generator.py          # 内容生成（A/B/C类）
-│   ├── scorer.py             # 复合评分系统
-│   ├── research.py           # 多平台数据采集
-│   ├── trends.py             # 趋势采集（Reddit/Google/X）
-│   ├── bot.py                # Telegram Bot
-│   ├── openclaw_bridge.py    # OpenClaw集成
-│   └── scheduler.py          # 定时任务调度
-│
-├── prompts/                  # Prompt模板
-│   ├── type_a.txt            # A类推文模板
-│   ├── type_b.txt            # B类视频脚本模板
-│   ├── comment.txt           # 智能评论模板
-│   └── review.txt            # 每日复盘模板
-│
-├── niche_voices/             # Niche语气文件
-│   ├── adult.txt             # 成人用品
-│   ├── ai_tools.txt          # AI工具
-│   ├── beauty.txt            # 美妆
-│   ├── fitness.txt           # 健身
-│   ├── crypto.txt            # 加密货币
-│   ├── humor.txt             # 搞笑
-│   └── custom.txt            # 自定义
-│
-├── migrations/               # 数据库迁移
-│   └── 001_initial_schema.sql
-│
-├── tests/                    # 单元测试
-│   └── test_modules.py
-│
-└── DEPLOYMENT.md             # 部署指南
-```
+**可配置项**:
+- **智能评论**: 开关 + 每日上限（默认 15 条，建议≤30）
+- **自动点赞**: 开关 + 每日上限（默认 30 次）
+- **自动 RT**: 开关 + 每日上限（默认 10 次）
+- **自动发帖**: 开关（需配合 OpenClaw）
+
+**LLM 供应商切换**:
+支持 7 个供应商，通过 `/llm` 命令一键切换：
+- Anthropic (Claude 3.5 Sonnet)
+- OpenAI (GPT-4)
+- Groq (Llama)
+- Gemini (Google)
+- OpenRouter (多模型聚合)
+- NVIDIA NIM
+- Ollama (本地部署)
 
 ---
 
 ## 🚀 快速开始
 
-### 1️⃣ 克隆项目
+### 前置要求
+
+- Python 3.11+
+- Telegram Bot Token ([获取教程](https://core.telegram.org/bots))
+- Supabase 账号 ([免费创建](https://supabase.com))
+- 至少一个 LLM 供应商 API Key
+
+### 1. 克隆项目
 
 ```bash
 git clone https://github.com/sheldon010507-collab/x-agent.git
 cd x-agent/x-agent-v2
 ```
 
-### 2️⃣ 安装依赖
+### 2. 配置环境变量
+
+```bash
+# 复制配置模板
+cp .env.example .env
+
+# 编辑 .env 文件，填入必要配置
+nano .env
+```
+
+**必要配置项**:
+```bash
+# Telegram
+TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_CHAT_ID=your_chat_id
+
+# LLM 供应商（至少配置一个）
+ANTHROPIC_API_KEY=sk-xxx
+OPENAI_API_KEY=sk-xxx
+GROQ_API_KEY=gsk_xxx
+
+# Supabase
+SUPABASE_URL=https://xxx.supabase.co
+SUPABASE_KEY=xxx
+
+# OpenClaw（可选）
+OPENCLAW_API_ENDPOINT=http://localhost:8080
+```
+
+### 3. 安装依赖
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3️⃣ 配置环境
+### 4. 初始化数据库
+
+在 Supabase 中执行 SQL 迁移脚本：
 
 ```bash
-cp .env.example .env
-nano .env  # 或使用你喜欢的编辑器
+# 方法 1: 使用提供的 SQL 文件
+psql -h $SUPABASE_URL -U postgres -d postgres -f migrations/001_initial_schema.sql
+
+# 方法 2: 在 Supabase Dashboard 手动执行 SQL
 ```
 
-**必需配置**:
-- `TELEGRAM_BOT_TOKEN` - Telegram Bot Token
-- `SUPABASE_URL` - Supabase项目URL
-- `SUPABASE_KEY` - Supabase服务端Key
-- 至少一个LLM API Key
+**数据库表结构**:
+- `trends` - 热点记录
+- `content_queue` - 内容草稿
+- `daily_log` - 每日记录
+- `niche` - Niche 配置
+- `automation_settings` - 自动化设置
+- `strategy` - 策略版本
 
-**可选配置**:
-- `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET` - Reddit API
-- `LLM_PROVIDER` - 默认LLM供应商（anthropic）
-- `TIMEZONE` - 时区（Europe/London）
-
-### 4️⃣ 初始化数据库
-
-在Supabase SQL编辑器中执行 `migrations/001_initial_schema.sql`
-
-### 5️⃣ 运行
+### 5. 运行系统
 
 ```bash
+# 开发模式
 python main.py
+
+# 生产模式 (使用 PM2)
+pm2 start main.py --name x-agent-v2 --interpreter python3
+pm2 save && pm2 startup
 ```
 
 ---
 
-## 📱 Telegram Bot 指令
+## 📁 项目结构
 
-| 指令 | 功能 |
-|------|------|
-| `/start` | 今日热点概览 + 快捷菜单 |
-| `/set_niche` | 切换Niche（全局立即生效） |
-| `/research` | 深度研究任意话题 |
-| `/trends` | 当前热点列表（按评分排序） |
-| `/create` | 创建内容（A/B/评论） |
-| `/queue` | 查看待发布草稿队列 |
-| `/log` | 快捷录入今日发布数据 |
-| `/report` | 查看复盘报告（今日/本周） |
-| `/strategy` | 查看当前内容策略 |
-| `/settings` | 自动化设置面板 |
-| `/llm` | 切换LLM供应商 |
+```
+x-agent-v2/
+├── main.py                  # 应用入口 ✅
+├── config.py                # 配置加载 ✅
+├── .env                     # 环境变量
+├── .env.example             # 配置模板
+├── requirements.txt         # Python 依赖
+│
+├── modules/                 # 核心模块 ✅
+│   ├── config.py            # 配置管理 (92/100)
+│   ├── database.py          # Supabase 操作 (90/100)
+│   ├── llm_router.py        # LLM 路由 (88/100)
+│   ├── generator.py         # 内容生成 (90/100)
+│   ├── scorer.py            # 热点评分 (92/100)
+│   ├── research.py          # 数据采集 (88/100)
+│   ├── trends.py            # 趋势采集 (85/100)
+│   ├── bot.py               # Telegram Bot (90/100)
+│   ├── openclaw_bridge.py   # OpenClaw 集成 (88/100)
+│   └── scheduler.py         # 定时任务 (90/100)
+│
+├── prompts/                 # Prompt 模板 ✅
+│   ├── type_a.txt           # A 类推文
+│   ├── type_b.txt           # B 类视频脚本
+│   ├── comment.txt          # 智能评论
+│   └── review.txt           # 每日复盘
+│
+├── niche_voices/            # Niche 语气文件 ✅
+│   ├── adult.txt            # 成人用品
+│   ├── ai_tools.txt         # AI 工具
+│   ├── beauty.txt           # 美妆
+│   ├── crypto.txt           # 加密货币
+│   ├── fitness.txt          # 健身
+│   ├── humor.txt            # 搞笑
+│   └── custom.txt           # 自定义
+│
+├── migrations/              # 数据库迁移 ✅
+│   └── 001_initial_schema.sql
+├── tests/                   # 测试用例 ✅
+│   └── test_modules.py
+└── data/                    # 本地缓存
+```
+
+---
+
+## ⏰ 发布时机策略
+
+| 时间段 | 内容类型 | 原因 |
+|--------|---------|------|
+| 07:30–09:00 | 资讯/数据类 A 类 | 通勤刷手机 |
+| 12:00–13:00 | 投票/互动类 | 午休 |
+| 19:00–21:00 | 推荐/Cheeky 类 | 全天最高在线峰值 |
+| 21:30–23:00 | 感性/关系话题 | 睡前情绪高 |
+
+**起步期节奏**（0-1k 粉丝）:
+- 每天发 **3–5 条**（A:B = 2:1）
+- 每天智能评论 **10–15 条**
+- 每周至少 1 条互动投票
+- 避开：周一早上、UK 公众假日白天
 
 ---
 
@@ -170,18 +269,21 @@ python main.py
 | 类别 | 技术 |
 |------|------|
 | **语言** | Python 3.11+ |
-| **Bot框架** | python-telegram-bot 20.7 |
-| **数据库** | Supabase (PostgreSQL) |
+| **Bot 框架** | python-telegram-bot |
 | **LLM** | Anthropic / OpenAI / Groq / Gemini / OpenRouter / NVIDIA NIM / Ollama |
-| **数据采集** | PRAW (Reddit) + pytrends + Nitter |
+| **数据库** | Supabase (PostgreSQL) |
+| **数据采集** | last30days-skill, PRAW, pytrends |
+| **自动化** | OpenClaw (Playwright stealth) |
 | **调度** | APScheduler |
-| **自动化** | OpenClaw |
+| **部署** | Mac 本地常驻 + PM2 |
 
 ---
 
-## 📊 项目状态
+## 📊 代码质量
 
-### 完成度: 100% ✅
+**总体评分**: 90/100  
+**完整度**: 95%  
+**审查报告**: [CODE_REVIEW_COMPLETE.md](CODE_REVIEW_COMPLETE.md)
 
 | 模块 | 评分 | 状态 |
 |------|------|------|
@@ -194,46 +296,53 @@ python main.py
 | trends.py | 85/100 | ✅ |
 | bot.py | 90/100 | ✅ |
 | openclaw_bridge.py | 88/100 | ✅ |
-| scheduler.py | 88/100 | ✅ |
+| scheduler.py | 90/100 | ✅ |
 | main.py | 92/100 | ✅ |
 
-**平均评分**: 90/100
+---
+
+## 🧪 测试
+
+```bash
+# 运行所有测试
+pytest tests/
+
+# 运行单个模块测试
+pytest tests/test_modules.py -v
+
+# 覆盖率报告
+pytest --cov=modules --cov-report=html
+```
 
 ---
 
-## 🔒 安全说明
+## 📝 相关文档
 
-- ✅ 所有API Key从环境变量读取，不硬编码
-- ✅ 使用Supabase ORM，参数化查询防SQL注入
-- ✅ Telegram Bot输入验证
-- ✅ 每日上限控制防止滥用
-- ✅ 随机延迟防检测
-
----
-
-## 📄 License
-
-MIT License - 详见 [LICENSE](LICENSE)
+- [完整代码审查报告](CODE_REVIEW_COMPLETE.md)
+- [部署指南](DEPLOYMENT.md)
+- [开发计划](../群聊记录/2026-03-24%20X 智能运营 Agent v2.0 开发计划.md)
+- [OpenClaw 文档](https://docs.openclaw.ai)
 
 ---
 
-## 🤝 贡献
+## ⚠️ 注意事项
 
-1. Fork本仓库
-2. 创建功能分支 (`git checkout -b feature/amazing-feature`)
-3. 提交更改 (`git commit -m 'Add amazing feature'`)
-4. 推送到分支 (`git push origin feature/amazing-feature`)
-5. 创建Pull Request
-
----
-
-## 📞 支持
-
-- **Issues**: [GitHub Issues](https://github.com/sheldon010507-collab/x-agent/issues)
-- **部署指南**: [DEPLOYMENT.md](DEPLOYMENT.md)
+1. **API 限制**: 请遵守各平台的 API 使用限制和反爬虫政策
+2. **账号安全**: 自动化工具可能违反平台服务条款，请谨慎使用
+3. **内容审核**: AI 生成内容可能存在错误，发布前请人工审核
+4. **数据隐私**: 请妥善保管 API Key 和敏感信息
 
 ---
 
-**代码审查**: Sage (Reviewer Agent) ✅
+## 📄 许可证
 
+MIT License - 详见 [LICENSE](LICENSE) 文件
+
+---
+
+**Managed by Friday (CEO Agent)** 🐉  
+**版本**: 2.0.0  
+**状态**: 生产就绪 ✅  
 **最后更新**: 2026-03-24
+
+*X-Agent v2.0 - 让内容创作更简单*
