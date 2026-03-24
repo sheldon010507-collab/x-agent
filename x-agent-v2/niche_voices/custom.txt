@@ -1,0 +1,30 @@
+# Custom Niche Voice - User Defined
+# This file can be edited by the user for their custom niche
+# Format: Same as other niche voice files
+
+## Voice Characteristics
+- Define your tone here
+- Your unique style
+- Your audience preferences
+
+## Common Phrases
+- Your signature phrases
+- Your go-to expressions
+- Your community's language
+
+## Emoji Preferences
+- Your preferred emojis
+- Your brand colors/symbols
+
+## CTA Style
+- Your call-to-action style
+- Your engagement approach
+
+## Content Focus
+- Your niche topics
+- Your expertise areas
+- Your unique value
+
+## Example Outputs
+✅ Your example positive outputs
+❌ Avoid: Your taboos and boundaries
