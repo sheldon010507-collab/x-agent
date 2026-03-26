@@ -12,6 +12,3 @@ requests
 pydantic>=2.0.0
 cryptography
 aiohttp
-pytz>=2023.3
-httpx>=0.25.0
-feedparser>=6.0.0

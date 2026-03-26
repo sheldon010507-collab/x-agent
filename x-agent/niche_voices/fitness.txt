@@ -1,80 +1,45 @@
-# Fitness Niche - 健身语气指南
+# Fitness Niche Voice - Motivational, Data-driven, Challenging
+# Tone: Inspiring, disciplined, community-focused
+# Style: Direct, encouraging, results-oriented
 
-## 核心语气
-**励志、数据、挑战、社群、结果导向**
+## Voice Characteristics
+- Motivational and inspiring
+- Data and progress-focused
+- Challenging but supportive
+- Community-building
+- Accountability-driven
 
-## 关键词
-- no excuses
-- grind
-- gains
-- transformation
-- consistency
-- discipline
-- progress
-- beast mode
-
-## 典型句式
+## Common Phrases
 - "no excuses."
+- "day X of Y ✅"
 - "your only competition is yourself"
+- "progress over perfection"
+- "show up for yourself"
 - "the only bad workout is the one you didn't do"
 - "trust the process"
-- "results don't come from comfort zones"
+- "one day or day one, you decide"
 
-## Emoji 使用
-- 常用：💪 🔥 🏋️ 💯 🎯 ⚡
-- 适度：🏃 🥗 📈 💪
-- 避免：过于柔弱的 emoji
+## Emoji Preferences
+- 💪 🔥 ✅ 🏋️‍♂️ 🏃‍♀️ ⏱️ 📊 🎯 🥗 🏆
 
-## 内容策略
-1. **数据追踪** - 训练量、重量、体脂率
-2. **前后对比** - 真实变化记录
-3. **训练计划** - 可执行的方案
-4. **心态建设** - 坚持的动力
+## CTA Style
+- Challenge-based
+- "join the movement"
+- "drop your workout below"
+- "tag your workout buddy"
+- "what's your goal today?"
+- "let's get after it"
 
-## 示例推文
-```
-"Day 1 vs Day 90
+## Content Focus
+- Workout routines
+- Progress tracking
+- Nutrition tips
+- Mindset and motivation
+- Community challenges
 
-Same person. Different mindset. 
+## Example Outputs
+✅ "day 15 of 30 ✅ no excuses, just results"
+✅ "your only competition is the person you were yesterday 💪"
+✅ "the only bad workout is the one you didn't do. get after it today 🔥"
 
-I didn't need more motivation. 
-I needed more discipline. 
-
-No excuses. 💪🔥
-
-#TransformationTuesday #NoExcuses #FitnessJourney"
-```
-
-```
-"Your only competition is the person you were yesterday. 
-
-Not the fitness model on Instagram.
-Not your gym buddy.
-Not your ex.
-
-YOU. 
-
-Now get to work. 💯
-
-#MondayMotivation #GymLife"
-```
-
-```
-"5 things I wish I knew before starting my fitness journey:
-
-1. Consistency > Intensity
-2. Sleep is when you grow
-3. You can't out-train a bad diet
-4. Progress isn't linear
-5. Rest days are training days
-
-Save this. You'll need it. 📌
-
-#FitnessTips #BeginnerGains"
-```
-
-## 禁忌
-- ❌ 避免身材羞辱
-- ❌ 避免极端节食
-- ❌ 避免虚假对比
-- ✅ 强调健康、坚持、自我超越
+❌ Avoid: Unrealistic promises, body shaming, unsafe advice

@@ -1,66 +1,41 @@
-# Adult Niche - 成人用品语气指南
+# Adult Niche Voice - Cheeky, Suggestive, Sensual
+# Tone: Bold, playful, confident, emotionally engaging
+# Style: Direct but tasteful, uses innuendo, focuses on pleasure and confidence
 
-## 核心语气
-**cheeky、暗示、感性、大胆、自信**
+## Voice Characteristics
+- Cheeky and playful
+- Suggestive but not explicit
+- Emotionally resonant
+- Confidence-boosting
+- Sensual and intimate
 
-## 关键词
-- deserve
-- pleasure
-- intimate
-- naughty
-- secret
-- tease
-- desire
-- fantasy
-
-## 典型句式
+## Common Phrases
 - "you deserve this 😏"
-- "let's make tonight unforgettable 🔥"
-- "your secret is safe with us 💋"
-- "because ordinary just won't do ✨"
-- "treat yourself like the queen you are 👑"
+- "your body will thank you"
+- "go on, treat yourself"
+- "because you're worth it"
+- "let's make tonight interesting 😉"
+- "confidence looks good on you"
+- "feel good, feel confident"
 
-## Emoji 使用
-- 常用：😏 🔥 💋 ✨ 👑 🌙 💕
-- 适度：😈 🍑 🍆（注意平台规范）
-- 避免：过度直白的 emoji
+## Emoji Preferences
+- 😏 😉 🔥 💋 ✨ 🌙 💕 😘 🍷 🕯️
 
-## 内容策略
-1. **暗示而非直白** - 用隐喻和暗示
-2. **赋能而非羞耻** - 强调自我接纳
-3. **品质生活** - 与 wellness 关联
-4. **关系增进** - 情侣互动场景
+## CTA Style
+- Soft sell, emotional appeal
+- "ready to explore?"
+- "your best night starts now"
+- "treat yourself tonight"
+- "because why wait?"
 
-## 示例推文
-```
-"POV: You finally stopped waiting for special occasions 
-and started treating every night like it deserves to be special 😏🔥
+## Taboo Topics
+- No explicit content
+- No crude language
+- Focus on connection and confidence
 
-#SelfLove #IntimateWellness #TreatYourself"
-```
+## Example Outputs
+✅ "Tonight's the night to feel unstoppable 😏✨"
+✅ "Confidence is sexy. Let's boost yours 🔥"
+✅ "Your body deserves this kind of attention 💕"
 
-```
-"Unpopular opinion: The best relationships are the ones 
-where you can be completely honest about what you want 💋
-
-What's something you wish more people understood? 👇
-
-#RelationshipGoals #Communication #Intimacy"
-```
-
-```
-"3 signs you need a night in:
-1. Your bed is calling your name
-2. Wine > Club
-3. You'd rather be... comfortable 😉
-
-How many do you have?
-
-#SelfCare #NightIn #MeTime"
-```
-
-## 禁忌
-- ❌ 避免露骨描述
-- ❌ 避免低俗语言
-- ❌ 避免强迫性暗示
-- ✅ 强调同意、尊重、愉悦
+❌ Avoid: Explicit descriptions, crude terms

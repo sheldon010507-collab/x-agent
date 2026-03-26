@@ -1,355 +1,348 @@
-# X-Agent v3.0
+# X-Agent v2.0
 
-**智能 X (Twitter) 内容运营自动化系统**
+**X (Twitter) 热点监控 + 智能内容生产 + 自动复盘系统**
 
-[![Version](https://img.shields.io/badge/version-3.0.0-blue)](https://github.com)
-[![Python](https://img.shields.io/badge/python-3.10+-green)](https://python.org)
-[![License](https://img.shields.io/badge/license-MIT-orange)](https://opensource.org/licenses/MIT)
-
----
-
-## 📖 项目介绍
-
-X-Agent v3.0 是一个智能化的 X (Twitter) 内容运营自动化系统，专为多 Niche 内容创作者设计。通过 AI 驱动的热点采集、智能评分、内容生成和自动发布，帮助你高效运营多个垂直领域账号。
-
-### ✨ 核心功能
-
-- **🔥 智能热点采集**: 多平台实时监控，4 维复合评分（Relevance, Velocity, Authority, Convergence）
-- **🤖 AI 内容生成**: 支持 A/B/C 三类内容创作，7 种 Niche 语气切换
-- **🌐 多 LLM 供应商**: 支持 7 个 LLM 供应商（Anthropic, OpenAI, Groq, Gemini, OpenRouter, NVIDIA NIM, Ollama）
-- **📱 Telegram Bot**: 完整的命令行和 Inline 按钮交互
-- **🔗 OpenClaw 集成**: 自动化发布到 X，防封机制完善
-- **📊 数据持久化**: Supabase 数据库支持，完整的内容队列和日志系统
-- **⏰ 定时任务**: 自动热点采集、每日复盘、自动评论
-
-### 🎯 适用场景
-
-- 多账号运营者（MCN 机构、营销团队）
-- 垂直领域内容创作者
-- 需要自动化发布的工作流
-- 想减少重复性运营工作的个人
+[![Status](https://img.shields.io/badge/status-production--ready-brightgreen)](https://github.com/sheldon010507-collab/x-agent)
+[![Version](https://img.shields.io/badge/version-2.0.0-blue)](https://github.com/sheldon010507-collab/x-agent)
+[![Completion](https://img.shields.io/badge/completion-95%25-brightgreen)](https://github.com/sheldon010507-collab/x-agent/blob/main/CODE_REVIEW_COMPLETE.md)
+[![Code Quality](https://img.shields.io/badge/code%20quality-90/100-blue)](https://github.com/sheldon010507-collab/x-agent/blob/main/CODE_REVIEW_COMPLETE.md)
+[![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ---
 
-## 🚀 快速开始（3 步启动）
+## 📖 简介
 
-### 步骤 1: 安装依赖
+X-Agent v2.0 是一个**多 Niche 内容自动化运营系统**，基于 Telegram + OpenClaw 驱动，实现：
 
-```bash
-# 克隆项目
-git clone <repository-url>
-cd x-agent-v3
+- 🔥 **热点监控**: 多平台采集（X + Reddit + Google Trends），复合评分筛选
+- 🤖 **智能生成**: A 类推文 / B 类视频脚本 / C 类评论，AI 自动生成
+- 🎭 **Niche 语气**: 7 种专属语气风格（成人用品、AI 工具、美妆、健身、加密、搞笑、自定义）
+- ⚙️ **自动化**: 定时采集、自动评论、智能发布、每日复盘
 
-# 安装 Python 依赖
-pip3 install -r requirements.txt --break-system-packages
+**核心价值**: 把每天找热点、写文案、刷评论的时间压缩到最低，专注高质量 B 类内容制作和账号私域转化。
+
+---
+
+## ✨ 核心功能
+
+### 1. 热点采集与评分
+
+**多平台数据源**:
+- X (Twitter) Trending - UK/US
+- Reddit - 多 Subreddit
+- Google Trends - UK/US
+- 自定义关键词监控
+
+**复合评分公式** (满分 100):
+```
+总分 = Relevance(40%) + Velocity(30%) + Authority(15%) + Convergence(15%)
 ```
 
-### 步骤 2: 配置环境变量
+**智能推送策略**:
+- **≥80 分**: 立即 Telegram 推送 + 自动生成评论
+- **60-79 分**: 存库，每日 21:00 汇总展示
+- **<60 分**: 自动丢弃
+
+### 2. 内容生成（3 种类型）
+
+#### A 类 - AI 全自动推文
+- 每次生成 3 条备选
+- 支持角度：Hot take / Data / Interactive Poll / Product Recommendation / Cheeky
+- 自动带相关 hashtag
+- 符合 Niche 语气风格
+
+#### B 类 - 视频脚本
+- 30 秒分镜脚本（精确到秒）
+- 包含：开场钩子 (0-5s) + 主体内容 (5-20s) + CTA(20-30s)
+- 配图关键词建议
+- 最佳发布时间建议（UK 时间）
+
+#### C 类 - 智能评论
+- 长度 ≤ 120 字符
+- 必带 emoji + 问题结尾（提升回复率）
+- 30% 概率自然带 CTA
+- OpenClaw 自动执行（随机延迟 10-30 秒防检测）
+
+### 3. Niche 语气注入
+
+| Niche | 语气风格 | 典型句式 |
+|-------|---------|---------|
+| **adult** | cheeky、暗示、感性、大胆 | "you deserve this 😏" |
+| **ai_tools** | 极客、效率、前沿、干货 | "unpopular opinion:" |
+| **beauty** | 种草、姐妹情、精致、真实测评 | "girlies this is worth every penny 💅" |
+| **fitness** | 励志、数据、挑战、社群 | "no excuses." |
+| **crypto** | FOMO、alpha、社群信任 | "not financial advice but…" |
+| **humor** | 无厘头、自黑、meme 引用 | "me: *does thing* also me:" |
+| **custom** | 用户自定义 | 完全自定义 |
+
+### 4. Telegram Bot 交互
+
+**完整指令集** (12 个指令):
+- `/start` - 今日热点概览 + 快捷菜单
+- `/set_niche` - 切换 Niche（全局立即生效）
+- `/research` - 立即深度研究任意话题
+- `/trends` - 当前热点列表（按评分排序）
+- `/create` - 主动创建内容
+- `/queue` - 待发布草稿队列
+- `/log` - 快捷录入今日数据
+- `/report` - 查看复盘报告
+- `/strategy` - 查看当前内容策略
+- `/settings` - 自动化开关面板
+- `/llm` - LLM 供应商切换
+
+**Inline 按钮交互**:
+- 生成 A 类/B 类内容
+- 生成评论
+- 一键复制
+- OpenClaw 自动发布
+- 重新生成
+
+### 5. 自动化设置
+
+**可配置项**:
+- **智能评论**: 开关 + 每日上限（默认 15 条，建议≤30）
+- **自动点赞**: 开关 + 每日上限（默认 30 次）
+- **自动 RT**: 开关 + 每日上限（默认 10 次）
+- **自动发帖**: 开关（需配合 OpenClaw）
+
+**LLM 供应商切换**:
+支持 7 个供应商，通过 `/llm` 命令一键切换：
+- Anthropic (Claude 3.5 Sonnet)
+- OpenAI (GPT-4)
+- Groq (Llama)
+- Gemini (Google)
+- OpenRouter (多模型聚合)
+- NVIDIA NIM
+- Ollama (本地部署)
+
+---
+
+## 🚀 快速开始
+
+### 前置要求
+
+- Python 3.11+
+- Telegram Bot Token ([获取教程](https://core.telegram.org/bots))
+- Supabase 账号 ([免费创建](https://supabase.com))
+- 至少一个 LLM 供应商 API Key
+
+### 1. 克隆项目
+
+```bash
+git clone https://github.com/sheldon010507-collab/x-agent.git
+cd x-agent/x-agent-v2
+```
+
+### 2. 配置环境变量
 
 ```bash
 # 复制配置模板
 cp .env.example .env
 
 # 编辑 .env 文件，填入必要配置
-# 必填项：TELEGRAM_BOT_TOKEN, SUPABASE_URL, SUPABASE_KEY, 至少一个 LLM API Key
+nano .env
 ```
 
-### 步骤 3: 启动应用
-
+**必要配置项**:
 ```bash
-# 启动主程序
-python3 main.py
-```
+# Telegram
+TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_CHAT_ID=your_chat_id
 
-启动成功后会显示：
-```
-🚀 Initializing X-Agent v3.0...
-✅ Config loaded (LLM: anthropic)
-✅ Database initialized
-✅ LLM Router initialized (Provider: anthropic)
-✅ Content Generator initialized (Niche: general)
-✅ Telegram Bot initialized
-✅ Scheduler initialized
-🎉 All components initialized successfully!
-```
-
----
-
-## ⚙️ 配置说明
-
-### 环境变量 (.env)
-
-所有配置项说明见 **[CONFIG.md](CONFIG.md)** 或下方详细章节。
-
-快速配置清单：
-
-| 配置项 | 必填 | 说明 | 示例 |
-|--------|------|------|------|
-| `TELEGRAM_BOT_TOKEN` | ✅ | Telegram Bot Token | `123456:ABC-DEF1234...` |
-| `TELEGRAM_CHAT_ID` | ✅ | 管理员聊天 ID | `-1001234567890` |
-| `SUPABASE_URL` | ✅ | Supabase 项目 URL | `https://xxx.supabase.co` |
-| `SUPABASE_KEY` | ✅ | Supabase API Key | `eyJ...` |
-| `ANTHROPIC_API_KEY` | ✅* | Anthropic API Key | `sk-ant-...` |
-| `LLM_PROVIDER` | ❌ | 默认 LLM 供应商 | `anthropic` |
-| `LLM_MODEL` | ❌ | 默认模型 | `claude-3-5-sonnet-20241022` |
-
-*至少需要配置一个 LLM 供应商的 API Key
-
----
-
-## 🎨 Niche 切换教程
-
-X-Agent 支持 7 种内置 Niche（垂直领域），每种 Niche 有独特的语料库和表达风格。
-
-### 可用 Niche 列表
-
-| Niche ID | 名称 | 说明 |
-|----------|------|------|
-| `adult` | 成人用品 | 健康、亲密关系相关 |
-| `ai_tools` | AI 工具 | 人工智能、效率工具 |
-| `beauty` | 美妆 | 护肤、彩妆、美容 |
-| `fitness` | 健身 | 运动、减脂、增肌 |
-| `crypto` | 加密货币 | 区块链、DeFi、NFT |
-| `humor` | 搞笑 | 段子、梗、幽默内容 |
-| `general` | 通用 | 默认 Niche，适合综合内容 |
-| `custom` | 自定义 | 用户自定义语料 |
-
-### 切换方法
-
-#### 方法 1: Telegram Bot 命令
-
-在 Bot 中发送 `/set_niche`，通过 Inline 按钮选择 Niche。
-
-#### 方法 2: 代码中切换
-
-```python
-from config import config
-
-# 切换到 AI 工具 Niche
-config.set_niche('ai_tools')
-
-# 获取当前 Niche
-current = config.niche.current_niche
-```
-
-### 自定义 Niche 语料
-
-编辑 `niche_voices/custom.txt` 文件，添加你的专属语料：
-
-```text
-# custom.txt 示例
-今天也要加油鸭！
-生活不易，全靠演技
-打工人，打工魂，打工都是人上人
-```
-
----
-
-## 🤖 LLM 供应商配置教程
-
-X-Agent 支持 7 个 LLM 供应商，可动态切换。
-
-### 支持的供应商
-
-| 供应商 | Provider | 默认模型 | 特点 |
-|--------|----------|----------|------|
-| Anthropic | `anthropic` | claude-3-5-sonnet-20241022 | 高质量，适合长文本 |
-| OpenAI | `openai` | gpt-4o | 通用性强 |
-| Groq | `groq` | llama-3.3-70b-versatile | 速度快，免费额度高 |
-| Gemini | `gemini` | gemini-2.0-flash-exp | 多模态支持 |
-| OpenRouter | `openrouter` | anthropic/claude-3.5-sonnet | 聚合多个模型 |
-| NVIDIA NIM | `nvidia` | meta/llama-3.1-405b-instruct | 企业级，高性能 |
-| Ollama | `ollama` | llama3.2 | 本地部署，隐私安全 |
-
-### 配置示例
-
-```bash
-# .env 配置多个供应商
-ANTHROPIC_API_KEY=sk-ant-xxx
+# LLM 供应商（至少配置一个）
+ANTHROPIC_API_KEY=sk-xxx
 OPENAI_API_KEY=sk-xxx
 GROQ_API_KEY=gsk_xxx
-GEMINI_API_KEY=xxx
-OPENROUTER_API_KEY=xxx
-NVIDIA_NIM_API_KEY=xxx
 
-# 默认使用 Anthropic
-LLM_PROVIDER=anthropic
-LLM_MODEL=claude-3-5-sonnet-20241022
+# Supabase
+SUPABASE_URL=https://xxx.supabase.co
+SUPABASE_KEY=xxx
+
+# OpenClaw（可选）
+OPENCLAW_API_ENDPOINT=http://localhost:8080
 ```
 
-### 动态切换供应商
-
-在 Telegram Bot 中使用 `/llm` 命令，通过 Inline 按钮切换。
-
----
-
-## 📚 详细配置说明
-
-完整配置说明见 **[CONFIG.md](CONFIG.md)**，包括：
-
-- `.env.example` 每个字段详细说明
-- 如何获取 Telegram Bot Token（附 BotFather 教程链接）
-- 如何获取 Supabase 配置
-- 各 LLM 供应商 API Key 获取方式
-- OpenClaw 安装和配置指南
-
----
-
-## 🤖 Bot 命令列表
-
-| 命令 | 说明 |
-|------|------|
-| `/start` | 欢迎信息和今日热点概览 |
-| `/help` | 帮助文档 |
-| `/set_niche` | 切换 Niche |
-| `/research` | 深度研究话题 |
-| `/trends` | 热点列表 |
-| `/create` | 创建内容 |
-| `/log` | 快捷录入数据 |
-| `/report` | 复盘报告 |
-| `/strategy` | 查看策略 |
-| `/settings` | 自动化设置 |
-| `/llm` | LLM 供应商切换 |
-
----
-
-## ❓ 常见问题解答 (FAQ)
-
-### Q1: 启动时报 "缺少必要配置" 错误？
-
-**A**: 检查 `.env` 文件中是否填写了必填项：
-- `TELEGRAM_BOT_TOKEN`
-- `SUPABASE_URL`
-- `SUPABASE_KEY`
-- 至少一个 LLM 供应商的 API Key
-
-### Q2: 如何获取 Telegram Bot Token？
-
-**A**: 
-1. 在 Telegram 搜索 `@BotFather`
-2. 发送 `/newbot` 创建新 Bot
-3. 按提示设置 Bot 名称和用户名
-4. BotFather 会返回 Token，格式如 `123456:ABC-DEF1234...`
-5. 将 Token 填入 `.env` 的 `TELEGRAM_BOT_TOKEN`
-
-详细教程见 [CONFIG.md](CONFIG.md)。
-
-### Q3: Supabase 如何配置？
-
-**A**:
-1. 访问 [supabase.com](https://supabase.com) 注册账号
-2. 创建新项目，记录项目 URL 和 API Key
-3. 在项目 SQL 编辑器中运行 `migrations/001_initial_schema.sql`
-4. 将 URL 和 Key 填入 `.env`
-
-详细步骤见 [CONFIG.md](CONFIG.md)。
-
-### Q4: 如何切换 LLM 供应商？
-
-**A**: 在 Bot 中使用 `/llm` 命令，通过 Inline 按钮选择供应商。或修改 `.env` 中的 `LLM_PROVIDER` 后重启应用。
-
-### Q5: OpenClaw 是什么？必须配置吗？
-
-**A**: OpenClaw 是 X (Twitter) 自动化发布工具，用于将生成的内容自动发布到 X。如果只需要生成内容而不自动发布，可以不配置 OpenClaw。
-
-### Q6: 测试环境如何搭建？
-
-**A**:
-1. 使用 `OLLAMA_BASE_URL=http://localhost:11434` 配置本地 Ollama
-2. 安装 Ollama: `curl -fsSL https://ollama.com/install.sh | sh`
-3. 拉取模型：`ollama pull llama3.2`
-4. 设置 `LLM_PROVIDER=ollama`
-
-### Q7: 如何查看日志？
-
-**A**: 应用日志输出在终端，也可以使用 `/log` 命令在 Bot 中查看操作日志。
-
----
-
-## 🛠️ 部署指南
-
-详细部署步骤见 **[DEPLOYMENT.md](DEPLOYMENT.md)**，包括：
-
-- Mac/Windows/Linux 部署步骤
-- pm2 常驻配置
-- Docker 部署方案
-- 生产环境建议
-
-快速部署（生产环境）：
+### 3. 安装依赖
 
 ```bash
-# 使用 pm2 常驻
-pm2 start main.py --name x-agent-v3 --interpreter python3
-
-# 开机自启
-pm2 save
-pm2 startup
-```
-
----
-
-## 🤝 贡献指南
-
-欢迎贡献代码、报告问题或提出建议！
-
-### 开发环境搭建
-
-```bash
-# 克隆项目
-git clone <repository-url>
-cd x-agent-v3
-
-# 创建虚拟环境
-python3 -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-
-# 安装依赖
 pip install -r requirements.txt
-
-# 运行测试
-python3 tests/test_core_modules.py
 ```
 
-### 提交代码
+### 4. 初始化数据库
 
-1. Fork 项目
-2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 提交 Pull Request
+在 Supabase 中执行 SQL 迁移脚本：
 
-### 代码规范
+```bash
+# 方法 1: 使用提供的 SQL 文件
+psql -h $SUPABASE_URL -U postgres -d postgres -f migrations/001_initial_schema.sql
 
-- 遵循 PEP 8 规范
-- 添加完整的类型注解
-- 所有类和方法必须有文档字符串
-- 核心功能必须编写测试用例
+# 方法 2: 在 Supabase Dashboard 手动执行 SQL
+```
+
+**数据库表结构**:
+- `trends` - 热点记录
+- `content_queue` - 内容草稿
+- `daily_log` - 每日记录
+- `niche` - Niche 配置
+- `automation_settings` - 自动化设置
+- `strategy` - 策略版本
+
+### 5. 运行系统
+
+```bash
+# 开发模式
+python main.py
+
+# 生产模式 (使用 PM2)
+pm2 start main.py --name x-agent-v2 --interpreter python3
+pm2 save && pm2 startup
+```
+
+---
+
+## 📁 项目结构
+
+```
+x-agent-v2/
+├── main.py                  # 应用入口 ✅
+├── config.py                # 配置加载 ✅
+├── .env                     # 环境变量
+├── .env.example             # 配置模板
+├── requirements.txt         # Python 依赖
+│
+├── modules/                 # 核心模块 ✅
+│   ├── config.py            # 配置管理 (92/100)
+│   ├── database.py          # Supabase 操作 (90/100)
+│   ├── llm_router.py        # LLM 路由 (88/100)
+│   ├── generator.py         # 内容生成 (90/100)
+│   ├── scorer.py            # 热点评分 (92/100)
+│   ├── research.py          # 数据采集 (88/100)
+│   ├── trends.py            # 趋势采集 (85/100)
+│   ├── bot.py               # Telegram Bot (90/100)
+│   ├── openclaw_bridge.py   # OpenClaw 集成 (88/100)
+│   └── scheduler.py         # 定时任务 (90/100)
+│
+├── prompts/                 # Prompt 模板 ✅
+│   ├── type_a.txt           # A 类推文
+│   ├── type_b.txt           # B 类视频脚本
+│   ├── comment.txt          # 智能评论
+│   └── review.txt           # 每日复盘
+│
+├── niche_voices/            # Niche 语气文件 ✅
+│   ├── adult.txt            # 成人用品
+│   ├── ai_tools.txt         # AI 工具
+│   ├── beauty.txt           # 美妆
+│   ├── crypto.txt           # 加密货币
+│   ├── fitness.txt          # 健身
+│   ├── humor.txt            # 搞笑
+│   └── custom.txt           # 自定义
+│
+├── migrations/              # 数据库迁移 ✅
+│   └── 001_initial_schema.sql
+├── tests/                   # 测试用例 ✅
+│   └── test_modules.py
+└── data/                    # 本地缓存
+```
+
+---
+
+## ⏰ 发布时机策略
+
+| 时间段 | 内容类型 | 原因 |
+|--------|---------|------|
+| 07:30–09:00 | 资讯/数据类 A 类 | 通勤刷手机 |
+| 12:00–13:00 | 投票/互动类 | 午休 |
+| 19:00–21:00 | 推荐/Cheeky 类 | 全天最高在线峰值 |
+| 21:30–23:00 | 感性/关系话题 | 睡前情绪高 |
+
+**起步期节奏**（0-1k 粉丝）:
+- 每天发 **3–5 条**（A:B = 2:1）
+- 每天智能评论 **10–15 条**
+- 每周至少 1 条互动投票
+- 避开：周一早上、UK 公众假日白天
+
+---
+
+## 🛠️ 技术栈
+
+| 类别 | 技术 |
+|------|------|
+| **语言** | Python 3.11+ |
+| **Bot 框架** | python-telegram-bot |
+| **LLM** | Anthropic / OpenAI / Groq / Gemini / OpenRouter / NVIDIA NIM / Ollama |
+| **数据库** | Supabase (PostgreSQL) |
+| **数据采集** | last30days-skill, PRAW, pytrends |
+| **自动化** | OpenClaw (Playwright stealth) |
+| **调度** | APScheduler |
+| **部署** | Mac 本地常驻 + PM2 |
+
+---
+
+## 📊 代码质量
+
+**总体评分**: 90/100  
+**完整度**: 95%  
+**审查报告**: [CODE_REVIEW_COMPLETE.md](CODE_REVIEW_COMPLETE.md)
+
+| 模块 | 评分 | 状态 |
+|------|------|------|
+| config.py | 92/100 | ✅ |
+| database.py | 90/100 | ✅ |
+| llm_router.py | 88/100 | ✅ |
+| generator.py | 90/100 | ✅ |
+| scorer.py | 92/100 | ✅ |
+| research.py | 88/100 | ✅ |
+| trends.py | 85/100 | ✅ |
+| bot.py | 90/100 | ✅ |
+| openclaw_bridge.py | 88/100 | ✅ |
+| scheduler.py | 90/100 | ✅ |
+| main.py | 92/100 | ✅ |
+
+---
+
+## 🧪 测试
+
+```bash
+# 运行所有测试
+pytest tests/
+
+# 运行单个模块测试
+pytest tests/test_modules.py -v
+
+# 覆盖率报告
+pytest --cov=modules --cov-report=html
+```
+
+---
+
+## 📝 相关文档
+
+- [完整代码审查报告](CODE_REVIEW_COMPLETE.md)
+- [部署指南](DEPLOYMENT.md)
+- [开发计划](../群聊记录/2026-03-24%20X 智能运营 Agent v2.0 开发计划.md)
+- [OpenClaw 文档](https://docs.openclaw.ai)
+
+---
+
+## ⚠️ 注意事项
+
+1. **API 限制**: 请遵守各平台的 API 使用限制和反爬虫政策
+2. **账号安全**: 自动化工具可能违反平台服务条款，请谨慎使用
+3. **内容审核**: AI 生成内容可能存在错误，发布前请人工审核
+4. **数据隐私**: 请妥善保管 API Key 和敏感信息
 
 ---
 
 ## 📄 许可证
 
-本项目采用 MIT 许可证。详见 [LICENSE](LICENSE) 文件。
+MIT License - 详见 [LICENSE](LICENSE) 文件
 
 ---
 
-## 🙏 致谢
+**Managed by Friday (CEO Agent)** 🐉  
+**版本**: 2.0.0  
+**状态**: 生产就绪 ✅  
+**最后更新**: 2026-03-24
 
-- [OpenClaw](https://github.com/openclaw) - X 自动化工具
-- [Supabase](https://supabase.com) - 数据库支持
-- [APScheduler](https://apscheduler.readthedocs.io) - 定时任务调度
-- [python-telegram-bot](https://python-telegram-bot.org) - Telegram Bot 框架
-
----
-
-## 📬 联系方式
-
-- 项目主页：[GitHub](https://github.com)
-- 问题反馈：[Issues](https://github.com/issues)
-- 讨论区：[Discussions](https://github.com/discussions)
-
----
-
-**最后更新**: 2026-03-25  
-**版本**: v3.0.0  
-**维护者**: Friday (CEO Agent) 🐉
+*X-Agent v2.0 - 让内容创作更简单*

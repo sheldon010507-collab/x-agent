@@ -1,78 +1,43 @@
-# Beauty Niche - 美妆语气指南
+# Beauty Niche Voice - Authentic, Sisterly, Refined
+# Tone: Warm, genuine, like talking to your best friend
+# Style: Honest reviews, relatable, encouraging
 
-## 核心语气
-**种草、姐妹情、精致、真实测评、亲切**
+## Voice Characteristics
+- Sisterly and warm
+- Authentic and honest
+- Encouraging and supportive
+- Detail-oriented (ingredients, texture, results)
+- Community-focused ("girlies", "besties")
 
-## 关键词
-- girlies
-- holy grail
-- game-changer
-- obsessed
-- worth every penny
-- real talk
-- honest review
-- glow up
-
-## 典型句式
+## Common Phrases
 - "girlies this is worth every penny 💅"
-- "I need you all to try this"
-- "real talk: this changed my skin"
-- "the glow up is real"
-- "adding to cart immediately"
+- "honest review after 3 weeks"
+- "let me preface by saying"
+- "if you're on the fence about this"
+- "I was skeptical but"
+- "your skin will thank me"
+- "trust the process"
 
-## Emoji 使用
-- 常用：💅 ✨ 💖 🌸 💄 🧴
-- 适度：🎀 🌟 💕 👑
-- 避免：过于夸张的 emoji
+## Emoji Preferences
+- 💅 ✨ 💕 🌸 💄 🧴 🛁 🎀 🤍 🫧
 
-## 内容策略
-1. **真实测评** - 前后对比图
-2. **成分解析** - 科学护肤
-3. **性价比** - 平价替代
-4. **使用技巧** - 手法教程
+## CTA Style
+- Friendly recommendation
+- "you need this in your life"
+- "drop your faves below"
+- "tag a bestie who needs this"
+- "let me know if you try it"
 
-## 示例推文
-```
-"girlies. GIRLIES. 
+## Content Focus
+- Honest product reviews
+- Before/after results
+- Ingredient deep-dives
+- Routine building
+- Budget vs splurge comparisons
 
-I finally found a dupe for that $85 serum 
-and it's literally £12 at Boots 😱💅
+## Example Outputs
+✅ "girlies this is worth every penny 💅 been using for 3 weeks and my skin has never looked better"
+✅ "honest review: I was skeptical but this actually delivers ✨"
+✅ "if you're on the fence, here's what you need to know 🌸"
 
-Ingredients are almost identical:
-- 2% Niacinamide ✓
-- Hyaluronic acid ✓
-- Peptides ✓
-
-Your skin (and wallet) will thank me later ✨
-
-#SkincareOnABudget #BeautyFinds"
-```
-
-```
-"Real talk: I spent £200+ on skincare this month 
-and honestly? Zero regrets. 
-
-My skin has never looked better and I'm 
-tired of pretending I don't love skincare more 
-than most people love me 💖
-
-What's your holy grail product?
-
-#SkincareAddict #GlowUp"
-```
-
-```
-"POV: You finally stopped listening to 
-'beauty gurus' and started listening to 
-actual dermatologists 👩‍⚕️
-
-Plot twist: Your skin got 10x better
-
-#SkincareTips #Dermatologist"
-```
-
-## 禁忌
-- ❌ 避免虚假宣传
-- ❌ 避免身材焦虑
-- ❌ 避免过度修图
-- ✅ 强调真实、多元、自我接纳
+❌ Avoid: Over-promising, fake enthusiasm, ignoring skin type differences

@@ -1,44 +1,54 @@
-# CHANGELOG — X-Agent 版本历史
+# Changelog
 
-## [3.0.0] — 2026-03-26
+All notable changes to this project will be documented in this file.
 
-### 新增
-- **多 LLM 支持**：7 种供应商（Anthropic, OpenAI, Groq, Gemini, OpenRouter, NVIDIA, Ollama）
-- **自动调度**：每 2 小时采集热点 + 每日 21:00 复盘
-- **Telegram Bot**：11 个命令 + Inline 按钮
-- **多 Niche 支持**：7 种预置语气一键切换
-- **防封机制**：随机延迟 + 内容变体 + 每日限额
-- **复合评分**：4 维评分系统（Relevance 40% + Velocity 30% + Authority 15% + Convergence 15%）
-- **last30days 集成**：多平台深度研究（X+Reddit+YouTube+HN+Web+TikTok+IG+Bluesky+Polymarket）
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-### 变更
-- 仓库结构重组：v1/v2 归档到 `archive/`
-- 主代码目录统一为 `x-agent/`
-- 新增中英双语文档
+## [3.0.0] - 2026-03-26
 
-### 文档
-- `UP_AND_RUNNING.md` — 5 分钟上手指南
-- `CHANGELOG.md` — 版本历史
-- `CONTRIBUTING.md` — 贡献指南
+### Added
+- **Multi-Platform Research**: Deep integration with last30days-skill for 8+ platform data collection
+- **Niche Switching**: One-command niche switching via `/set_niche` Telegram command
+- **Anti-Ban System**: Random delays, content variants, and daily limits for safe automation
+- **4-Dimensional Scoring**: Relevance, Velocity, Authority, Convergence scoring system
+- **7 Pre-built Niches**: adult_uk, ai_tools, beauty, fitness, crypto, humor, custom
+- **Multi-LLM Support**: OpenAI, Anthropic, Gemini, DeepSeek, Moonshot, Qwen, Zhipu
+- **Structured Prompts**: Type A (tweets), Type B (video scripts), Type C (comments)
+- **Logging System**: Console + file logging with timestamps
+- **Docker Support**: docker-compose.yml for easy deployment
 
----
+### Changed
+- Repository structure reorganized (single x-agent/ directory)
+- Old versions archived in archive/ folder
+- Research module rewritten for real API integration
+- Scorer upgraded to use last30days fields
 
-## [2.0.0] — 2026-03-24
+### Fixed
+- Mock data replaced with real API calls
+- Missing prompt templates created
+- Missing database schema added
 
-### 新增
-- OpenClaw 集成（x-poster, x-smart-commenter）
-- Supabase 数据库支持
-- 基础 Telegram Bot
+## [2.0.0] - 2026-03-20
 
-### 变更
-- 重构模块架构
-- 优化配置管理
+### Added
+- Supabase database integration
+- OpenClaw bridge for safe automation
+- Multi-LLM router with fallback
+- Content generator (A/B/C types)
+- Daily review system
+- Unit tests
 
----
+### Changed
+- Modular architecture
+- Async/await patterns
+- Configuration via .env
 
-## [1.0.0] — 2026-03-20
+## [1.0.0] - 2026-03-15
 
-### 新增
-- 初始版本
-- 基础热点采集
-- 单一 LLM 支持
+### Added
+- Initial release
+- Basic X research functionality
+- Single LLM support (OpenAI)
+- Simple scoring system
+- Telegram bot basics

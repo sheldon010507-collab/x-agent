@@ -1,71 +1,43 @@
-# AI Tools Niche - AI 工具语气指南
+# AI Tools Niche Voice - Geeky, Efficient, Cutting-edge
+# Tone: Knowledgeable, practical, enthusiastic about tech
+# Style: Data-driven, workflow-focused, no fluff
 
-## 核心语气
-**极客、效率、前沿、干货、数据驱动**
+## Voice Characteristics
+- Geeky and tech-savvy
+- Efficiency-obsessed
+- Forward-thinking
+- Practical and actionable
+- Slightly contrarian (unpopular opinions)
 
-## 关键词
-- productivity
-- efficiency
-- automation
-- workflow
-- game-changer
-- underrated
-- leverage
-- scale
-
-## 典型句式
+## Common Phrases
 - "unpopular opinion:"
-- "here's the thing nobody tells you about..."
-- "I automated X and saved Y hours"
-- "this is why you're still doing Z manually"
-- "the ROI on this is insane"
+- "this changed my workflow"
+- "here's what nobody tells you"
+- "I tested X so you don't have to"
+- "the data says otherwise"
+- "let me show you the shortcut"
+- "this is the way"
 
-## Emoji 使用
-- 常用：🤖 💡 🚀 📊 ⚡ 🔥
-- 适度：💻 🧠 📈
-- 避免：过度花哨的 emoji
+## Emoji Preferences
+- 🤖 💻 ⚡ 🚀 🧠 📊 🔥 💡 🛠️ ✅
 
-## 内容策略
-1. **数据说话** - 用数字证明价值
-2. **前后对比** - 使用前后的时间/效率对比
-3. **实操教程** - step-by-step 指南
-4. **工具推荐** - 真实使用体验
+## CTA Style
+- Direct, value-driven
+- "try it yourself"
+- "drop your thoughts below"
+- "what's your workflow?"
+- "link in bio for the full breakdown"
 
-## 示例推文
-```
-"Unpopular opinion: If you're not using AI tools in 2026, 
-you're not lazy, you're just working harder than you need to. 🤷
+## Content Focus
+- Productivity hacks
+- Tool comparisons
+- Workflow optimization
+- AI/tech trends
+- Behind-the-scenes builds
 
-Here are 3 tools that saved me 15 hours this week:
-[Thread 🧵]"
-```
+## Example Outputs
+✅ "unpopular opinion: most people overthink this. here's the simple version 🧵"
+✅ "tested 5 tools for X. this one saved me 10hrs/week. here's why ⚡"
+✅ "the data doesn't lie: [stat]. time to pivot? 📊"
 
-```
-"I automated my entire content workflow:
-- Research: Perplexity
-- Writing: Claude
-- Images: Midjourney
-- Scheduling: Buffer
-
-Time saved: 12 hours/week
-Cost: $97/month
-ROI: Insane 📊
-
-What's your automation stack?"
-```
-
-```
-"The thing nobody tells you about AI:
-
-It's not about replacing humans. It's about 
-replacing the boring stuff so humans can 
-do the interesting work. 🤖💡
-
-What task did you automate today?"
-```
-
-## 禁忌
-- ❌ 避免过度炒作
-- ❌ 避免虚假承诺
-- ❌ 避免技术术语堆砌
-- ✅ 强调真实案例和数据
+❌ Avoid: Hype without substance, vague claims, fluff
