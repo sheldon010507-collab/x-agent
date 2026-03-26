@@ -1,171 +1,163 @@
-# X-Agent v3.0
+# X-Agent v3.0 — 通用智能运营 Agent
 
-<div align="center">
-
-**真正通用的 X (Twitter) 智能运营 Agent**
-
-[![GitHub stars](https://img.shields.io/github/stars/sheldon010507-collab/x-agent?style=social)](https://github.com/sheldon010507-collab/x-agent/stargazers)
-[![GitHub license](https://img.shields.io/github/license/sheldon010507-collab/x-agent)](LICENSE)
-[![Python](https://img.shields.io/badge/Python-3.11%2B-blue)](https://www.python.org/)
+> **多平台热点采集 + AI 内容生成 + Telegram 自动化运营**
 
 [English](#english) | [中文](#中文)
 
-</div>
-
 ---
 
+<a name="english"></a>
 ## English
 
-### 🚀 Features
+### Features
 
-- **🔥 Hot Topic Monitoring**: Real-time monitoring across 8+ platforms (X/Reddit/YouTube/TikTok/IG/Bluesky/HN/Polymarket)
-- **🤖 AI Content Generation**: Type A (tweets), Type B (video scripts), Type C (smart comments)
-- **📊 Compound Scoring**: Relevance(40%) + Velocity(30%) + Authority(15%) + Convergence(15%)
-- **🎭 Multi-Niche Support**: 7 built-in niches with one-click switching
-- **🔒 Anti-Ban System**: Random delays + content variants + daily limits
-- **📱 Telegram Bot**: 15+ commands with inline buttons
+- 🔍 **Multi-platform Research** — X, Reddit, YouTube, Hacker News, Web, TikTok, Instagram, Bluesky, Polymarket
+- 🤖 **7 LLM Providers** — Anthropic, OpenAI, Groq, Gemini, OpenRouter, NVIDIA, Ollama
+- 📊 **4-Dimension Scoring** — Relevance (40%) + Velocity (30%) + Authority (15%) + Convergence (15%)
+- 🎯 **7 Niche Voices** — Adult UK, AI Tools, Beauty, Fitness, Crypto, Humor, Custom
+- 📱 **Telegram Bot** — 11 commands + Inline buttons
+- ⏰ **Auto Scheduling** — Collect every 2h, Daily review at 21:00
+- 🛡️ **Anti-Ban** — Random delay + Content variants + Daily limits
 
-### 📦 Quick Start
+### Quick Start
 
 ```bash
-# Clone repository
+# 1. Clone
 git clone https://github.com/sheldon010507-collab/x-agent.git
 cd x-agent/x-agent
 
-# Install dependencies
-pip install -r requirements.txt
-
-# Configure environment
+# 2. Configure
 cp .env.example .env
 # Edit .env with your API keys
 
-# Run
+# 3. Setup database
+supabase db push
+
+# 4. Install & Run
+pip install -r requirements.txt
 python main.py
 ```
 
-### 🎭 Supported Niches
+See [UP_AND_RUNNING.md](docs/UP_AND_RUNNING.md) for detailed setup.
 
-| Niche | Voice Style | Example |
-|-------|-------------|---------|
-| `adult_uk` | Cheeky, suggestive | "Your body will thank you 😏" |
-| `ai_tools` | Geeky, efficiency | "This changed my workflow ⚡" |
-| `beauty` | Sisterly, authentic | "Girlies, you NEED this 💅" |
-| `fitness` | Motivational, data-driven | "No excuses 💪" |
-| `crypto` | Alpha, community | "Not financial advice but... 👀" |
-| `humor` | Witty, self-deprecating | "Me: *does thing* Also me: 🤡" |
-| `custom` | Fully customizable | Define your own voice |
+### Commands
 
-### 🏗️ Architecture
+| Command | Description |
+|---------|-------------|
+| `/start` | Show hot trends overview |
+| `/trends` | View current trends |
+| `/set_niche <name>` | Switch niche mode |
+| `/generate_a` | Generate Type A tweet |
+| `/generate_b` | Generate Type B video script |
+| `/generate_c` | Generate smart comment |
+| `/settings` | Open settings panel |
+
+### Architecture
 
 ```
 x-agent/
-├── main.py              # Entry point
+├── main.py           # Entry point
+├── bot.py            # Telegram Bot (700+ lines)
+├── config.py         # Config management
 ├── modules/
-│   ├── research.py      # last30days deep research
-│   ├── scorer.py        # Compound scoring
-│   ├── generator.py     # A/B/C content generation
-│   ├── openclaw_bridge.py  # Anti-ban automation
-│   └── bot.py           # Telegram Bot
-├── prompts/             # Prompt templates
-├── niche_voices/        # Voice files (.md)
-└── tests/               # Unit tests
+│   ├── database.py       # Supabase CRUD
+│   ├── llm_router.py     # 7-provider routing
+│   ├── research.py       # Multi-platform research
+│   ├── scorer.py         # 4-dimension scoring
+│   ├── generator.py      # A/B/C content generation
+│   ├── openclaw_bridge.py # OpenClaw integration + anti-ban
+│   └── scheduler.py      # Auto scheduling
+├── prompts/          # Prompt templates
+├── niche_voices/     # 7 tone files
+└── migrations/       # Supabase schema
 ```
 
-### ⚙️ Environment Variables
+### Documentation
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `TELEGRAM_BOT_TOKEN` | ✅ | Telegram Bot Token |
-| `SUPABASE_URL` | ✅ | Supabase Project URL |
-| `SUPABASE_KEY` | ✅ | Supabase API Key |
-| `ANTHROPIC_API_KEY` | ⚪ | Claude API Key |
-| `OPENAI_API_KEY` | ⚪ | OpenAI API Key |
-
-> At least one LLM API key is required.
-
-### 📖 Documentation
-
-- [5-Minute Setup Guide](docs/UP_AND_RUNNING.md)
-- [Deployment Guide](docs/DEPLOYMENT.md)
-- [Changelog](docs/CHANGELOG.md)
+- [CONFIG.md](x-agent/CONFIG.md) — Configuration guide
+- [DEPLOYMENT.md](x-agent/DEPLOYMENT.md) — Production deployment
+- [UP_AND_RUNNING.md](docs/UP_AND_RUNNING.md) — 5-min setup guide
 
 ---
 
+<a name="中文"></a>
 ## 中文
 
-### 🚀 功能特性
+### 功能特点
 
-- **🔥 热点监控**: 8+ 平台实时监控（X/Reddit/YouTube/TikTok/IG/Bluesky/HN/Polymarket）
-- **🤖 AI 内容生成**: A类推文、B类视频脚本、C类智能评论
-- **📊 复合评分**: Relevance(40%) + Velocity(30%) + Authority(15%) + Convergence(15%)
-- **🎭 多 Niche 支持**: 7 种内置语气，一键切换
-- **🔒 防封机制**: 随机延迟 + 内容变体 + 每日上限
-- **📱 Telegram Bot**: 15+ 指令 + Inline 按钮
+- 🔍 **多平台研究** — X、Reddit、YouTube、Hacker News、Web、TikTok、Instagram、Bluesky、Polymarket
+- 🤖 **7 种 LLM 供应商** — Anthropic、OpenAI、Groq、Gemini、OpenRouter、NVIDIA、Ollama
+- 📊 **4 维复合评分** — 相关性 (40%) + 增速 (30%) + 权威性 (15%) + 汇聚性 (15%)
+- 🎯 **7 种 Niche 语气** — 成人用品、AI 工具、美妆、健身、加密货币、幽默、自定义
+- 📱 **Telegram Bot** — 11 个命令 + Inline 按钮
+- ⏰ **自动调度** — 每 2 小时采集 + 每日 21:00 复盘
+- 🛡️ **防封机制** — 随机延迟 + 内容变体 + 每日限额
 
-### 📦 快速开始
+### 快速开始
 
 ```bash
-# 克隆仓库
+# 1. 克隆
 git clone https://github.com/sheldon010507-collab/x-agent.git
 cd x-agent/x-agent
 
-# 安装依赖
-pip install -r requirements.txt
-
-# 配置环境
+# 2. 配置
 cp .env.example .env
-# 编辑 .env 填入 API 密钥
+# 编辑 .env 填入 API Key
 
-# 运行
+# 3. 初始化数据库
+supabase db push
+
+# 4. 安装并运行
+pip install -r requirements.txt
 python main.py
 ```
 
-### 🎭 支持的 Niche
+详细步骤见 [UP_AND_RUNNING.md](docs/UP_AND_RUNNING.md)。
 
-| Niche | 语气风格 | 示例 |
-|-------|---------|------|
-| `adult_uk` | Cheeky、暗示 | "Your body will thank you 😏" |
-| `ai_tools` | 极客、效率 | "This changed my workflow ⚡" |
-| `beauty` | 种草、姐妹情 | "Girlies, you NEED this 💅" |
-| `fitness` | 励志、数据驱动 | "No excuses 💪" |
-| `crypto` | Alpha、社群 | "Not financial advice but... 👀" |
-| `humor` | 无厘头、自黑 | "Me: *does thing* Also me: 🤡" |
-| `custom` | 完全自定义 | 定义你自己的语气 |
+### 命令列表
 
-### ⚙️ 环境变量
+| 命令 | 说明 |
+|------|------|
+| `/start` | 显示热点概览 |
+| `/trends` | 查看当前热点 |
+| `/set_niche <name>` | 切换 Niche 模式 |
+| `/generate_a` | 生成 A 类推文 |
+| `/generate_b` | 生成 B 类视频脚本 |
+| `/generate_c` | 生成智能评论 |
+| `/settings` | 打开设置面板 |
 
-| 变量 | 必填 | 说明 |
-|------|------|------|
-| `TELEGRAM_BOT_TOKEN` | ✅ | Telegram Bot Token |
-| `SUPABASE_URL` | ✅ | Supabase 项目 URL |
-| `SUPABASE_KEY` | ✅ | Supabase API Key |
-| `ANTHROPIC_API_KEY` | ⚪ | Claude API Key |
-| `OPENAI_API_KEY` | ⚪ | OpenAI API Key |
+### 目录结构
 
-> 至少需要一个 LLM API Key。
+```
+x-agent/
+├── main.py           # 主入口
+├── bot.py            # Telegram Bot (700+ 行)
+├── config.py         # 配置管理
+├── modules/          # 核心模块
+│   ├── database.py       # Supabase CRUD
+│   ├── llm_router.py     # 7 供应商路由
+│   ├── research.py       # 多平台研究
+│   ├── scorer.py         # 4 维评分
+│   ├── generator.py      # A/B/C 内容生成
+│   ├── openclaw_bridge.py # OpenClaw 集成 + 防封
+│   └── scheduler.py      # 自动调度
+├── prompts/          # Prompt 模板
+├── niche_voices/     # 7 种语气文件
+└── migrations/       # Supabase Schema
+```
 
-### 📖 文档
+### 文档
 
-- [5分钟上手指南](docs/UP_AND_RUNNING.md)
-- [部署指南](docs/DEPLOYMENT.md)
-- [更新日志](docs/CHANGELOG.md)
+- [CONFIG.md](x-agent/CONFIG.md) — 配置指南
+- [DEPLOYMENT.md](x-agent/DEPLOYMENT.md) — 生产部署
+- [UP_AND_RUNNING.md](docs/UP_AND_RUNNING.md) — 5 分钟上手
 
 ---
 
-## 📄 License
+## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License — See [LICENSE](LICENSE)
 
-## 🤝 Contributing
+## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
----
-
-<div align="center">
-
-**Made with ❤️ by the X-Agent Team**
-
-[⬆ Back to Top](#x-agent-v30)
-
-</div>
+See [CONTRIBUTING.md](CONTRIBUTING.md)

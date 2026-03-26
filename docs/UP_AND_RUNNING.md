@@ -1,13 +1,11 @@
-# X-Agent v3.0 — 5分钟上手指南
+# UP_AND_RUNNING.md — 5分钟上手指南
 
-## 准备工作
+## 前置条件
 
-确保你有以下账号：
-- [ ] Telegram Bot Token（从 @BotFather 获取）
-- [ ] Supabase 项目（免费版即可）
-- [ ] 至少一个 LLM API Key（Claude/OpenAI/Groq/Gemini 任选）
-
----
+- Python 3.10+
+- Supabase 账号
+- Telegram Bot Token
+- 至少一个 LLM API Key
 
 ## 快速启动 Checklist
 
@@ -35,77 +33,79 @@
 | `OPENAI_API_KEY` | ⚪ | OpenAI API Key（任选一个） |
 | `ANTHROPIC_API_KEY` | ⚪ | Claude API Key |
 | `GEMINI_API_KEY` | ⚪ | Gemini API Key |
+| `GROQ_API_KEY` | ⚪ | Groq API Key |
 | `DEEPSEEK_API_KEY` | ⚪ | DeepSeek API Key |
 
 ---
 
 ## 常用命令
 
-```bash
-# 启动
-python main.py
+| 命令 | 说明 |
+|------|------|
+| `/start` | 启动 Bot，显示热点概览 |
+| `/trends` | 查看当前热点 |
+| `/set_niche <name>` | 切换 Niche 模式 |
+| `/generate_a` | 生成 A 类推文 |
+| `/generate_b` | 生成 B 类视频脚本 |
+| `/generate_c` | 生成智能评论 |
+| `/settings` | 打开设置面板 |
+| `/help` | 显示帮助 |
 
-# 后台运行
-pm2 start main.py --name x-agent
+---
 
-# 查看日志
-pm2 logs x-agent
+## 预置 Niche
 
-# 停止
-pm2 stop x-agent
+- `adult_uk` — 成人用品（英国市场）
+- `ai_tools` — AI 工具推荐
+- `beauty` — 美妆护肤
+- `fitness` — 健身运动
+- `crypto` — 加密货币
+- `humor` — 幽默段子
+- `custom` — 自定义
+
+---
+
+## 目录结构
+
+```
+x-agent/
+├── main.py           # 主入口
+├── bot.py            # Telegram Bot
+├── config.py         # 配置管理
+├── modules/          # 核心模块
+│   ├── database.py
+│   ├── llm_router.py
+│   ├── research.py
+│   ├── scorer.py
+│   ├── generator.py
+│   ├── openclaw_bridge.py
+│   └── scheduler.py
+├── prompts/          # Prompt 模板
+├── niche_voices/     # 语气文件
+├── migrations/       # 数据库 Schema
+└── tests/            # 单元测试
 ```
 
 ---
 
-## 支持的 Niche
+## 常见问题
 
-- `adult_uk` - 英国成人用品（默认）
-- `ai_tools` - AI 工具
-- `beauty` - 美妆
-- `fitness` - 健身
-- `crypto` - 加密货币
-- `humor` - 幽默段子
-- `custom` - 自定义
+### Q: LLM API 调用失败？
 
-使用 `/set_niche <name>` 切换。
+检查 API Key 是否正确，网络是否通畅。系统会自动 fallback 到其他供应商。
 
----
+### Q: Supabase 连接失败？
 
-## 故障排查
+确认 `SUPABASE_URL` 和 `SUPABASE_KEY` 正确，检查 Supabase 项目状态。
 
-### Bot 不响应
-1. 检查 `TELEGRAM_BOT_TOKEN` 是否正确
-2. 检查 Bot 是否被踢出群组
-3. 检查 `TELEGRAM_CHAT_ID` 是否匹配
+### Q: Telegram Bot 无响应？
 
-### last30days 命令未找到
-```bash
-clawhub install last30days
-```
-
-### OpenClaw 未启动
-```bash
-openclaw gateway start
-```
-
-### 数据库连接失败
-1. 检查 Supabase 项目是否正常运行
-2. 检查 `SUPABASE_URL` 和 `SUPABASE_KEY`
-3. 检查是否运行过 `supabase db push`
-
-### 无热点生成
-1. 检查 LLM API Key 是否有效
-2. 检查网络连接
-3. 查看 `data/x-agent.log` 日志
+确认 Bot Token 正确，Chat ID 正确（群组需要负数 ID）。
 
 ---
 
 ## 下一步
 
-- 阅读 [DEPLOYMENT.md](./DEPLOYMENT.md) 了解生产部署
-- 阅读 [CONFIG.md](./CONFIG.md) 了解高级配置
-- 尝试不同 Niche
-- 调整自动化设置
-- 查看每日复盘
-
-祝使用愉快！ 🚀
+- 阅读 [CONFIG.md](../x-agent/CONFIG.md) 了解详细配置
+- 阅读 [DEPLOYMENT.md](../x-agent/DEPLOYMENT.md) 了解生产部署
+- 查看 [CODE_REVIEW.md](../x-agent/CODE_REVIEW.md) 了解代码架构
