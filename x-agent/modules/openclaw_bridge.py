@@ -1,272 +1,381 @@
 """
-openclaw_bridge.py - OpenClaw 桥接模块
+openclaw_bridge.py - OpenClaw 集成模块
 
 功能：
 - 调用 OpenClaw Skills（x-poster, x-smart-commenter）
-- 自动发帖（带随机延迟 10-40 秒）
-- 智能评论（带随机延迟 10-40 秒）
-- 内容变体防重复
-- 每日限额控制（从环境变量读取）
-- 防封机制（3 条规则全部落地）
+- 自动发帖
+- 智能评论（带随机延迟）
+- 点赞/RT 开关控制
+
+v3.0 防封强化：
+- 规则1: 随机延迟 10-40 秒
+- 规则2: 内容轻微变体（emoji 随机）
+- 规则3: 每日上限从环境变量读取
 """
 
 import asyncio
 import random
-import logging
-import hashlib
 import os
-from typing import Dict, List, Optional, Set
+import logging
+from typing import Dict, List, Optional
 from datetime import datetime
-from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# 规则 2：内容轻微变体（emoji/句式随机，避免重复检测）
-EMOJI_VARIANTS = ["🔥", "👀", "💡", "✨", "🚀"]
+
+# 防封配置
+DELAY_MIN = float(os.getenv("DELAY_MIN", "10"))
+DELAY_MAX = float(os.getenv("DELAY_MAX", "40"))
+MAX_COMMENTS_PER_DAY = int(os.getenv("MAX_COMMENTS_PER_DAY", "15"))
+MAX_POSTS_PER_DAY = int(os.getenv("MAX_POSTS_PER_DAY", "10"))
+MAX_LIKES_PER_DAY = int(os.getenv("MAX_LIKES_PER_DAY", "30"))
+
+# Emoji 变体池
+EMOJI_VARIANTS = ["🔥", "👀", "💡", "✨", "🚀", "💯", "🎯", "📌"]
+PHRASE_VARIANTS = [
+    "",
+    " Interesting.",
+    " Thoughts?",
+    " 👀",
+    " Just saying.",
+    ""
+]
 
 
 class OpenClawBridge:
-    """OpenClaw 桥接器"""
-
+    """OpenClaw 桥接器 - 带防封机制"""
+    
     def __init__(self, api_endpoint: str = 'http://localhost:8080'):
         """
         初始化 OpenClaw 桥接器
-
+        
         Args:
             api_endpoint: OpenClaw API 端点
         """
         self.api_endpoint = api_endpoint
-        self.running = False
-
-        # 功能开关
+        
+        # 开关控制
+        self.auto_like_enabled = False
+        self.auto_rt_enabled = False
         self.auto_post_enabled = False
-        self.auto_comment_enabled = False
-
-        # 规则 3：每日上限从 .env 读取
-        self.daily_post_limit = int(os.getenv("MAX_POSTS_PER_DAY", 10))
-        self.daily_comment_limit = int(os.getenv("MAX_COMMENTS_PER_DAY", 15))
-
-        # 计数器（内存中）
+        
+        # 每日上限（从环境变量读取）
+        self.daily_like_limit = MAX_LIKES_PER_DAY
+        self.daily_rt_limit = 10
+        self.daily_post_limit = MAX_POSTS_PER_DAY
+        self.daily_comment_limit = MAX_COMMENTS_PER_DAY
+        
+        # 当日计数
+        self.like_count = 0
+        self.rt_count = 0
         self.post_count = 0
         self.comment_count = 0
-
-        # 防重复：已发布内容哈希
-        self.posted_hashes: Set[str] = set()
-
-        # 规则 1：每条操作随机延迟 10-40 秒
-        self.post_delay_range = (10, 40)
-        self.comment_delay_range = (10, 40)
-
-        # 数据持久化路径
-        self.data_dir = Path(__file__).parent.parent / 'data'
-        self.data_dir.mkdir(exist_ok=True)
-        self.posted_hashes_file = self.data_dir / 'posted_hashes.txt'
-
-        # 加载已发布哈希
-        self._load_posted_hashes()
-
-    def _load_posted_hashes(self):
-        """加载已发布内容哈希"""
-        if self.posted_hashes_file.exists():
-            try:
-                with open(self.posted_hashes_file, 'r') as f:
-                    self.posted_hashes = set(line.strip() for line in f if line.strip())
-                logger.info(f"[OpenClaw] 加载 {len(self.posted_hashes)} 条已发布哈希")
-            except Exception as e:
-                logger.warning(f"[OpenClaw] 加载哈希失败：{e}")
-                self.posted_hashes = set()
-
-    def _save_posted_hash(self, content_hash: str):
-        """保存已发布内容哈希"""
-        self.posted_hashes.add(content_hash)
-        try:
-            with open(self.posted_hashes_file, 'a') as f:
-                f.write(f"{content_hash}\n")
-        except Exception as e:
-            logger.warning(f"[OpenClaw] 保存哈希失败：{e}")
-
-    def _generate_content_hash(self, content: str) -> str:
-        """生成内容哈希（用于防重复）"""
-        return hashlib.sha256(content.encode('utf-8')).hexdigest()
-
-    def _is_duplicate(self, content: str) -> bool:
-        """检查内容是否重复"""
-        content_hash = self._generate_content_hash(content)
-        return content_hash in self.posted_hashes
-
-    def _create_content_variant(self, content: str) -> str:
+    
+    # ==================== 防封规则 ====================
+    
+    def _random_delay(self, min_sec: float = None, max_sec: float = None):
         """
-        创建内容变体（防重复）
+        规则1: 随机延迟 10-40 秒
         
-        规则 2：内容轻微变体（emoji/句式随机，避免重复检测）
-        """
-        # 添加随机 emoji
-        content = content + " " + random.choice(EMOJI_VARIANTS)
-        
-        # 调整标点符号
-        if content.endswith('.'):
-            content = content[:-1] + random.choice([".", "!", ""])
-        elif content.endswith('!'):
-            content = content[:-1] + random.choice(["!", "", "."])
-        
-        return content
-
-    async def _random_delay(self, delay_range: tuple, action: str = "action"):
-        """
-        随机延迟（防封机制）
-        
-        规则 1：每条操作随机延迟 10-40 秒
-
         Args:
-            delay_range: 延迟范围 (min, max) 秒
-            action: 操作类型（用于日志）
+            min_sec: 最小延迟（默认从环境变量）
+            max_sec: 最大延迟（默认从环境变量）
         """
-        delay = random.uniform(delay_range[0], delay_range[1])
-        logger.info(f"[OpenClaw] {action} 延迟 {delay:.1f} 秒")
-        await asyncio.sleep(delay)
-
-    async def post_content(self, content: str, media_suggestion: str = None, niche: str = 'general') -> Dict:
+        min_sec = min_sec or DELAY_MIN
+        max_sec = max_sec or DELAY_MAX
+        delay = random.uniform(min_sec, max_sec)
+        logger.info(f"[防封] 随机延迟 {delay:.1f} 秒")
+        return delay
+    
+    def _apply_content_variant(self, content: str) -> str:
+        """
+        规则2: 内容轻微变体
+        
+        Args:
+            content: 原始内容
+            
+        Returns:
+            str: 变体后的内容
+        """
+        # 随机添加 emoji
+        if random.random() > 0.5:
+            emoji = random.choice(EMOJI_VARIANTS)
+            content = f"{content} {emoji}"
+        
+        # 随机添加短语
+        if random.random() > 0.7:
+            phrase = random.choice(PHRASE_VARIANTS)
+            content = f"{content}{phrase}"
+        
+        logger.debug(f"[防封] 内容变体: {content[:50]}...")
+        return content.strip()
+    
+    def _check_daily_limit(self, action: str) -> bool:
+        """
+        规则3: 检查每日上限
+        
+        Args:
+            action: 动作类型 (like, rt, post, comment)
+            
+        Returns:
+            bool: 是否在限额内
+        """
+        limits = {
+            'like': (self.like_count, self.daily_like_limit),
+            'rt': (self.rt_count, self.daily_rt_limit),
+            'post': (self.post_count, self.daily_post_limit),
+            'comment': (self.comment_count, self.daily_comment_limit)
+        }
+        
+        current, limit = limits.get(action, (0, 10))
+        
+        if current >= limit:
+            logger.warning(f"[防封] 每日 {action} 上限已达: {current}/{limit}")
+            return False
+        
+        return True
+    
+    # ==================== 发帖功能 ====================
+    
+    async def post_content(
+        self,
+        content: str,
+        media_suggestion: str = None,
+        niche: str = 'general',
+        apply_variant: bool = True
+    ) -> Dict:
         """
         通过 OpenClaw 自动发帖
-
+        
         Args:
             content: 帖子内容
             media_suggestion: 配图建议
             niche: Niche 领域
-
+            apply_variant: 是否应用内容变体
+            
         Returns:
             Dict: 发帖结果
         """
         if not self.auto_post_enabled:
             return {'success': False, 'reason': 'Auto post is disabled'}
-
-        # 规则 3：每日上限检查
-        if self.post_count >= self.daily_post_limit:
+        
+        if not self._check_daily_limit('post'):
             return {'success': False, 'reason': f'Daily post limit reached: {self.daily_post_limit}'}
-
-        # 检查重复
-        if self._is_duplicate(content):
-            # 创建变体
-            content = self._create_content_variant(content)
-            if self._is_duplicate(content):
-                return {'success': False, 'reason': 'Content is duplicate, no variant available'}
-
-        # 规则 1：随机延迟（防封）
-        await self._random_delay(self.post_delay_range, "发帖")
-
+        
         try:
-            # 调用 x-poster skill
-            result = await self._call_x_poster(content, media_suggestion, niche)
+            # 规则1: 随机延迟
+            delay = self._random_delay()
+            await asyncio.sleep(delay)
             
-            if result.get('success'):
-                self.post_count += 1
-                # 保存哈希防止重复
-                self._save_posted_hash(self._generate_content_hash(content))
+            # 规则2: 内容变体
+            if apply_variant:
+                content = self._apply_content_variant(content)
+            
+            # 调用 x-poster skill
+            result = await self._call_x_poster(content, media_suggestion)
+            
+            self.post_count += 1
+            logger.info(f"[发帖] 成功，今日第 {self.post_count} 条")
             
             return result
+            
         except Exception as e:
-            logger.error(f"[OpenClaw] 发帖失败：{e}")
+            logger.error(f"[发帖] 错误: {e}")
             return {'success': False, 'reason': str(e)}
-
-    async def _call_x_poster(self, content: str, media_suggestion: str = None, niche: str = 'general') -> Dict:
+    
+    async def _call_x_poster(self, content: str, media_suggestion: str = None) -> Dict:
         """调用 x-poster skill"""
-        logger.info(f"[OpenClaw] 调用 x-poster: {content[:50]}...")
+        # TODO: 实际调用 OpenClaw API
+        logger.info(f"[x-poster] 发帖: {content[:50]}...")
         
-        # 实际调用 OpenClaw skill
-        # 这里是模拟实现
         return {
             'success': True,
-            'post_id': f'post_{datetime.now().timestamp()}',
-            'url': f'https://x.com/status/{datetime.now().timestamp()}',
-            'posted_at': datetime.now().isoformat(),
+            'post_id': f'mock_{datetime.now().strftime("%Y%m%d%H%M%S")}',
+            'url': 'https://x.com/status/mock',
             'content': content,
-            'niche': niche,
+            'posted_at': datetime.now().isoformat()
         }
-
-    async def comment_on_post(self, post_url: str, comment: str, niche: str = 'general') -> Dict:
+    
+    # ==================== 评论功能 ====================
+    
+    async def comment_on_post(
+        self,
+        post_url: str,
+        comment: str,
+        apply_variant: bool = True
+    ) -> Dict:
         """
-        智能评论（带随机延迟）
-
+        智能评论（带防封）
+        
         Args:
             post_url: 原帖链接
             comment: 评论内容
-            niche: Niche 领域
-
+            apply_variant: 是否应用内容变体
+            
         Returns:
             Dict: 评论结果
         """
-        if not self.auto_comment_enabled:
-            return {'success': False, 'reason': 'Auto comment is disabled'}
-
-        # 规则 3：每日上限检查
-        if self.comment_count >= self.daily_comment_limit:
+        if not self._check_daily_limit('comment'):
             return {'success': False, 'reason': f'Daily comment limit reached: {self.daily_comment_limit}'}
-
-        # 规则 1：随机延迟（防封）
-        await self._random_delay(self.comment_delay_range, "评论")
-
+        
         try:
-            # 调用 x-smart-commenter skill
-            result = await self._call_smart_commenter(post_url, comment, niche)
+            # 规则1: 随机延迟
+            delay = self._random_delay()
+            await asyncio.sleep(delay)
             
-            if result.get('success'):
-                self.comment_count += 1
+            # 规则2: 内容变体
+            if apply_variant:
+                comment = self._apply_content_variant(comment)
+            
+            # 调用 x-smart-commenter skill
+            result = await self._call_smart_commenter(post_url, comment)
+            
+            self.comment_count += 1
+            logger.info(f"[评论] 成功，今日第 {self.comment_count} 条")
             
             return result
+            
         except Exception as e:
-            logger.error(f"[OpenClaw] 评论失败：{e}")
+            logger.error(f"[评论] 错误: {e}")
             return {'success': False, 'reason': str(e)}
-
-    async def _call_smart_commenter(self, post_url: str, comment: str, niche: str = 'general') -> Dict:
+    
+    async def _call_smart_commenter(self, post_url: str, comment: str) -> Dict:
         """调用 x-smart-commenter skill"""
-        logger.info(f"[OpenClaw] 调用 x-smart-commenter: {post_url}")
+        # TODO: 实际调用 OpenClaw API
+        logger.info(f"[x-smart-commenter] 评论: {post_url} -> {comment[:50]}...")
         
         return {
             'success': True,
-            'comment_id': f'comment_{datetime.now().timestamp()}',
-            'url': f'{post_url}/status/{datetime.now().timestamp()}',
-            'commented_at': datetime.now().isoformat(),
-            'post_url': post_url,
+            'comment_id': f'mock_comment_{datetime.now().strftime("%Y%m%d%H%M%S")}',
+            'url': post_url,
             'comment': comment,
+            'commented_at': datetime.now().isoformat()
         }
-
+    
+    # ==================== 点赞/转发 ====================
+    
+    async def like_post(self, post_url: str) -> Dict:
+        """点赞帖子"""
+        if not self.auto_like_enabled:
+            return {'success': False, 'reason': 'Auto like is disabled'}
+        
+        if not self._check_daily_limit('like'):
+            return {'success': False, 'reason': f'Daily like limit reached: {self.daily_like_limit}'}
+        
+        try:
+            delay = self._random_delay(5, 15)  # 点赞延迟较短
+            await asyncio.sleep(delay)
+            
+            result = await self._call_like(post_url)
+            self.like_count += 1
+            return result
+            
+        except Exception as e:
+            logger.error(f"[点赞] 错误: {e}")
+            return {'success': False, 'reason': str(e)}
+    
+    async def _call_like(self, post_url: str) -> Dict:
+        """调用点赞 API"""
+        logger.info(f"[点赞] {post_url}")
+        return {'success': True, 'liked_at': datetime.now().isoformat()}
+    
+    async def retweet_post(self, post_url: str, comment: str = None) -> Dict:
+        """转发帖子"""
+        if not self.auto_rt_enabled:
+            return {'success': False, 'reason': 'Auto RT is disabled'}
+        
+        if not self._check_daily_limit('rt'):
+            return {'success': False, 'reason': f'Daily RT limit reached: {self.daily_rt_limit}'}
+        
+        try:
+            delay = self._random_delay()
+            await asyncio.sleep(delay)
+            
+            if comment:
+                comment = self._apply_content_variant(comment)
+            
+            result = await self._call_retweet(post_url, comment)
+            self.rt_count += 1
+            return result
+            
+        except Exception as e:
+            logger.error(f"[转发] 错误: {e}")
+            return {'success': False, 'reason': str(e)}
+    
+    async def _call_retweet(self, post_url: str, comment: str = None) -> Dict:
+        """调用转发 API"""
+        logger.info(f"[转发] {post_url} (评论: {comment is not None})")
+        return {
+            'success': True,
+            'retweeted_at': datetime.now().isoformat(),
+            'with_comment': comment is not None
+        }
+    
+    # ==================== 配置方法 ====================
+    
+    def set_auto_like(self, enabled: bool):
+        """设置自动点赞开关"""
+        self.auto_like_enabled = enabled
+        logger.info(f"[配置] 自动点赞: {'启用' if enabled else '禁用'}")
+    
+    def set_auto_rt(self, enabled: bool):
+        """设置自动 RT 开关"""
+        self.auto_rt_enabled = enabled
+        logger.info(f"[配置] 自动转发: {'启用' if enabled else '禁用'}")
+    
     def set_auto_post(self, enabled: bool):
         """设置自动发帖开关"""
         self.auto_post_enabled = enabled
-        logger.info(f"[OpenClaw] 自动发帖 {'已启用' if enabled else '已禁用'}")
-
-    def set_auto_comment(self, enabled: bool):
-        """设置自动评论开关"""
-        self.auto_comment_enabled = enabled
-        logger.info(f"[OpenClaw] 自动评论 {'已启用' if enabled else '已禁用'}")
-
-    def set_daily_limits(self, post: int = None, comment: int = None):
+        logger.info(f"[配置] 自动发帖: {'启用' if enabled else '禁用'}")
+    
+    def set_daily_limits(self, like: int = None, rt: int = None, 
+                         post: int = None, comment: int = None):
         """设置每日上限"""
+        if like is not None:
+            self.daily_like_limit = like
+        if rt is not None:
+            self.daily_rt_limit = rt
         if post is not None:
             self.daily_post_limit = post
         if comment is not None:
             self.daily_comment_limit = comment
-        logger.info(f"[OpenClaw] 每日限额 - 发帖：{self.daily_post_limit}, 评论：{self.daily_comment_limit}")
-
+        
+        logger.info(
+            f"[配置] 每日上限 - 点赞: {self.daily_like_limit}, "
+            f"转发: {self.daily_rt_limit}, 发帖: {self.daily_post_limit}, "
+            f"评论: {self.daily_comment_limit}"
+        )
+    
     def reset_daily_counts(self):
-        """重置每日计数"""
+        """重置每日计数（建议每天 00:00 调用）"""
+        self.like_count = 0
+        self.rt_count = 0
         self.post_count = 0
         self.comment_count = 0
-        logger.info("[OpenClaw] 每日计数已重置")
-
-    def get_stats(self) -> Dict:
-        """获取统计信息"""
+        logger.info("[重置] 每日计数已清零")
+    
+    def get_status(self) -> Dict:
+        """获取当前状态"""
         return {
-            'post_count': self.post_count,
-            'comment_count': self.comment_count,
-            'daily_post_limit': self.daily_post_limit,
-            'daily_comment_limit': self.daily_comment_limit,
-            'posted_hashes_count': len(self.posted_hashes),
-            'auto_post_enabled': self.auto_post_enabled,
-            'auto_comment_enabled': self.auto_comment_enabled,
+            'auto_like': self.auto_like_enabled,
+            'auto_rt': self.auto_rt_enabled,
+            'auto_post': self.auto_post_enabled,
+            'daily_counts': {
+                'like': self.like_count,
+                'rt': self.rt_count,
+                'post': self.post_count,
+                'comment': self.comment_count
+            },
+            'daily_limits': {
+                'like': self.daily_like_limit,
+                'rt': self.daily_rt_limit,
+                'post': self.daily_post_limit,
+                'comment': self.daily_comment_limit
+            }
         }
 
 
+# 便捷函数
 async def create_openclaw_bridge(api_endpoint: str = 'http://localhost:8080') -> OpenClawBridge:
     """创建 OpenClaw 桥接器实例"""
     bridge = OpenClawBridge(api_endpoint)

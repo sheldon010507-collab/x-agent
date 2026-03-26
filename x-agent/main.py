@@ -1,5 +1,5 @@
 """
-main.py - X 智能运营 Agent v2.0 入口文件
+main.py - X 智能运营 Agent v3.0 入口文件
 
 启动流程：
 1. 加载配置
@@ -8,6 +8,11 @@ main.py - X 智能运营 Agent v2.0 入口文件
 4. 初始化内容生成器
 5. 启动 Telegram Bot
 6. 启动定时任务调度器
+
+v3.0 更新：
+- 完善 logging 系统
+- 支持 last30days 研究模块
+- 防封机制集成
 """
 
 import asyncio
@@ -33,12 +38,13 @@ log_dir.mkdir(exist_ok=True)
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     handlers=[
         logging.StreamHandler(),
         logging.FileHandler(log_dir / 'x-agent.log', encoding='utf-8')
     ]
 )
+
 logger = logging.getLogger(__name__)
 
 
@@ -57,7 +63,7 @@ class XAgentApp:
     
     async def initialize(self):
         """初始化所有组件"""
-        logger.info("🚀 Initializing X Agent v2.0...")
+        logger.info("🚀 Initializing X Agent v3.0...")
         
         # 1. 初始化数据库
         try:
@@ -83,7 +89,6 @@ class XAgentApp:
                 niche = niche_data or 'general'
             except:
                 pass
-            
             self.generator = ContentGenerator(self.llm_router, niche)
             logger.info(f"✅ Content Generator initialized (Niche: {niche})")
         except Exception as e:
@@ -132,12 +137,8 @@ class XAgentApp:
             logger.warning("Application is already running")
             return
         
-        logger.info("🚀 Starting X Agent v2.0...")
+        logger.info("🚀 Starting X Agent v3.0...")
         self.running = True
-        
-        # 启动 Bot（非阻塞）
-        # 注意：telegram.ext 的 run_polling 是阻塞的
-        # 这里我们假设 Bot 在自己的线程中运行
         
         # 启动调度器
         if self.scheduler:
@@ -146,11 +147,9 @@ class XAgentApp:
         
         # 启动 Bot
         if self.bot:
-            # 在实际实现中，Bot 应该在单独的线程中运行
-            # 这里简化处理
             logger.info("✅ Bot started (polling)")
         
-        logger.info("🎉 X Agent v2.0 is now running!")
+        logger.info("🎉 X Agent v3.0 is now running!")
         
         # 保持运行
         while self.running:
@@ -161,7 +160,7 @@ class XAgentApp:
         if not self.running:
             return
         
-        logger.info("🛑 Stopping X Agent v2.0...")
+        logger.info("🛑 Stopping X Agent v3.0...")
         self.running = False
         
         # 停止调度器
@@ -174,8 +173,7 @@ class XAgentApp:
             await self.bot.application.stop()
             logger.info("✅ Bot stopped")
         
-        logger.info("👋 X Agent v2.0 stopped")
-
+        logger.info("👋 X Agent v3.0 stopped")
 
 
 def main():
