@@ -318,6 +318,104 @@ class ContentGenerator:
         self.niche = niche
         self.voice_style = self._load_niche_voice(niche)
 
+    async def generate(self, content_type: str, topic: str, niche: str = None) -> Dict:
+        """
+        统一生成入口 - V0 Final
+        
+        Args:
+            content_type: 'a' | 'b' | 'c'
+            topic: 话题
+            niche: Niche 领域（可选，默认使用当前设置）
+        
+        Returns:
+            Dict: 包含 content 和 risk_score
+        """
+        if niche and niche != self.niche:
+            self.set_niche(niche)
+        
+        # 计算 risk_score（基于话题敏感度和内容类型）
+        risk_score = self._calculate_risk_score(topic, content_type)
+        
+        try:
+            if content_type == 'a':
+                result = await self.generate_type_a(topic)
+                content = self._format_type_a_content(result)
+            elif content_type == 'b':
+                result = await self.generate_type_b(topic)
+                content = self._format_type_b_content(result)
+            elif content_type == 'c':
+                result = await self.generate_comment(topic)
+                content = self._format_comment_content(result)
+            else:
+                raise ValueError(f"Unknown content type: {content_type}")
+            
+            return {
+                'content': content,
+                'risk_score': risk_score,
+                'type': content_type,
+                'niche': self.niche
+            }
+        except Exception as e:
+            return {
+                'content': f"生成失败: {str(e)}",
+                'risk_score': 100,
+                'type': content_type,
+                'niche': self.niche
+            }
+    
+    def _calculate_risk_score(self, topic: str, content_type: str) -> int:
+        """
+        计算风险评分 (0-100)
+        
+        风险因素：
+        - 敏感关键词
+        - 内容类型（C类评论风险更高）
+        - Niche 领域（成人用品风险较高）
+        """
+        score = 30  # 基础分
+        
+        # 敏感关键词检查
+        sensitive_keywords = ['crypto', 'onlyfans', 'adult', 'xxx', 'gambl']
+        topic_lower = topic.lower()
+        for kw in sensitive_keywords:
+            if kw in topic_lower:
+                score += 20
+                break
+        
+        # 内容类型风险
+        if content_type == 'c':  # 评论风险较高
+            score += 15
+        elif content_type == 'a':  # 推文中等
+            score += 10
+        
+        # Niche 风险
+        if 'adult' in self.niche.lower():
+            score += 25
+        elif 'crypto' in self.niche.lower():
+            score += 20
+        
+        return min(score, 100)
+    
+    def _format_type_a_content(self, result: Dict) -> str:
+        """格式化 A 类推文"""
+        if 'tweets' in result:
+            tweets = result['tweets']
+            return "\n\n".join([f"{i+1}. {t.get('content', t)}" for i, t in enumerate(tweets[:3])])
+        return str(result)
+    
+    def _format_type_b_content(self, result: Dict) -> str:
+        """格式化 B 类脚本"""
+        script = result.get('script', {})
+        hook = script.get('hook', {}).get('content', '')
+        body = script.get('body', {}).get('content', '')
+        cta = script.get('cta', {}).get('content', '')
+        return f"🎬 标题: {result.get('title', 'Untitled')}\n\n🎣 钩子: {hook}\n📝 主体: {body}\n📢 CTA: {cta}"
+    
+    def _format_comment_content(self, result: Dict) -> str:
+        """格式化评论"""
+        comments = result.get('comments', [])
+        return "\n\n".join([f"{i+1}. {c.get('content', c)}" for i, c in enumerate(comments[:3])])
+
 
 async def generate_content(content_type: str, topic: str, summary: str = '', niche: str = 'general') -> Dict:
     """
