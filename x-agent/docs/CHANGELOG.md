@@ -52,3 +52,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Single LLM support (OpenAI)
 - Simple scoring system
 - Telegram bot basics
+
+## [v0 Final] - 2026-03-27
+### ✨ 核心特性
+- **半自动流程**: 强制人工确认，risk_score 分级控制
+- **原生异步采集**: 移除 last30days 依赖，实现 asyncio 框架
+- **风险清单**: 新增 5 大类风险评估文档
+- **Bot 增强**: 新增 /log 快捷录入命令
+### 🔧 修复
+- 修复 research.py 依赖外部 CLI 问题
+- 修复 bot_v0_final 集成 fallback 问题

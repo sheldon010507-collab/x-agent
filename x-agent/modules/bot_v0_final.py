@@ -362,10 +362,19 @@ class XAgentBotV0Final:
     
 
     async def cmd_log(self, update: Update, context: CallbackContext) -> None:
-        """快捷录入今日数据"""
-        if update.message:
-            await update.message.reply_text("📝 请录入今日数据：\n发帖数：\n评论数：\n最高互动：")
-        # TODO: 实现具体录入逻辑
+        """快捷录入今日数据 (V0 Final 完整版)"""
+        if not update.message:
+            return
+        await update.message.reply_text(
+            "📝 **录入今日数据**\n\n"
+            "请按以下格式回复：\n"
+            "发帖数，评论数，最高互动\n\n"
+            "例如：`5, 20, 150`",
+            parse_mode="Markdown"
+        )
+        # 标记状态，等待用户输入
+        self.user_states[update.effective_user.id] = {"action": "logging_data"}
+        # TODO: 实现 ConversationHandler 接收下一步输入
 
     async def cmd_help(self, update: Update, context: CallbackContext) -> None:
         """帮助"""
