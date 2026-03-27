@@ -1,174 +1,166 @@
 # X-Agent v0 Final
 
-**X（Twitter）智能运营 Agent**  
-热点监控 + AI 内容生产 + OpenClaw 自动发帖/评论 + 每日复盘
+**X（Twitter）智能运营Agent**
+热点监控 + AI内容生产 + OpenClaw自动发帖/评论 + 每日复盘
 
-![Status](https://img.shields.io/badge/status-production--ready-green)
-![Version](https://img.shields.io/badge/version-v0--final-brightgreen)
-![License](https://img.shields.io/badge/license-MIT-lightgrey)
-
----
-
-## ✨ 核心亮点
-
-- 🔍 **深度情报集成**: 基于 [last30days-skill](https://github.com/mvanhorn/last30days-skill) 的混合检索策略（**不依赖官方 X API**，成本低、数据真实）
-- 🎭 **多 Niche 一键切换**: 7 种预置语气（成人 UK、AI 工具、美妆、健身、加密、幽默、自定义）
-- 🤖 **多 LLM 路由**: 支持 Claude、Groq、OpenAI 等 7+ 供应商
-- 🛡️ **完整防封机制**: 随机延迟 10-40 秒 + 内容变体 + 每日上限
-- 📱 **Telegram Bot 驱动**: `/start`, `/set_niche`, `/trends`, `/review` 简单命令
-- 📊 **每日智能复盘**: 自动化表现总结与优化建议
-- 💾 **Supabase 持久化**: 完整数据记录与历史追溯
-- 🐳 **Docker 一键部署**: 生产级开箱即用
+[![Status](https://img.shields.io/badge/status-production--ready-brightgreen)](https://github.com/sheldon010507-collab/x-agent)
+[![Version](https://img.shields.io/badge/version-v0_Final-blue)](https://github.com/sheldon010507-collab/x-agent)
+[![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ---
 
-## 🚀 3 分钟上手
+## 核心功能
 
-完整指南：**[docs/UP_AND_RUNNING.md](docs/UP_AND_RUNNING.md)**
+### 🔥 热点监控
+- 多平台数据源：X (Twitter)、Reddit、Google Trends
+- last30days-skill 深度集成（可选增强）
+- 四维评分系统筛选高价值话题
 
+### 🤖 AI 内容生成
+- **A 类**：全自动推文（3条备选）
+- **B 类**：视频脚本（需人工拍摄）
+- **C 类**：智能评论（带上下文）
+
+### 🎭 Niche Voices
+预置 7 种语气风格：
+
+| Niche | 文件 |
+|-------|------|
+| 成人用品（英国）| `adult_uk.md` |
+| AI 工具 | `ai_tools.md` |
+| 美妆护肤 | `beauty.md` |
+| 健身健康 | `fitness.md` |
+| 加密货币 | `crypto.md` |
+| 幽默段子 | `humor.md` |
+| 自定义模板 | `custom.md` |
+
+### ⚡ 防封机制
+- 随机延迟：10-40 秒
+- 内容变体：emoji/句式随机
+- 每日上限：可配置（默认评论15条/天）
+- 时段模拟：真实用户活跃时段
+
+---
+
+## 快速开始
+
+### 1. 克隆并安装
 ```bash
-# 1. 克隆
 git clone https://github.com/sheldon010507-collab/x-agent.git
 cd x-agent/x-agent
-
-# 2. 配置
-cp .env.example .env
-# 编辑 .env 填入 Telegram Token、Supabase、LLM API Keys
-
-# 3. 安装
 pip install -r requirements.txt
-
-# 4. 迁移
-supabase db push
-
-# 5. 启动
-python main.py
-
-# 6. Telegram 发送 /start 测试
 ```
 
-**可选增强**: 安装 `last30days` CLI 获得更强情报能力
+### 2. 配置环境
 ```bash
-pip install last30days
+cp .env.example .env
+# 编辑 .env，填入：
+# - TELEGRAM_BOT_TOKEN（必填）
+# - LLM API Key（至少一个）
+# - Supabase 配置（可选）
+```
+
+### 3. 运行
+```bash
+python main.py
+```
+
+### 4. Telegram Bot 命令
+```
+/start      - 显示今日热点 + 快捷菜单
+/set_niche  - 切换 Niche 语气
+/research   - 立即研究当前话题
+/create     - 生成 A/B/C 类内容
+/score      - 查看四维评分详情
+/trends     - 热点概览
+/log        - 录入今日数据
+/report     - 每日复盘报告
+/settings   - 当前配置
 ```
 
 ---
 
-## 🏗️ 仓库结构
+## 项目结构
 
 ```
 x-agent/
-├── x-agent/              # 主代码目录
-│   ├── main.py           # 入口
-│   ├── modules/          # 核心模块（research/scorer/generator/openclaw_bridge）
-│   ├── niche_voices/     # 7 种语气模板
-│   ├── prompts/          # A/B/C 类 Prompt
-│   ├── skills/           # OpenClaw Skill 软链接
-│   ├── data/             # 数据缓存
-│   └── tests/            # 单元测试
-├── docs/                 # 完整文档（上手、部署、贡献指南）
-├── archive/              # 历史版本归档
-├── README.md             # 主文档
-├── docker-compose.yml    # Docker 部署
-└── CONTRIBUTING.md       # 贡献指南
+├── main.py              # 入口文件
+├── config.py            # 配置管理
+├── bot.py               # Telegram Bot
+├── modules/
+│   ├── research.py      # 热点研究
+│   ├── scorer.py        # 四维评分
+│   ├── generator.py     # 内容生成
+│   ├── openclaw_bridge.py  # OpenClaw 集成
+│   ├── llm_router.py    # LLM 路由
+│   └── database.py      # 数据持久化
+├── niche_voices/        # 语气模板
+├── prompts/             # Prompt 模板
+├── tests/               # 测试文件
+├── docs/                # 文档
+└── migrations/          # 数据库迁移
 ```
 
-**开源友好**: MIT 协议，欢迎 PR、Fork、二次开发。
+---
+
+## 四维评分系统
+
+每个热点按以下维度评分（满分 100）：
+
+| 维度 | 权重 | 说明 |
+|------|------|------|
+| Relevance | 40% | 与 Niche 相关度 |
+| Velocity | 30% | 传播速度 |
+| Authority | 15% | 来源权威性 |
+| Convergence | 15% | 多平台共振 |
+
+**推送策略**：
+- ≥80 分：立即 Telegram 推送 + 自动生成评论
+- 60-79 分：存库，每日 21:00 汇总展示
+- <60 分：自动丢弃
 
 ---
 
-## 📚 文档导航
+## 配置说明
 
-| 文档 | 说明 |
-|------|------|
-| **[3 分钟上手](docs/UP_AND_RUNNING.md)** | 快速启动清单 |
-| **[部署指南](docs/DEPLOYMENT.md)** | 生产环境部署 |
-| **[贡献指南](CONTRIBUTING.md)** | 代码规范与 PR 流程 |
-| **[版本记录](docs/CHANGELOG.md)** | v0 Final 更新日志 |
-| **[截图说明](docs/screenshots/README.md)** | 截图占位与需求 |
+主要配置项见 `.env.example`：
 
----
+```env
+# Telegram Bot
+TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_CHAT_ID=your_chat_id
 
-## 🎯 核心功能
+# LLM（至少配置一个）
+ANTHROPIC_API_KEY=sk-ant-xxx
+OPENAI_API_KEY=sk-xxx
+GROQ_API_KEY=gsk_xxx
 
-### 1. 多平台情报采集
-- 支持 X、Reddit、YouTube、TikTok、HackerNews、Web
-- 基于 last30days CLI 的真实数据
-- 本地 JSON 缓存，避免重复采集
-
-### 2. 4 维复合评分
-- **Relevance** (40%): 文本相似度
-- **Velocity** (30%): 24h 互动增速
-- **Authority** (15%): 高赞作者/跨平台
-- **Convergence** (15%): 多平台同时出现
-
-### 3. AI 内容生成
-- **Type A**: 推文/帖子
-- **Type B**: 视频脚本
-- **Type C**: 评论内容
-- 7 种 Niche 语气注入
-
-### 4. OpenClaw 自动化
-- 浏览器自动发帖/评论
-- 随机延迟 10-40 秒
-- 内容变体（emoji/句式）
-- 每日上限控制
-
-### 5. Telegram Bot 命令
-| 命令 | 说明 |
-|------|------|
-| `/start` | 欢迎信息与帮助 |
-| `/set_niche <niche>` | 切换语气（如 `adult_uk`） |
-| `/trends` | 查看当前热点 |
-| `/review` | 生成每日复盘 |
-| `/status` | 运行状态 |
+# 防封配置
+MAX_COMMENTS_PER_DAY=15
+DELAY_MIN=10
+DELAY_MAX=40
+```
 
 ---
 
-## 🛡️ 防封保护
+## ⚠️ 风险声明
 
-X-Agent 实现 3 层防护机制：
+**本项目仅供学习研究使用。**
 
-1. **随机延迟**: 每次操作间隔 10-40 秒随机
-2. **内容变体**: 随机 emoji 和句式变化，避免重复检测
-3. **每日上限**: 通过 `.env` 的 `MAX_COMMENTS_PER_DAY` 配置（默认 15 条/天）
-
----
-
-## 🤝 贡献
-
-欢迎贡献！我们需要的帮助：
-- 🎭 新增 Niche 语气模板（医疗、教育、科技等）
-- 📝 优化 Prompt 质量
-- 🌐 扩展数据源（Instagram、Threads 等）
-- 🐛 修复 Bug 或新增功能
-- 📸 补充实际运行截图
-
-详见 **[CONTRIBUTING.md](CONTRIBUTING.md)**
+- 自动化操作 X (Twitter) 存在账号风险
+- 建议使用小号测试
+- 请遵守 X 平台服务条款
+- 作者不对任何账号封禁负责
 
 ---
 
-## 📈 Star History
+## 更新日志
 
-[![Star History Chart](https://api.star-history.com/svg?repos=sheldon010507-collab/x-agent&type=Date)](https://star-history.com/#sheldon010507-collab/x-agent&Date)
-
----
-
-## 📄 License
-
-MIT License - 详见 [LICENSE](LICENSE)
+详见 [docs/CHANGELOG.md](docs/CHANGELOG.md)
 
 ---
 
-## 🙏 致谢
+## License
 
-- [last30days-skill](https://github.com/mvanhorn/last30days-skill) - 混合检索策略
-- [OpenClaw](https://openclaw.ai) - 浏览器自动化框架
-- 所有贡献者和支持者！
-
----
-
-**用 ❤️ 构建 by sheldon010507-collab**
-
-Star ⭐ 支持一下～
-# X-Agent v0 Final
+MIT License

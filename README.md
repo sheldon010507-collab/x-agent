@@ -1,162 +1,89 @@
 # X-Agent v0 Final
 
-<div align="center">
+**X（Twitter）智能运营Agent**
+热点监控 + AI内容生产 + OpenClaw自动发帖/评论 + 每日复盘
 
-**AI-Powered X (Twitter) Operations Agent**
-
-*Crave it. Research it. Post it.*
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![Version](https://img.shields.io/badge/version-v0_Final-brightgreen)](https://github.com/sheldon010507-collab/x-agent)
-
-[English](#english) | [中文](#中文)
-
-</div>
+[![Status](https://img.shields.io/badge/status-production--ready-brightgreen)](https://github.com/sheldon010507-collab/x-agent)
+[![Version](https://img.shields.io/badge/version-v0_Final-blue)](https://github.com/sheldon010507-collab/x-agent)
+[![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ---
 
-<a name="english"></a>
+## 核心亮点
 
-## English
+- 🔥 **多平台热点监控**：X + Reddit + Google Trends + last30days 混合检索
+- 🤖 **AI 内容生成**：推文(A类) / 视频脚本(B类) / 智能评论(C类)
+- 🎭 **7 种 Niche 语气**：成人用品、AI工具、美妆、健身、加密、搞笑、自定义
+- ⚡ **完整防封机制**：随机延迟(10-40秒)、内容变体、每日上限控制
+- 🤖 **Telegram Bot 驱动**：/start /set_niche /research /create /score 等完整命令
+- 📊 **Supabase 持久化**：热点记录 + 内容草稿 + 每日复盘
 
-### Features
+**检索方式**：不依赖官方 X API，采用 OpenClaw + last30days 混合方案，成本低、数据真实。
 
-- 🔍 **Multi-Platform Research** - Deep integration with last30days-skill for 8+ platform data collection (X, Reddit, YouTube, TikTok, Hacker News, Web)
-- 🎯 **4-Dimensional Scoring** - Relevance, Velocity, Authority, Convergence scoring system
-- 🎭 **7 Pre-built Niches** - Adult UK, AI Tools, Beauty, Fitness, Crypto, Humor, Custom
-- 🤖 **Multi-LLM Support** - OpenAI, Anthropic, Gemini, DeepSeek, Moonshot, Qwen, Zhipu
-- 🛡️ **Anti-Ban System** - Random delays (10-40s), content variants, daily limits for safe automation
-- 📱 **Telegram Bot** - Full control via Telegram commands
-- 📊 **Supabase Backend** - Cloud database with real-time sync
+---
 
-### Quick Start
+## 3分钟上手
+
+见 [x-agent/docs/UP_AND_RUNNING.md](x-agent/docs/UP_AND_RUNNING.md)
 
 ```bash
-# 1. Clone repository
 git clone https://github.com/sheldon010507-collab/x-agent.git
-cd x-agent
-
-# 2. Install dependencies
-pip install -r x-agent/requirements.txt
-
-# 3. Configure environment
-cp x-agent/.env.example x-agent/.env
-# Edit .env with your API keys
-
-# 4. Run
-python x-agent/main.py
+cd x-agent/x-agent
+pip install -r requirements.txt
+cp .env.example .env
+# 编辑 .env 填入 Telegram Bot Token
+python main.py
 ```
 
-See [UP_AND_RUNNING.md](./x-agent/docs/UP_AND_RUNNING.md) for detailed setup guide.
+---
 
-### Supported Niches
-
-| Command | Niche |
-|---------|-------|
-| `/set_niche adult_uk` | Adult Products (UK Market) |
-| `/set_niche ai_tools` | AI Tool Reviews |
-| `/set_niche beauty` | Beauty & Skincare |
-| `/set_niche fitness` | Health & Fitness |
-| `/set_niche crypto` | Cryptocurrency |
-| `/set_niche humor` | Humor & Memes |
-| `/set_niche custom` | Custom Mode |
-
-### Architecture
+## 仓库结构
 
 ```
 x-agent/
-├── modules/
-│   ├── research.py      # Multi-platform research (last30days)
-│   ├── scorer.py        # 4D scoring system
-│   ├── generator.py     # A/B/C content generation
-│   ├── llm_router.py    # Multi-LLM routing
-│   ├── openclaw_bridge.py # Anti-ban automation
-│   ├── bot.py           # Telegram Bot
-│   └── scheduler.py     # Task scheduling
-├── prompts/             # Content templates
-├── niche_voices/        # Niche-specific tones
-└── migrations/          # Database schema
+├── archive/           # 历史版本归档
+│   ├── x-agent/       # v1
+│   └── x-agent-v2/    # v2
+└── x-agent/           # 当前版本 (v0 Final)
+    ├── modules/       # 核心模块
+    ├── niche_voices/  # 7种语气模板
+    ├── prompts/       # Prompt模板
+    ├── tests/         # 测试文件
+    ├── docs/          # 文档
+    └── migrations/    # 数据库迁移
 ```
 
 ---
 
-<a name="中文"></a>
+## 核心模块
 
-## 中文
-
-### 功能特性
-
-- 🔍 **多平台研究** - 深度集成 last30days-skill，支持 8+ 平台数据采集（X、Reddit、YouTube、TikTok、Hacker News、Web）
-- 🎯 **四维评分系统** - 相关度、增速、权威度、汇聚度复合评分
-- 🎭 **7 种预置领域** - 成人用品、AI 工具、美妆、健身、加密货币、幽默、自定义
-- 🤖 **多模型支持** - OpenAI、Anthropic、Gemini、DeepSeek、Moonshot、Qwen、Zhipu
-- 🛡️ **防封机制** - 随机延迟(10-40秒)、内容变体、每日上限
-- 📱 **Telegram Bot** - 完整的 Telegram 命令控制
-- 📊 **Supabase 后端** - 云数据库实时同步
-
-### 快速开始
-
-```bash
-# 1. 克隆仓库
-git clone https://github.com/sheldon010507-collab/x-agent.git
-cd x-agent
-
-# 2. 安装依赖
-pip install -r x-agent/requirements.txt
-
-# 3. 配置环境
-cp x-agent/.env.example x-agent/.env
-# 编辑 .env 填入 API 密钥
-
-# 4. 运行
-python x-agent/main.py
-```
-
-详细设置请参考 [UP_AND_RUNNING.md](./x-agent/docs/UP_AND_RUNNING.md)。
-
-### 支持的领域
-
-| 命令 | 领域 |
-|-----|-----|
-| `/set_niche adult_uk` | 成人用品（英国市场）|
-| `/set_niche ai_tools` | AI 工具评测 |
-| `/set_niche beauty` | 美妆护肤 |
-| `/set_niche fitness` | 健身健康 |
-| `/set_niche crypto` | 加密货币 |
-| `/set_niche humor` | 幽默段子 |
-| `/set_niche custom` | 自定义模式 |
-
-### 架构
-
-```
-x-agent/
-├── modules/
-│   ├── research.py      # 多平台研究（last30days）
-│   ├── scorer.py        # 四维评分系统
-│   ├── generator.py     # A/B/C 内容生成
-│   ├── llm_router.py    # 多模型路由
-│   ├── openclaw_bridge.py # 防封自动化
-│   ├── bot.py           # Telegram Bot
-│   └── scheduler.py     # 任务调度
-├── prompts/             # 内容模板
-├── niche_voices/        # 领域语气
-└── migrations/          # 数据库 Schema
-```
+| 模块 | 功能 |
+|------|------|
+| `research.py` | 多平台研究 + last30days 集成 |
+| `scorer.py` | 四维评分系统 (Relevance + Velocity + Authority + Convergence) |
+| `generator.py` | A/B/C 类内容生成 |
+| `openclaw_bridge.py` | OpenClaw 自动化 + 防封机制 |
+| `llm_router.py` | 多 LLM 路由 (Claude/Groq/OpenAI) |
+| `database.py` | Supabase 数据持久化 |
 
 ---
 
-## Documentation
+## ⚠️ 风险声明
 
-- [UP_AND_RUNNING.md](./x-agent/docs/UP_AND_RUNNING.md) - 5分钟上手指南
-- [CHANGELOG.md](./x-agent/docs/CHANGELOG.md) - 版本变更记录
-- [DEPLOYMENT.md](./x-agent/docs/DEPLOYMENT.md) - 生产部署指南
-- [CONTRIBUTING.md](./CONTRIBUTING.md) - 贡献指南
+**本项目仅供学习研究使用。**
 
-## License
-
-[MIT License](./LICENSE)
+- 自动化操作 X (Twitter) 存在账号风险，请谨慎使用
+- 建议使用小号测试，不要用于主账号
+- 作者不对任何账号封禁负责
+- 请遵守 X 平台服务条款
 
 ---
 
-⭐ **Star 支持一下** ～ 感谢每一位贡献者！
+## 📄 License
+
+MIT License - 欢迎 Fork、Star、PR！
+
+---
+
+**Star ⭐ 支持一下～ 感谢每一位贡献者！**
