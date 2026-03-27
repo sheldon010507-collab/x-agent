@@ -1,59 +1,60 @@
-# DEPLOYMENT.md - 部署指南
+# X-Agent v2.0 部署指南
 
-## 快速部署
+## 📋 部署前检查清单
 
-### 1. 环境要求
+- [ ] Python 3.11+ 已安装
+- [ ] Supabase 项目已创建
+- [ ] Telegram Bot 已创建
+- [ ] 至少一个 LLM API Key 已获取
+- [ ] Reddit API 凭证（可选）
 
-- Python 3.11+
-- Docker (可选)
-- Telegram Bot Token
-- Supabase 账号
+---
 
-### 2. 本地部署
+## 🖥️ 本地部署
+
+### 1. 环境准备
 
 ```bash
 # 克隆仓库
-git clone https://github.com/your-repo/x-agent-v3.git
-cd x-agent-v3
+git clone https://github.com/sheldon010507-collab/x-agent.git
+cd x-agent/x-agent-v2
 
-# 进入主目录
-cd x-agent
-
-# 复制环境变量模板
-cp .env.example .env
-
-# 编辑 .env 填写必要配置
-nano .env
-```
-
-### 3. 必填配置
-
-在 `.env` 中填写：
-
-```bash
-# Telegram Bot Token (必填)
-TELEGRAM_BOT_TOKEN=123456:ABC-DEF1234ghIkl
-
-# Telegram Chat ID (必填)
-TELEGRAM_CHAT_ID=-1001234567890
-
-# Supabase (必填)
-SUPABASE_URL=https://xxx.supabase.co
-SUPABASE_KEY=eyJhbGci...
-
-# LLM Provider (至少配置一个)
-ANTHROPIC_API_KEY=sk-ant-xxx
+# 创建虚拟环境
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
 # 或
-GROQ_API_KEY=gsk_xxx
-```
+.\venv\Scripts\activate   # Windows
 
-### 4. 安装依赖
-
-```bash
+# 安装依赖
 pip install -r requirements.txt
 ```
 
-### 5. 启动
+### 2. 配置环境变量
+
+```bash
+# 复制配置模板
+cp .env.example .env
+
+# 编辑 .env 文件
+nano .env  # 或使用你喜欢的编辑器
+```
+
+**必需配置**:
+```
+TELEGRAM_BOT_TOKEN=your_bot_token
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_KEY=your_service_role_key
+ANTHROPIC_API_KEY=your_anthropic_key  # 或其他 LLM
+```
+
+### 3. 初始化数据库
+
+```bash
+# 在 Supabase SQL 编辑器中执行
+# 复制 migrations/001_initial_schema.sql 的内容
+```
+
+### 4. 运行
 
 ```bash
 python main.py
@@ -61,117 +62,138 @@ python main.py
 
 ---
 
-## last30days CLI 安装（可选增强模块）
+## ☁️ VPS 部署
 
-last30days 是一个多平台深度研究工具，可以显著提升情报能力。
-
-### 安装方式
+### 使用 PM2 常驻运行
 
 ```bash
-# 方式 1: pip 安装
-pip install last30days
+# 安装 PM2
+npm install -g pm2
 
-# 方式 2: 从源码安装
-git clone https://github.com/mvanhorn/last30days-skill.git
-cd last30days-skill
-pip install -e .
+# 创建 ecosystem.config.js
+cat > ecosystem.config.js << EOF
+module.exports = {
+  apps: [{
+    name: 'x-agent',
+    script: 'main.py',
+    interpreter: 'python3',
+    cwd: '/path/to/x-agent-v2',
+    env: {
+      NODE_ENV: 'production'
+    },
+    watch: false,
+    autorestart: true,
+    max_restarts: 5,
+    restart_delay: 3000
+  }]
+}
+EOF
+
+# 启动
+pm2 start ecosystem.config.js
+
+# 保存配置
+pm2 save
+
+# 设置开机启动
+pm2 startup
 ```
 
-### 验证安装
+### 查看日志
 
 ```bash
-last30days "AI tools" --days=7 --sources=x,reddit,youtube --agent --output=json
+pm2 logs x-agent
 ```
 
-### 注意事项
-
-- **last30days 是可选模块**：不安装也能正常运行，会使用 fallback 趋势源
-- 安装后可以获取更丰富的多平台数据（X + Reddit + YouTube + TikTok + Hacker News 等）
-- 详见: https://github.com/mvanhorn/last30days-skill
-
----
-
-## Docker 部署
+### 重启服务
 
 ```bash
-# 构建镜像
-docker-compose build
-
-# 启动服务
-docker-compose up -d
-
-# 查看日志
-docker-compose logs -f x-agent
-```
-
-### Docker Compose 配置
-
-```yaml
-services:
-  x-agent:
-    build: ./x-agent
-    volumes:
-      - ./x-agent/data:/app/data
-    environment:
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_KEY=${SUPABASE_KEY}
-    restart: unless-stopped
+pm2 restart x-agent
 ```
 
 ---
 
-## Supabase 数据库初始化
+## 🔐 生产环境安全配置
 
-1. 登录 [Supabase Dashboard](https://supabase.com)
-2. 创建新项目
-3. 在 SQL Editor 中运行 `migrations/001_initial_schema.sql`
+### 1. 环境变量安全
 
-### 数据表结构
+```bash
+# 设置正确的文件权限
+chmod 600 .env
 
-- `trends` — 热点记录
-- `content_queue` — 内容草稿
-- `daily_log` — 每日数据录入
-- `strategy` — 策略版本
-- `automation_settings` — 自动化配置
+# 确保 .env 在 .gitignore 中
+echo ".env" >> .gitignore
+```
 
----
+### 2. Supabase 安全
 
-## 常见问题
+- 启用 Row Level Security (RLS)
+- 限制 API Key 权限
+- 设置 IP 白名单（如果支持）
 
-### Q: last30days 未安装会怎样？
+### 3. Telegram Bot 安全
 
-A: 系统会自动使用 fallback 趋势源，不影响基本功能。
-
-### Q: Telegram Bot Token 如何获取？
-
-A: 在 Telegram 搜索 @BotFather，发送 `/newbot` 创建 Bot。
-
-### Q: Chat ID 如何获取？
-
-A: 向 @userinfobot 发送任意消息获取你的 Chat ID。
+- 不要在公开渠道分享 Bot Token
+- 定期检查 Bot 的管理员列表
 
 ---
 
-## 生产环境建议
+## 🔄 更新部署
 
-1. 使用 PM2 管理进程（推荐）
-   ```bash
-   npm install -g pm2
-   pm2 start main.py --name x-agent --interpreter python3
-   pm2 save && pm2 startup
-   ```
+```bash
+# 拉取最新代码
+git pull origin main
 
-2. 配置日志轮转
+# 更新依赖
+pip install -r requirements.txt --upgrade
 
-3. 设置监控告警
-
-4. 定期备份数据库
+# 重启服务
+pm2 restart x-agent
+```
 
 ---
 
-## 版本信息
+## 📊 监控
 
-- **当前版本**: v0 Final (2026-03-27)
-- **更新日志**: 见 `docs/CHANGELOG.md`
+### 健康检查
+
+```bash
+# 检查服务状态
+pm2 status
+
+# 查看实时日志
+pm2 logs x-agent --lines 100
+```
+
+### 日志位置
+
+- PM2 日志: `~/.pm2/logs/`
+- 应用日志: 控制台输出
+
+---
+
+## 🐛 常见问题
+
+### Q: Bot 无响应
+
+1. 检查 Bot Token 是否正确
+2. 检查网络连接
+3. 查看 PM2 日志: `pm2 logs x-agent`
+
+### Q: 数据库连接失败
+
+1. 检查 SUPABASE_URL 和 SUPABASE_KEY
+2. 检查 Supabase 项目状态
+3. 确认 IP 未被限制
+
+### Q: LLM 调用失败
+
+1. 检查 API Key 是否有效
+2. 检查 API 额度是否用尽
+3. 尝试切换其他供应商: `/llm` 命令
+
+---
+
+## 📞 支持
+
+如有问题，请在 GitHub Issues 提交。
