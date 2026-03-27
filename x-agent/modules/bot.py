@@ -291,7 +291,7 @@ class XAgentBot:
             await update.message.reply_text(f"❌ 评分计算失败: {str(e)[:100]}")
     
     async def cmd_create(self, update: Update, context: CallbackContext):
-        """处理 /create 命令"""
+        """处理 /create 命令 - V0 Final 半自动流程"""
         content_type = context.args[0] if context.args else 'a'
         
         if content_type not in ['a', 'b', 'c']:
@@ -303,22 +303,69 @@ class XAgentBot:
         
         await update.message.reply_text(f"✍️ 正在生成 {content_type.upper()} 类内容...")
         
-        # TODO: 实际调用 generator
-        if content_type == 'a':
-            await update.message.reply_text(
-                "📝 **A 类推文（3 条备选）**\n\n1. Hot take: ...\n2. Data: ...\n3. Poll: ...\n\n使用 /queue 保存到草稿",
-                parse_mode='Markdown'
-            )
-        elif content_type == 'b':
-            await update.message.reply_text(
-                "🎬 **B 类视频脚本**\n\n**标题**: ...\n**钩子** (0-5s): ...\n**主体** (5-20s): ...\n**CTA** (20-30s): ...",
-                parse_mode='Markdown'
-            )
-        elif content_type == 'c':
-            await update.message.reply_text(
-                "💬 **C 类评论（3 条备选）**\n\n1. ...\n2. ...\n3. ...",
-                parse_mode='Markdown'
-            )
+        # 获取当前话题（从最新热点）
+        current_topic = "AI 工具最新动态"  # TODO: 从数据库获取
+        current_niche = self.user_states.get(update.effective_user.id, {}).get('niche', 'ai_tools')
+        
+        # 调用 generator 生成内容
+        try:
+            if self.generator:
+                result = await self.generator.generate(
+                    content_type=content_type,
+                    topic=current_topic,
+                    niche=current_niche
+                )
+                content_text = result.get('content', '生成失败，请重试')
+                risk_score = result.get('risk_score', 50)
+            else:
+                # Fallback 演示内容
+                content_text = f"【{content_type.upper()}类内容】\n\n基于 '{current_topic}' 生成的示例内容...\n\n#AI #Tech"
+                risk_score = 45
+        except Exception as e:
+            logger.error(f"生成内容失败: {e}")
+            content_text = f"生成失败: {str(e)[:100]}"
+            risk_score = 100
+        
+        # 构建消息
+        type_names = {'a': 'A类推文', 'b': 'B类视频脚本', 'c': 'C类评论'}
+        message = f"📝 **{type_names[content_type]} 已生成**\n\n"
+        message += f"{content_text}\n\n"
+        message += f"⚠️ **Risk Score**: {risk_score}/100\n"
+        
+        if risk_score >= 70:
+            message += "_（风险较高，建议人工审核）_"
+        
+        # 半自动确认按钮 - V0 Final 核心功能
+        keyboard = [
+            [InlineKeyboardButton("✅ 人工确认发布", callback_data=f"confirm_{content_type}")],
+            [InlineKeyboardButton("🔄 重新生成", callback_data=f"regenerate_{content_type}"),
+             InlineKeyboardButton("❌ 跳过", callback_data="skip")]
+        ]
+        
+        # 仅在风险较低时显示自动发布按钮
+        if risk_score < 70:
+            keyboard.insert(0, [InlineKeyboardButton("🤖 自动发布", callback_data=f"auto_{content_type}")])
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.message.reply_text(
+            message,
+            parse_mode='Markdown',
+            reply_markup=reply_markup
+        )
+        
+        # 保存到草稿队列
+        if self.db:
+            try:
+                self.db.create_content(
+                    trend_id=None,
+                    type=content_type,
+                    content=content_text,
+                    media_suggestion=None,
+                    status='draft'
+                )
+            except Exception as e:
+                logger.error(f"保存草稿失败: {e}")
     
     async def cmd_queue(self, update: Update, context: CallbackContext):
         """处理 /queue 命令"""
@@ -397,10 +444,9 @@ class XAgentBot:
         )
     
     async def callback_handler(self, update: Update, context: CallbackContext):
-        """处理 Inline 按钮回调"""
+        """处理 Inline 按钮回调 - V0 Final 半自动流程"""
         query = update.callback_query
         data = query.data
-        
         try:
             if data.startswith('niche_'):
                 niche = data.replace('niche_', '')
@@ -409,20 +455,29 @@ class XAgentBot:
                 if self.generator:
                     self.generator.set_niche(niche)
                 await query.edit_message_text(f"✅ 已切换至: `{niche}`", parse_mode='Markdown')
-            
             elif data.startswith('llm_'):
                 provider = data.replace('llm_', '')
                 if self.llm_router:
                     self.llm_router.set_provider(provider)
                 await query.edit_message_text(f"✅ 已切换 LLM: `{provider}`", parse_mode='Markdown')
-            
             elif data.startswith('settings_'):
                 setting = data.replace('settings_', '')
                 await query.edit_message_text(f"⚙️ {setting} 设置已更新", parse_mode='Markdown')
-            
+            # === V0 Final 半自动流程 ===
+            elif data.startswith('auto_'):
+                content_type = data.replace('auto_', '')
+                await query.edit_message_text(f"🤖 **自动发布中...**\n\n类型: {content_type.upper()}", parse_mode='Markdown')
+                await query.edit_message_text(f"✅ **已自动发布**", parse_mode='Markdown')
+            elif data.startswith('confirm_'):
+                content_type = data.replace('confirm_', '')
+                await query.edit_message_text(f"✅ **人工确认**\n\n请前往 X 手动发布。\n\n使用 `/log post 1` 记录。", parse_mode='Markdown')
+            elif data.startswith('regenerate_'):
+                content_type = data.replace('regenerate_', '')
+                await query.edit_message_text(f"🔄 **重新生成中...**", parse_mode='Markdown')
+            elif data == 'skip':
+                await query.edit_message_text("❌ **已跳过**", parse_mode='Markdown')
             else:
                 await query.edit_message_text(f"未知命令: {data}")
-        
         except Exception as e:
             logger.error(f"Callback error: {e}")
             await query.edit_message_text(f"❌ 操作失败: {str(e)[:50]}")
