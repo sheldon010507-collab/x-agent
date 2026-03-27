@@ -187,7 +187,7 @@ class XAgentBot:
 
             researcher = Researcher()
 
-            await update.message.reply_text("⏳ 正在调用 last30days 收集数据...")
+            await update.message.reply_text("⏳ 正在收集多平台热点数据...")
 
             # 运行研究
             result = await researcher.research_async(topic)
@@ -325,7 +325,7 @@ class XAgentBot:
         if risk_score >= 70:
             message += "_（风险较高，建议人工审核）_"
 
-        # 半自动确认按钮 - V0 Final 核心功能
+        # 强制人工审核确认按钮 - 所有内容都需人工审核
         keyboard = [
             [InlineKeyboardButton("✅ 人工确认发布", callback_data=f"confirm_{content_type}")],
             [
@@ -333,12 +333,6 @@ class XAgentBot:
                 InlineKeyboardButton("❌ 跳过", callback_data="skip"),
             ],
         ]
-
-        # 仅在风险较低时显示自动发布按钮
-        if risk_score < 70:
-            keyboard.insert(
-                0, [InlineKeyboardButton("🤖 自动发布", callback_data=f"auto_{content_type}")]
-            )
 
         reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -453,18 +447,31 @@ class XAgentBot:
             elif data.startswith("settings_"):
                 setting = data.replace("settings_", "")
                 await query.edit_message_text(f"⚙️ {setting} 设置已更新", parse_mode="Markdown")
-            # === V0 Final 半自动流程 ===
-            elif data.startswith("auto_"):
-                content_type = data.replace("auto_", "")
+            # === 最终确认 - 二次确认后执行 ===
+            elif data.startswith("final_confirm_"):
+                content_type = data.replace("final_confirm_", "")
                 await query.edit_message_text(
-                    f"🤖 **自动发布中...**\n\n类型: {content_type.upper()}", parse_mode="Markdown"
+                    f"✅ **人工确认完成**\n\n请前往 X 手动发布。\n\n使用 `/log post 1` 记录已发布的内容。",
+                    parse_mode="Markdown",
                 )
-                await query.edit_message_text(f"✅ **已自动发布**", parse_mode="Markdown")
+            # === 取消确认 ===
+            elif data == "cancel_confirm":
+                await query.edit_message_text(
+                    f"✗ **已取消**\n\n返回内容编辑，请使用 /create 重新开始。",
+                    parse_mode="Markdown",
+                )
             elif data.startswith("confirm_"):
                 content_type = data.replace("confirm_", "")
+                # 二次确认机制 - 防止误操作
+                keyboard = [
+                    [InlineKeyboardButton("✓ 确认无误，发布", callback_data=f"final_confirm_{content_type}")],
+                    [InlineKeyboardButton("✗ 取消", callback_data="cancel_confirm")],
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
                 await query.edit_message_text(
-                    f"✅ **人工确认**\n\n请前往 X 手动发布。\n\n使用 `/log post 1` 记录。",
+                    f"⚠️ **二次确认**\n\n确认要发布这条 {content_type.upper()} 类内容吗？",
                     parse_mode="Markdown",
+                    reply_markup=reply_markup,
                 )
             elif data.startswith("regenerate_"):
                 content_type = data.replace("regenerate_", "")

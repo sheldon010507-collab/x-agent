@@ -20,14 +20,15 @@
 
 ## 核心亮点
 
-- 🔥 **多平台热点监控**：X + Reddit + Google Trends + last30days 混合检索
+- 🔥 **多平台热点监控**：Reddit + Hacker News + Google Trends 原生异步采集
 - 🤖 **AI 内容生成**：推文(A类) / 视频脚本(B类) / 智能评论(C类)
 - 🎭 **7 种 Niche 语气**：成人用品、AI工具、美妆、健身、加密、搞笑、自定义
 - ⚡ **完整防封机制**：随机延迟(10-40秒)、内容变体、每日上限控制
+- ✅ **强制人工审核**：所有内容都需经过二次确认，无自动发布路径
 - 🤖 **Telegram Bot 驱动**：/start /set_niche /research /create /score 等完整命令
 - 📊 **Supabase 持久化**：热点记录 + 内容草稿 + 每日复盘
 
-**检索方式**：不依赖官方 X API，采用 OpenClaw + last30days 混合方案，成本低、数据真实。
+**检索方式**：不依赖官方 X API，采用原生异步 Python 实现（PRAW、aiohttp、pytrends）+ OpenClaw 自动化方案，成本低、数据真实。
 
 ---
 
@@ -68,12 +69,32 @@ x-agent/
 
 | 模块 | 功能 |
 |------|------|
-| `research.py` | 多平台研究 + last30days 集成 |
+| `research.py` | 多平台研究（Reddit/HN/Google Trends 原生异步采集）|
 | `scorer.py` | 四维评分系统 (Relevance + Velocity + Authority + Convergence) |
-| `generator.py` | A/B/C 类内容生成 |
+| `generator.py` | A/B/C 类内容生成 + 风险评分 |
+| `bot.py` | Telegram Bot 驱动 + 强制人工二次确认 |
 | `openclaw_bridge.py` | OpenClaw 自动化 + 防封机制 |
 | `llm_router.py` | 多 LLM 路由 (Claude/Groq/OpenAI) |
 | `database.py` | Supabase 数据持久化 |
+
+---
+
+## 审批工作流
+
+X-Agent **强制所有内容都经过人工确认**，确保操作的安全性和可控性：
+
+1. **内容生成**：通过 `/create` 命令生成 A/B/C 类内容
+2. **风险评估**：系统自动计算 Risk Score（0-100），显示风险等级
+3. **一次确认**：用户点击「✅ 人工确认发布」按钮
+4. **二次确认**：弹出「确认无误，发布？」对话框，防止误操作
+5. **手动发布**：用户前往 X（Twitter）手动发布内容
+6. **数据记录**：使用 `/log post 1` 记录已发布的内容
+
+**关键特性**：
+- ✅ 无自动发布路径，即使 Risk Score < 70
+- ✅ 二次确认机制防止误操作
+- ✅ 用户对发布内容保持完全控制
+- ✅ 所有操作都可回溯
 
 ---
 
@@ -85,6 +106,7 @@ x-agent/
 - 建议使用小号测试，不要用于主账号
 - 作者不对任何账号封禁负责
 - 请遵守 X 平台服务条款
+- **重要**：本项目所有内容生成都需人工审核后才能发布，用户对发布内容负责
 
 ---
 
