@@ -175,30 +175,41 @@ class XAgentApp:
         logger.info("👋 X Agent v3.0 stopped")
 
 
-def main():
-    """主函数"""
+async def main_async():
+    """主异步函数 - 统一事件循环，避免多次 asyncio.run() 的冲突"""
     app = XAgentApp()
-    
-    # 信号处理
-    def signal_handler(sig, frame):
-        logger.info(f"\nReceived signal {sig}, shutting down...")
-        asyncio.run(app.stop())
-        sys.exit(0)
-    
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-    
-    # 运行应用
+
+    loop = asyncio.get_running_loop()
+
+    def _shutdown():
+        logger.info("Received shutdown signal, stopping...")
+        loop.create_task(app.stop())
+
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:
+            loop.add_signal_handler(sig, _shutdown)
+        except NotImplementedError:
+            # Windows 不支持 add_signal_handler，降级为 signal.signal
+            signal.signal(sig, lambda s, f: loop.call_soon_threadsafe(_shutdown))
+
     try:
-        asyncio.run(app.initialize())
-        asyncio.run(app.start())
+        await app.initialize()
+        await app.start()
     except KeyboardInterrupt:
         logger.info("Interrupted by user")
     except Exception as e:
         logger.error(f"Fatal error: {e}")
         raise
     finally:
-        asyncio.run(app.stop())
+        await app.stop()
+
+
+def main():
+    """主函数入口 - 单一事件循环"""
+    try:
+        asyncio.run(main_async())
+    except KeyboardInterrupt:
+        pass
 
 
 if __name__ == '__main__':
