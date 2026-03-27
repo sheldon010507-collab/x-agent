@@ -1,12 +1,35 @@
 # X-Agent v0 Final
 
-**X（Twitter）智能运营Agent**
-热点监控 + AI内容生产 + OpenClaw自动发帖/评论 + 每日复盘
+**X（Twitter）智能运营 Agent**  
+热点监控 + AI 内容生产 + OpenClaw 自动发帖/评论 + 每日复盘
 
 [![Status](https://img.shields.io/badge/status-production--ready-brightgreen)](https://github.com/sheldon010507-collab/x-agent)
 [![Version](https://img.shields.io/badge/version-v0_Final-blue)](https://github.com/sheldon010507-collab/x-agent)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+---
+
+## 🛡️ V0 Final 核心特性：半自动流程
+
+**强制人工确认** - 所有 AI 生成的内容必须经过用户确认后才能发布，杜绝误操作风险。
+
+### 工作流程
+
+```
+AI 生成内容 → 显示 risk_score → 用户选择 → 确认后发布
+                ↓
+        🟢 低风险 (<50): 可自动发布
+        🟡 中风险 (50-79): 建议人工确认  
+        🔴 高风险 (≥80): 强制人工确认
+```
+
+### Inline 按钮操作
+
+- **🤖 自动发布** - 低风险内容一键发布（<50 分）
+- **✅ 人工确认发布** - 所有风险等级都可用
+- **🔄 重新生成** - 对内容不满意？重新生成
+- **❌ 跳过** - 放弃本次生成
 
 ---
 
@@ -18,7 +41,7 @@
 - 四维评分系统筛选高价值话题
 
 ### 🤖 AI 内容生成
-- **A 类**：全自动推文（3条备选）
+- **A 类**：全自动推文（3 条备选）
 - **B 类**：视频脚本（需人工拍摄）
 - **C 类**：智能评论（带上下文）
 
@@ -29,36 +52,33 @@
 |-------|------|
 | 成人用品（英国）| `adult_uk.md` |
 | AI 工具 | `ai_tools.md` |
-| 美妆护肤 | `beauty.md` |
-| 健身健康 | `fitness.md` |
+| 美妆 | `beauty.md` |
+| 健身 | `fitness.md` |
 | 加密货币 | `crypto.md` |
-| 幽默段子 | `humor.md` |
-| 自定义模板 | `custom.md` |
+| 幽默 | `humor.md` |
+| 自定义 | `custom.md` |
 
-### ⚡ 防封机制
-- 随机延迟：10-40 秒
-- 内容变体：emoji/句式随机
-- 每日上限：可配置（默认评论15条/天）
-- 时段模拟：真实用户活跃时段
+### 🛡️ 防封机制
+- 随机延迟（10-40 秒）
+- 内容变体（emoji/句式随机）
+- 每日发布上限（可配置）
 
 ---
 
 ## 快速开始
 
-### 1. 克隆并安装
+### 1. 安装依赖
 ```bash
-git clone https://github.com/sheldon010507-collab/x-agent.git
-cd x-agent/x-agent
 pip install -r requirements.txt
 ```
 
-### 2. 配置环境
+### 2. 配置环境变量
+复制 `.env.example` 到 `.env` 并填写：
 ```bash
-cp .env.example .env
-# 编辑 .env，填入：
-# - TELEGRAM_BOT_TOKEN（必填）
-# - LLM API Key（至少一个）
-# - Supabase 配置（可选）
+TELEGRAM_BOT_TOKEN=your_bot_token
+SUPABASE_URL=your_supabase_url
+SUPABASE_KEY=your_supabase_key
+LLM_API_KEY=your_llm_api_key
 ```
 
 ### 3. 运行
@@ -66,18 +86,11 @@ cp .env.example .env
 python main.py
 ```
 
-### 4. Telegram Bot 命令
-```
-/start      - 显示今日热点 + 快捷菜单
-/set_niche  - 切换 Niche 语气
-/research   - 立即研究当前话题
-/create     - 生成 A/B/C 类内容
-/score      - 查看四维评分详情
-/trends     - 热点概览
-/log        - 录入今日数据
-/report     - 每日复盘报告
-/settings   - 当前配置
-```
+### 4. Telegram 操作
+- `/start` - 查看热点概览
+- `/create` - 创建内容（半自动流程）
+- `/report` - 查看复盘报告
+- `/help` - 帮助
 
 ---
 
@@ -85,82 +98,48 @@ python main.py
 
 ```
 x-agent/
-├── main.py              # 入口文件
-├── config.py            # 配置管理
-├── bot.py               # Telegram Bot
-├── modules/
-│   ├── research.py      # 热点研究
-│   ├── scorer.py        # 四维评分
-│   ├── generator.py     # 内容生成
-│   ├── openclaw_bridge.py  # OpenClaw 集成
-│   ├── llm_router.py    # LLM 路由
-│   └── database.py      # 数据持久化
-├── niche_voices/        # 语气模板
-├── prompts/             # Prompt 模板
-├── tests/               # 测试文件
-├── docs/                # 文档
-└── migrations/          # 数据库迁移
+├── modules/          # 核心模块
+│   ├── bot_v0_final.py   # V0 Final 半自动 Bot
+│   ├── research.py       # 热点研究
+│   ├── scorer.py         # 评分系统
+│   ├── generator.py      # 内容生成
+│   ├── database.py       # 数据库操作
+│   └── openclaw_bridge.py # OpenClaw 集成
+├── tests/            # 测试文件
+├── docs/             # 文档
+└── migrations/       # 数据库迁移
 ```
 
 ---
 
-## 四维评分系统
+## 测试
 
-每个热点按以下维度评分（满分 100）：
-
-| 维度 | 权重 | 说明 |
-|------|------|------|
-| Relevance | 40% | 与 Niche 相关度 |
-| Velocity | 30% | 传播速度 |
-| Authority | 15% | 来源权威性 |
-| Convergence | 15% | 多平台共振 |
-
-**推送策略**：
-- ≥80 分：立即 Telegram 推送 + 自动生成评论
-- 60-79 分：存库，每日 21:00 汇总展示
-- <60 分：自动丢弃
-
----
-
-## 配置说明
-
-主要配置项见 `.env.example`：
-
-```env
-# Telegram Bot
-TELEGRAM_BOT_TOKEN=your_bot_token
-TELEGRAM_CHAT_ID=your_chat_id
-
-# LLM（至少配置一个）
-ANTHROPIC_API_KEY=sk-ant-xxx
-OPENAI_API_KEY=sk-xxx
-GROQ_API_KEY=gsk_xxx
-
-# 防封配置
-MAX_COMMENTS_PER_DAY=15
-DELAY_MIN=10
-DELAY_MAX=40
+运行 V0 Final 核心测试：
+```bash
+python -m pytest tests/test_v0_final.py -v
 ```
 
----
-
-## ⚠️ 风险声明
-
-**本项目仅供学习研究使用。**
-
-- 自动化操作 X (Twitter) 存在账号风险
-- 建议使用小号测试
-- 请遵守 X 平台服务条款
-- 作者不对任何账号封禁负责
+测试覆盖：
+- ✅ Research 模块（last30days 集成）
+- ✅ Scorer 模块（risk_score 计算）
+- ✅ Bot 流程（半自动确认）
+- ✅ Database（状态流转）
 
 ---
 
-## 更新日志
+## 文档
 
-详见 [docs/CHANGELOG.md](docs/CHANGELOG.md)
+- [上手指南](docs/UP_AND_RUNNING.md)
+- [部署指南](docs/DEPLOYMENT.md)
+- [贡献指南](CONTRIBUTING.md)
+- [变更日志](docs/CHANGELOG.md)
 
 ---
 
 ## License
 
-MIT License
+MIT License - 详见 [LICENSE](LICENSE)
+
+---
+
+**用 ❤️ 构建 by sheldon010507-collab**
