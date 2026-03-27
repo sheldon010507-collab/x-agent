@@ -7,11 +7,11 @@ Can run as a daemon or be called periodically via cron.
 
 import json
 import os
+import signal
 import sys
 import time
-import signal
-from pathlib import Path
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Optional
 
 try:
@@ -23,15 +23,14 @@ except ImportError:
 
 # Import from main module
 from main import (
+    OPENCLAW_CONFIG_PATH,
+    ensure_config_structure,
+    format_model_for_openclaw,
     get_api_key,
     get_free_models,
     load_openclaw_config,
     save_openclaw_config,
-    ensure_config_structure,
-    format_model_for_openclaw,
-    OPENCLAW_CONFIG_PATH
 )
-
 
 # Constants
 STATE_FILE = Path.home() / ".openclaw" / ".freeride-watcher-state.json"

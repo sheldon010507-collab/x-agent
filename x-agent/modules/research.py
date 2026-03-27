@@ -21,28 +21,31 @@ research.py - 原生异步多平台数据采集模块
 """
 
 import asyncio
+import hashlib
 import json
 import logging
 import random
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Optional, Any
-import hashlib
+from typing import Any, Dict, List, Optional
 
 try:
     import aiohttp
+
     HAS_AIOHTTP = True
 except ImportError:
     HAS_AIOHTTP = False
 
 try:
     import praw
+
     HAS_PRAW = True
 except ImportError:
     HAS_PRAW = False
 
 try:
     from pytrends.request import TrendReq
+
     HAS_PYTRENDS = True
 except ImportError:
     HAS_PYTRENDS = False
@@ -71,7 +74,7 @@ class RedditFetcher(PlatformFetcher):
                 self.reddit = praw.Reddit(
                     client_id=config.reddit_client_id,
                     client_secret=config.reddit_client_secret,
-                    user_agent=config.reddit_user_agent or "x-agent/3.0"
+                    user_agent=config.reddit_user_agent or "x-agent/3.0",
                 )
                 self.reddit.read_only = True
                 logger.info("✅ Reddit API 已初始化")
@@ -86,19 +89,21 @@ class RedditFetcher(PlatformFetcher):
         try:
             subreddit_names = self._get_subreddits(niche)
             posts = []
-            
+
             for sub_name in subreddit_names[:2]:
                 try:
                     subreddit = self.reddit.subreddit(sub_name)
                     for post in subreddit.hot(limit=10):
-                        posts.append({
-                            "title": post.title,
-                            "score": post.score,
-                            "url": f"https://reddit.com{post.permalink}",
-                            "created_utc": post.created_utc,
-                            "num_comments": post.num_comments,
-                            "subreddit": sub_name
-                        })
+                        posts.append(
+                            {
+                                "title": post.title,
+                                "score": post.score,
+                                "url": f"https://reddit.com{post.permalink}",
+                                "created_utc": post.created_utc,
+                                "num_comments": post.num_comments,
+                                "subreddit": sub_name,
+                            }
+                        )
                 except Exception as e:
                     logger.warning(f"获取 r/{sub_name} 失败: {e}")
 
@@ -106,7 +111,7 @@ class RedditFetcher(PlatformFetcher):
                 "platform": "reddit",
                 "niche": niche,
                 "posts": posts[:20],
-                "fetched_at": datetime.now().isoformat()
+                "fetched_at": datetime.now().isoformat(),
             }
         except Exception as e:
             logger.error(f"Reddit 获取错误: {e}")
@@ -121,7 +126,7 @@ class RedditFetcher(PlatformFetcher):
             "beauty": ["MakeupAddiction", "SkincareAddiction", "Haircare"],
             "adult": ["sex", "AskRedditAfterDark"],
             "humor": ["funny", "meme", "dankmemes"],
-            "general": ["AskReddit", "todayilearned", "worldnews"]
+            "general": ["AskReddit", "todayilearned", "worldnews"],
         }
         return niche_subs.get(niche, niche_subs["general"])
 
@@ -134,7 +139,7 @@ class RedditFetcher(PlatformFetcher):
                 "url": f"https://reddit.com/r/{niche}/mock_{i}",
                 "created_utc": datetime.now().timestamp(),
                 "num_comments": random.randint(10, 500),
-                "subreddit": niche
+                "subreddit": niche,
             }
             for i in range(5)
         ]
@@ -143,7 +148,7 @@ class RedditFetcher(PlatformFetcher):
             "niche": niche,
             "posts": mock_posts,
             "fetched_at": datetime.now().isoformat(),
-            "mock": True
+            "mock": True,
         }
 
 
@@ -162,7 +167,7 @@ class HackerNewsFetcher(PlatformFetcher):
                 # 获取 top stories IDs
                 async with session.get(f"{self.BASE_URL}/topstories.json") as resp:
                     story_ids = await resp.json()
-                
+
                 # 获取前 20 个故事的详情
                 posts = []
                 for story_id in story_ids[:20]:
@@ -170,14 +175,19 @@ class HackerNewsFetcher(PlatformFetcher):
                         async with session.get(f"{self.BASE_URL}/item/{story_id}.json") as resp:
                             story = await resp.json()
                             if story:
-                                posts.append({
-                                    "title": story.get("title", ""),
-                                    "score": story.get("score", 0),
-                                    "url": story.get("url", f"https://news.ycombinator.com/item?id={story_id}"),
-                                    "by": story.get("by", "unknown"),
-                                    "time": story.get("time", 0),
-                                    "descendants": story.get("descendants", 0)
-                                })
+                                posts.append(
+                                    {
+                                        "title": story.get("title", ""),
+                                        "score": story.get("score", 0),
+                                        "url": story.get(
+                                            "url",
+                                            f"https://news.ycombinator.com/item?id={story_id}",
+                                        ),
+                                        "by": story.get("by", "unknown"),
+                                        "time": story.get("time", 0),
+                                        "descendants": story.get("descendants", 0),
+                                    }
+                                )
                     except Exception as e:
                         logger.debug(f"获取 HN story {story_id} 失败: {e}")
 
@@ -185,7 +195,7 @@ class HackerNewsFetcher(PlatformFetcher):
                     "platform": "hackernews",
                     "niche": niche,
                     "posts": posts,
-                    "fetched_at": datetime.now().isoformat()
+                    "fetched_at": datetime.now().isoformat(),
                 }
         except Exception as e:
             logger.error(f"Hacker News 获取错误: {e}")
@@ -200,7 +210,7 @@ class HackerNewsFetcher(PlatformFetcher):
                 "url": f"https://news.ycombinator.com/item?id=mock_{i}",
                 "by": f"user_{i}",
                 "time": int(datetime.now().timestamp()),
-                "descendants": random.randint(0, 100)
+                "descendants": random.randint(0, 100),
             }
             for i in range(5)
         ]
@@ -209,7 +219,7 @@ class HackerNewsFetcher(PlatformFetcher):
             "niche": niche,
             "posts": mock_posts,
             "fetched_at": datetime.now().isoformat(),
-            "mock": True
+            "mock": True,
         }
 
 
@@ -221,7 +231,7 @@ class GoogleTrendsFetcher(PlatformFetcher):
         self.pytrends = None
         if HAS_PYTRENDS:
             try:
-                self.pytrends = TrendReq(hl='en-US', tz=360)
+                self.pytrends = TrendReq(hl="en-US", tz=360)
                 logger.info("✅ Google Trends 已初始化")
             except Exception as e:
                 logger.warning(f"Google Trends 初始化失败: {e}")
@@ -234,12 +244,12 @@ class GoogleTrendsFetcher(PlatformFetcher):
         try:
             # 在线程池中运行同步的 pytrends
             loop = asyncio.get_event_loop()
-            
+
             keywords = self._get_keywords(niche)
-            
+
             def get_trends():
                 try:
-                    self.pytrends.build_payload(keywords, timeframe=f'now {days}-d')
+                    self.pytrends.build_payload(keywords, timeframe=f"now {days}-d")
                     interest = self.pytrends.interest_over_time()
                     related = self.pytrends.related_queries()
                     return interest, related
@@ -253,16 +263,17 @@ class GoogleTrendsFetcher(PlatformFetcher):
                 "platform": "google_trends",
                 "niche": niche,
                 "keywords": keywords,
-                "fetched_at": datetime.now().isoformat()
+                "fetched_at": datetime.now().isoformat(),
             }
 
             if interest is not None and not interest.empty:
                 trends_data["interest_over_time"] = interest.to_dict()
-            
+
             if related:
                 trends_data["related_queries"] = {
                     k: {"top": v.get("top", []), "rising": v.get("rising", [])}
-                    for k, v in related.items() if v
+                    for k, v in related.items()
+                    if v
                 }
 
             return trends_data
@@ -280,7 +291,7 @@ class GoogleTrendsFetcher(PlatformFetcher):
             "beauty": ["skincare", "makeup", "beauty"],
             "adult": ["relationships", "dating"],
             "humor": ["memes", "funny", "jokes"],
-            "general": ["news", "trending", "popular"]
+            "general": ["news", "trending", "popular"],
         }
         return niche_keywords.get(niche, niche_keywords["general"])
 
@@ -290,17 +301,15 @@ class GoogleTrendsFetcher(PlatformFetcher):
             "platform": "google_trends",
             "niche": niche,
             "keywords": self._get_keywords(niche),
-            "interest_over_time": {
-                niche: [random.randint(20, 100) for _ in range(7)]
-            },
+            "interest_over_time": {niche: [random.randint(20, 100) for _ in range(7)]},
             "related_queries": {
                 niche: {
                     "top": [f"{niche} tip {i}" for i in range(5)],
-                    "rising": [f"{niche} trend 2024" for _ in range(3)]
+                    "rising": [f"{niche} trend 2024" for _ in range(3)],
                 }
             },
             "fetched_at": datetime.now().isoformat(),
-            "mock": True
+            "mock": True,
         }
 
 
@@ -316,7 +325,7 @@ class SimulatedPlatformFetcher(PlatformFetcher):
                 "url": f"https://{platform}.com/mock_{i}",
                 "author": f"@{niche}_creator_{i}",
                 "created_at": datetime.now().isoformat(),
-                "tags": [niche, "trending", "viral"]
+                "tags": [niche, "trending", "viral"],
             }
             for i in range(5)
         ]
@@ -326,13 +335,13 @@ class SimulatedPlatformFetcher(PlatformFetcher):
             "niche": niche,
             "posts": mock_posts,
             "fetched_at": datetime.now().isoformat(),
-            "mock": True
+            "mock": True,
         }
 
 
 class Researcher:
     """研究员 - 负责多平台数据采集
-    
+
     【V0 Final 重构版】原生异步实现，不依赖外部 CLI
     """
 
@@ -355,10 +364,7 @@ class Researcher:
         logger.info("✅ Researcher 初始化完成 (原生异步模式)")
 
     async def research_async(
-        self,
-        niche: str,
-        days: int = 7,
-        sources: str = "x,reddit,youtube,web,tiktok,hackernews"
+        self, niche: str, days: int = 7, sources: str = "x,reddit,youtube,web,tiktok,hackernews"
     ) -> Dict:
         """异步研究方法 - 并行获取多平台数据
 
@@ -373,7 +379,7 @@ class Researcher:
         logger.info(f"开始异步研究: {niche}, days={days}, sources={sources}")
 
         source_list = [s.strip().lower() for s in sources.split(",")]
-        
+
         # 创建并行任务
         tasks = []
         task_sources = []
@@ -427,7 +433,7 @@ class Researcher:
 
         for i, result in enumerate(results):
             source = task_sources[i] if i < len(task_sources) else f"source_{i}"
-            
+
             if isinstance(result, Exception):
                 logger.warning(f"{source} 获取异常: {result}")
                 platform_data[source] = {"error": str(result)}
@@ -436,15 +442,17 @@ class Researcher:
                 posts = result.get("posts", [])
                 total_posts += len(posts)
                 for post in posts[:3]:
-                    citations.append({
-                        "platform": source,
-                        "title": post.get("title", ""),
-                        "url": post.get("url", "")
-                    })
+                    citations.append(
+                        {
+                            "platform": source,
+                            "title": post.get("title", ""),
+                            "url": post.get("url", ""),
+                        }
+                    )
 
         # 计算指标
         metrics = self._calculate_metrics(platform_data, total_posts)
-        
+
         # 计算风险评分
         risk_score = self._calculate_risk_score(metrics)
 
@@ -462,7 +470,7 @@ class Researcher:
             "citations": citations[:10],
             "platforms": list(platform_data.keys()),
             "platform_data": platform_data,
-            "created_at": datetime.now().isoformat()
+            "created_at": datetime.now().isoformat(),
         }
 
         # 本地缓存
@@ -478,10 +486,7 @@ class Researcher:
         return result
 
     def research_topic(
-        self,
-        niche: str,
-        days: int = 7,
-        sources: str = "x,reddit,youtube,web,tiktok,hackernews"
+        self, niche: str, days: int = 7, sources: str = "x,reddit,youtube,web,tiktok,hackernews"
     ) -> Dict:
         """同步版本的研究方法（兼容旧接口）
 
@@ -502,11 +507,9 @@ class Researcher:
         if loop.is_running():
             # 如果事件循环已在运行，创建新的
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(
-                    asyncio.run,
-                    self.research_async(niche, days, sources)
-                )
+                future = executor.submit(asyncio.run, self.research_async(niche, days, sources))
                 return future.result()
         else:
             return loop.run_until_complete(self.research_async(niche, days, sources))
@@ -535,13 +538,15 @@ class Researcher:
         authority = min(100.0, authority)
 
         # 平台数
-        platform_count = len([p for p in platform_data if not isinstance(platform_data.get(p), Exception)])
+        platform_count = len(
+            [p for p in platform_data if not isinstance(platform_data.get(p), Exception)]
+        )
 
         return {
             "relevance": round(relevance, 1),
             "velocity": round(velocity, 1),
             "authority": round(authority, 1),
-            "platform_count": platform_count
+            "platform_count": platform_count,
         }
 
     def _calculate_risk_score(self, metrics: Dict) -> float:
@@ -586,7 +591,9 @@ class Researcher:
 
         return round(min(100.0, max(0.0, base_risk)), 1)
 
-    def _generate_summary(self, platform_data: Dict, metrics: Dict, risk_score: float = None) -> str:
+    def _generate_summary(
+        self, platform_data: Dict, metrics: Dict, risk_score: float = None
+    ) -> str:
         """生成研究摘要
 
         Args:
@@ -599,7 +606,7 @@ class Researcher:
         """
         platforms = list(platform_data.keys())
         summary = f"在 {len(platforms)} 个平台发现了相关内容。"
-        
+
         if metrics["velocity"] > 60:
             summary += "话题热度较高，建议及时跟进。"
         elif metrics["velocity"] > 40:
@@ -608,7 +615,7 @@ class Researcher:
             summary += "话题热度一般，需要更多内容优化。"
 
         risk = risk_score if risk_score is not None else metrics.get("risk_score", 50)
-        
+
         if risk >= 80:
             summary += " ⚠️ 风险较高，建议人工审核。"
         elif risk >= 50:
@@ -639,14 +646,10 @@ class Researcher:
             "citations": [],
             "platforms": [],
             "created_at": datetime.now().isoformat(),
-            "error": error
+            "error": error,
         }
 
-    async def research_batch(
-        self,
-        niches: List[str],
-        days: int = 7
-    ) -> List[Dict]:
+    async def research_batch(self, niches: List[str], days: int = 7) -> List[Dict]:
         """批量研究多个领域
 
         Args:
@@ -662,9 +665,7 @@ class Researcher:
 
 # 便捷函数
 def research_topic(
-    niche: str,
-    days: int = 7,
-    sources: str = "x,reddit,youtube,web,tiktok,hackernews"
+    niche: str, days: int = 7, sources: str = "x,reddit,youtube,web,tiktok,hackernews"
 ) -> Dict:
     """便捷函数：研究单个话题
 
