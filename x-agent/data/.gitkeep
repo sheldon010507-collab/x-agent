@@ -1,0 +1,13 @@
+# X-Agent Data Directory
+
+This directory stores local cache and runtime data.
+
+## Subdirectories
+
+- `research/` - Research results cache from last30days API calls
+- `logs/` - Application logs (auto-created)
+- `cache/` - General purpose cache
+
+## Note
+
+This directory is created automatically and should be excluded from git.

@@ -1,91 +1,91 @@
-# UP_AND_RUNNING.md - 3 分钟上手指南
+# UP_AND_RUNNING.md - 3分钟上手指南
 
-## 快速启动清单
+## 快速开始
 
-完成以下步骤，3 分钟内让 X-Agent 跑起来：
+### 1. 克隆仓库并进入主目录
 
-- [ ] **1. 克隆仓库并进入主目录**
-  ```bash
-  git clone https://github.com/sheldon010507-collab/x-agent.git
-  cd x-agent/x-agent
-  ```
+```bash
+git clone https://github.com/yourusername/x-agent-v3.git
+cd x-agent-v3/x-agent
+```
 
-- [ ] **2. 复制环境配置文件**
-  ```bash
-  cp .env.example .env
-  ```
+### 2. 配置环境变量
 
-- [ ] **3. 填写必要密钥** (编辑 `.env`)
-  - `TELEGRAM_BOT_TOKEN` - 从 [@BotFather](https://t.me/botfather) 获取
-  - `TELEGRAM_CHAT_ID` - 你的 Telegram 聊天 ID
-  - `SUPABASE_URL` - Supabase 项目 URL
-  - `SUPABASE_KEY` - Supabase API Key
-  - 至少一个 LLM API Key (Claude/Groq/OpenAI 等)
+```bash
+cp .env.example .env
+# 编辑 .env 填写 Telegram Bot Token、Supabase 等
+```
 
-- [ ] **4. 安装依赖**
-  ```bash
-  pip install -r requirements.txt
-  ```
+### 3. 安装依赖
 
-- [ ] **5. 执行数据库迁移**
-  ```bash
-  supabase db push
-  ```
+```bash
+pip install -r requirements.txt
+```
 
-- [ ] **6. 启动 Agent**
-  ```bash
-  python main.py
-  ```
+### 4. （强烈推荐）安装 last30days CLI
 
-- [ ] **7. Telegram 测试**
-  - 发送 `/start` 给机器人
-  - 看到欢迎信息即成功
+```bash
+pip install last30days
+# 或按官方文档安装: https://github.com/mvanhorn/last30days-skill
+```
 
-- [ ] **8. (可选) 安装 last30days CLI**
-  ```bash
-  pip install last30days
-  ```
-  > **说明**: last30days 是可选增强模块，不安装也能正常运行（使用传统趋势源）。安装后情报能力更强，支持多平台 30 天真实数据。
+> **注意**: last30days CLI 是可选增强模块，不安装也能正常运行（使用传统趋势源）。
+
+### 5. 启动
+
+```bash
+python main.py
+```
+
+### 6. 在 Telegram 中测试
+
+发送以下命令验证运行：
+
+- `/start` — 今日热点概览
+- `/set_niche ai_tools` — 切换 Niche
+- `/trends` — 热点列表
 
 ---
 
-## 常用命令
+## 前置要求
 
-| 命令 | 说明 |
-|------|------|
-| `/start` | 查看欢迎信息和帮助 |
-| `/set_niche <niche>` | 切换 Niche 语气（如 `adult_uk`, `ai_tools`） |
-| `/trends` | 查看当前热点趋势 |
-| `/review` | 生成每日复盘报告 |
-| `/status` | 查看运行状态 |
+- Python 3.11+
+- Telegram Bot Token (从 @BotFather 获取)
+- Supabase 账号 (免费版即可)
+- 至少一个 LLM API Key
 
----
+## 支持的 Niche 模式
 
-## 预置 Niche 列表
+| 命令 | 领域 |
+|-----|-----|
+| `/set_niche adult_uk` | 成人用品 (英国市场) |
+| `/set_niche ai_tools` | AI 工具评测 |
+| `/set_niche beauty` | 美妆护肤 |
+| `/set_niche fitness` | 健身健康 |
+| `/set_niche crypto` | 加密货币 |
+| `/set_niche humor` | 幽默段子 |
+| `/set_niche custom` | 自定义模式 |
 
-- `adult_uk` - 英国成人用品
-- `ai_tools` - AI 工具
-- `beauty` - 美妆
-- `fitness` - 健身
-- `crypto` - 加密货币
-- `humor` - 幽默
-- `custom` - 自定义
+## 常见问题
 
----
+### Q: 启动后没有反应？
 
-## 遇到问题？
+检查 Telegram Bot Token 是否正确，可以用浏览器访问：
+```
+https://api.telegram.org/bot<YOUR_TOKEN>/getMe
+```
 
-1. 检查 `.env` 文件是否填写完整
-2. 确认 Python 版本 >= 3.9
-3. 查看日志文件 `data/x-agent.log`
-4. 在 GitHub 提 Issue 或加入讨论组
+### Q: last30days 未安装会怎样？
+
+系统会自动使用 fallback 趋势源，不影响基本功能。安装后可获得更丰富的多平台数据。
+
+### Q: 数据库连接失败？
+
+确认 Supabase URL 和 Key 正确，检查是否在 Supabase 中执行了 `migrations/001_initial_schema.sql`。
 
 ---
 
 ## 下一步
 
-- 阅读 [DEPLOYMENT.md](DEPLOYMENT.md) 了解生产环境部署
-- 查看 [CONTRIBUTING.md](../CONTRIBUTING.md) 参与贡献
-- 访问 [CHANGELOG.md](CHANGELOG.md) 了解版本更新记录
-
-**祝使用愉快！** 🚀
+- 阅读 [DEPLOYMENT.md](./DEPLOYMENT.md) 了解生产部署
+- 阅读 [CONTRIBUTING.md](../CONTRIBUTING.md) 参与开发

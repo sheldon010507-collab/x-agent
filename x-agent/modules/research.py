@@ -2,14 +2,15 @@
 research.py - 数据采集模块
 
 调用 last30days CLI 进行多平台深度研究
-支持：X + Reddit + YouTube + HN + Web + TikTok
+支持:X + Reddit + YouTube + HN + Web + TikTok
 
-v3.0: 使用真实 CLI 调用，替换假 API
+v3.0: 使用真实 CLI 调用,替换假 API
 """
 
 import subprocess
 import json
 import asyncio
+import shutil
 from typing import Dict, List, Optional
 from datetime import datetime
 from pathlib import Path
@@ -20,18 +21,18 @@ logger = logging.getLogger(__name__)
 
 class Researcher:
     """研究员 - 负责多平台数据采集"""
-    
+
     def __init__(self, config=None):
         """
         初始化研究员
-        
+
         Args:
             config: Config 实例
         """
         self.config = config
         self.cache_dir = Path("data/research")
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-    
+
     def research_topic(
         self,
         niche: str,
@@ -39,15 +40,15 @@ class Researcher:
         sources: str = "x,reddit,youtube,web,tiktok,hackernews"
     ) -> Dict:
         """
-        调用 last30days CLI 进行多平台深度研究（情报核心）
-        
+        调用 last30days CLI 进行多平台深度研究(情报核心)
+
         Args:
             niche: 研究领域/话题
             days: 回溯天数 (1-30)
-            sources: 数据源，逗号分隔
-            
+            sources: 数据源,逗号分隔
+
         Returns:
-            Dict: 研究结果，包含：
+            Dict: 研究结果,包含:
                 - relevance_score: 相关度 (0-100)
                 - velocity_24h: 24h互动增速
                 - authority_score: 权威度
@@ -56,7 +57,12 @@ class Researcher:
                 - citations: 引用来源
         """
         logger.info(f"开始研究: {niche}, days={days}, sources={sources}")
-        
+
+        # v0 Final: 使用 shutil.which 检查 CLI 是否安装
+        if not shutil.which("last30days"):
+            logger.warning("last30days CLI 未安装，使用 fallback 趋势源")
+            return self._fallback_result(niche, error="CLI not installed (optional enhancement)")
+
         cmd = [
             "last30days",
             niche,
@@ -65,7 +71,7 @@ class Researcher:
             "--agent",
             "--output=json"
         ]
-        
+
         try:
             result = subprocess.run(
                 cmd,
@@ -73,22 +79,22 @@ class Researcher:
                 text=True,
                 timeout=120
             )
-            
+
             if result.returncode != 0:
                 logger.error(f"last30days CLI 错误: {result.stderr}")
                 return self._fallback_result(niche, error=result.stderr.strip())
-            
+
             data = json.loads(result.stdout)
-            
+
             # 本地缓存
             timestamp = datetime.now().strftime("%Y%m%d_%H%M")
             cache_path = self.cache_dir / f"research_{timestamp}.json"
             with open(cache_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
             logger.info(f"研究结果已缓存: {cache_path}")
-            
+
             return data
-            
+
         except subprocess.TimeoutExpired:
             logger.error("last30days CLI 超时")
             return self._fallback_result(niche, error="CLI timeout")
@@ -101,15 +107,15 @@ class Researcher:
         except Exception as e:
             logger.error(f"未知错误: {e}")
             return self._fallback_result(niche, error=str(e))
-    
+
     def _fallback_result(self, niche: str, error: str = None) -> Dict:
         """
-        生成降级结果（CLI 不可用时）
-        
+        生成降级结果(CLI 不可用时)
+
         Args:
             niche: 研究领域
             error: 错误信息
-            
+
         Returns:
             Dict: 降级结果
         """
@@ -125,7 +131,7 @@ class Researcher:
             "created_at": datetime.now().isoformat(),
             "fallback": True
         }
-    
+
     async def research_async(
         self,
         niche: str,
@@ -134,12 +140,12 @@ class Researcher:
     ) -> Dict:
         """
         异步版本的研究方法
-        
+
         Args:
             niche: 研究领域/话题
             days: 回溯天数
             sources: 数据源
-            
+
         Returns:
             Dict: 研究结果
         """
@@ -151,7 +157,7 @@ class Researcher:
             days,
             sources
         )
-    
+
     async def research_batch(
         self,
         niches: List[str],
@@ -159,11 +165,11 @@ class Researcher:
     ) -> List[Dict]:
         """
         批量研究多个领域
-        
+
         Args:
             niches: 领域列表
             days: 回溯天数
-            
+
         Returns:
             List[Dict]: 研究结果列表
         """
@@ -178,13 +184,13 @@ def research_topic(
     sources: str = "x,reddit,youtube,web,tiktok,hackernews"
 ) -> Dict:
     """
-    便捷函数：研究单个话题
-    
+    便捷函数:研究单个话题
+
     Args:
         niche: 研究领域
         days: 回溯天数
         sources: 数据源
-        
+
     Returns:
         Dict: 研究结果
     """
@@ -194,12 +200,12 @@ def research_topic(
 
 async def research_batch(niches: List[str], days: int = 7) -> List[Dict]:
     """
-    便捷函数：批量研究
-    
+    便捷函数:批量研究
+
     Args:
         niches: 领域列表
         days: 回溯天数
-        
+
     Returns:
         List[Dict]: 研究结果列表
     """
