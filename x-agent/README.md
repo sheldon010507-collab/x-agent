@@ -11,9 +11,12 @@
 
 ## 📸 截图展示
 
+> **注**: 截图收集中，稍后补充。当前显示占位说明。
+
 | Telegram 机器人界面 | 自动生成帖子 | 每日复盘报告 |
 |---------------------|--------------|--------------|
-| ![机器人界面](docs/screenshots/bot_interface.png) | ![帖子示例](docs/screenshots/post_example.png) | ![每日报告](docs/screenshots/daily_report.png) |
+| 🖼️ Bot 界面 | 🖼️ 发帖示例 | 🖼️ 复盘报告 |
+| [查看占位说明](docs/screenshots/README.md) | [查看占位说明](docs/screenshots/README.md) | [查看占位说明](docs/screenshots/README.md) |
 
 ---
 
