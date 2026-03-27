@@ -47,6 +47,7 @@ logs/
 .clawhub/
 .openclaw/
 research_cache/
+x-agent/data/research/
 
 # Distribution
 *.tar.gz
