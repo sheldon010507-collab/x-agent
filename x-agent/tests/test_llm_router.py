@@ -6,17 +6,18 @@ test_llm_router.py - LLM 路由模块测试
 """
 
 import sys
-import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from modules.llm_router import (
-    LLMRouter,
     AnthropicProvider,
-    OpenAIProvider,
     GroqProvider,
+    LLMRouter,
+    OpenAIProvider,
 )
 
 

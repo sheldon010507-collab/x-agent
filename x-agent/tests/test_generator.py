@@ -5,9 +5,10 @@ test_generator.py - 内容生成模块测试
 """
 
 import sys
-import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -18,14 +19,16 @@ from modules.generator import ContentGenerator
 def mock_llm_router():
     """返回预设 A 类推文响应的 mock LLM"""
     router = MagicMock()
-    router.generate_json = AsyncMock(return_value={
-        "tweets": [
-            {"angle": "Hot take", "content": "Test tweet 1 #AI", "hashtags": ["#AI"]},
-            {"angle": "Data", "content": "Test tweet 2 #Data", "hashtags": ["#Data"]},
-            {"angle": "Poll", "content": "Test tweet 3? #Poll", "hashtags": ["#Poll"]},
-        ],
-        "media_suggestion": "ai, tech",
-    })
+    router.generate_json = AsyncMock(
+        return_value={
+            "tweets": [
+                {"angle": "Hot take", "content": "Test tweet 1 #AI", "hashtags": ["#AI"]},
+                {"angle": "Data", "content": "Test tweet 2 #Data", "hashtags": ["#Data"]},
+                {"angle": "Poll", "content": "Test tweet 3? #Poll", "hashtags": ["#Poll"]},
+            ],
+            "media_suggestion": "ai, tech",
+        }
+    )
     return router
 
 
@@ -35,6 +38,7 @@ def generator(mock_llm_router):
 
 
 # ======== A 类推文 ========
+
 
 class TestTypeAGeneration:
 
@@ -75,23 +79,26 @@ class TestTypeAGeneration:
 
 # ======== B 类脚本 ========
 
+
 class TestTypeBGeneration:
 
     @pytest.fixture(autouse=True)
     def setup_mock(self, mock_llm_router):
-        mock_llm_router.generate_json = AsyncMock(return_value={
-            "title": "Test Video",
-            "angle": "Quick overview",
-            "script": {
-                "hook": {"time": "0-5s", "content": "Hook content"},
-                "body": {"time": "5-20s", "content": "Body content"},
-                "cta": {"time": "20-30s", "content": "CTA content"},
-            },
-            "caption": "Test caption",
-            "hashtags": ["#Test"],
-            "media_suggestion": "test",
-            "best_posting_time": "19:00",
-        })
+        mock_llm_router.generate_json = AsyncMock(
+            return_value={
+                "title": "Test Video",
+                "angle": "Quick overview",
+                "script": {
+                    "hook": {"time": "0-5s", "content": "Hook content"},
+                    "body": {"time": "5-20s", "content": "Body content"},
+                    "cta": {"time": "20-30s", "content": "CTA content"},
+                },
+                "caption": "Test caption",
+                "hashtags": ["#Test"],
+                "media_suggestion": "test",
+                "best_posting_time": "19:00",
+            }
+        )
 
     @pytest.mark.asyncio
     async def test_type_b_returns_script(self, generator):
@@ -117,17 +124,20 @@ class TestTypeBGeneration:
 
 # ======== C 类评论 ========
 
+
 class TestCommentGeneration:
 
     @pytest.fixture(autouse=True)
     def setup_mock(self, mock_llm_router):
-        mock_llm_router.generate_json = AsyncMock(return_value={
-            "comments": [
-                {"content": "Great point! 🔥", "has_cta": False},
-                {"content": "Interesting perspective 💡", "has_cta": False},
-                {"content": "Check this out!", "has_cta": True},
-            ]
-        })
+        mock_llm_router.generate_json = AsyncMock(
+            return_value={
+                "comments": [
+                    {"content": "Great point! 🔥", "has_cta": False},
+                    {"content": "Interesting perspective 💡", "has_cta": False},
+                    {"content": "Check this out!", "has_cta": True},
+                ]
+            }
+        )
 
     @pytest.mark.asyncio
     async def test_comment_returns_list(self, generator):
@@ -151,6 +161,7 @@ class TestCommentGeneration:
 
 
 # ======== 风险评分 ========
+
 
 class TestRiskScoreCalculation:
 
@@ -177,7 +188,9 @@ class TestRiskScoreCalculation:
         router = MagicMock()
         gen_adult = ContentGenerator(router, "adult")
         gen_general = ContentGenerator(router, "general")
-        assert gen_adult._calculate_risk_score("topic", "a") > gen_general._calculate_risk_score("topic", "a")
+        assert gen_adult._calculate_risk_score("topic", "a") > gen_general._calculate_risk_score(
+            "topic", "a"
+        )
 
     def test_risk_capped_at_100(self):
         router = MagicMock()
@@ -185,11 +198,14 @@ class TestRiskScoreCalculation:
         score = gen._calculate_risk_score("crypto adult xxx onlyfans", "c")
         assert score <= 100
 
-    @pytest.mark.parametrize("niche,topic,content_type,expected_high_risk", [
-        ("adult", "onlyfans promo", "c", True),
-        ("general", "tech news", "a", False),
-        ("crypto", "bitcoin", "a", True),
-    ])
+    @pytest.mark.parametrize(
+        "niche,topic,content_type,expected_high_risk",
+        [
+            ("adult", "onlyfans promo", "c", True),
+            ("general", "tech news", "a", False),
+            ("crypto", "bitcoin", "a", True),
+        ],
+    )
     def test_risk_scenarios(self, niche, topic, content_type, expected_high_risk):
         router = MagicMock()
         gen = ContentGenerator(router, niche)
@@ -201,6 +217,7 @@ class TestRiskScoreCalculation:
 
 
 # ======== Niche 语气 ========
+
 
 class TestNicheVoice:
 
@@ -224,18 +241,21 @@ class TestNicheVoice:
 
 # ======== 统一 generate() 方法 ========
 
+
 class TestUnifiedGenerateMethod:
 
     @pytest.fixture(autouse=True)
     def setup(self):
         self.router = MagicMock()
-        self.router.generate_json = AsyncMock(return_value={
-            "tweets": [
-                {"angle": "test", "content": "content1", "hashtags": []},
-                {"angle": "test2", "content": "content2", "hashtags": []},
-                {"angle": "test3", "content": "content3", "hashtags": []},
-            ]
-        })
+        self.router.generate_json = AsyncMock(
+            return_value={
+                "tweets": [
+                    {"angle": "test", "content": "content1", "hashtags": []},
+                    {"angle": "test2", "content": "content2", "hashtags": []},
+                    {"angle": "test3", "content": "content3", "hashtags": []},
+                ]
+            }
+        )
         self.gen = ContentGenerator(self.router, "general")
 
     @pytest.mark.asyncio

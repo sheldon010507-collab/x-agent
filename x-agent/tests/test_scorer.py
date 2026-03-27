@@ -6,8 +6,9 @@ test_scorer.py - 热点评分模块单元测试
 """
 
 import sys
-import pytest
 from pathlib import Path
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -34,7 +35,12 @@ class TestTrendScorerHighScore:
         assert self.scorer.get_action(score) == "PUSH_NOW"
 
     def test_high_score_also_stored(self):
-        data = {"relevance_score": 90, "velocity_24h": 85, "authority_score": 80, "platform_count": 5}
+        data = {
+            "relevance_score": 90,
+            "velocity_24h": 85,
+            "authority_score": 80,
+            "platform_count": 5,
+        }
         score = self.scorer.calculate_score(data)
         assert self.scorer.should_store(score) is True
 
@@ -163,15 +169,13 @@ class TestTrendScorerWeightFormula:
     def test_relevance_impacts_more_than_velocity(self):
         """相关度（40%）对分数影响应大于速度（30%）"""
         base = {"velocity_24h": 50, "authority_score": 50, "platform_count": 2}
-        relevance_impact = (
-            self.scorer.calculate_score({**base, "relevance_score": 100})
-            - self.scorer.calculate_score({**base, "relevance_score": 0})
-        )
+        relevance_impact = self.scorer.calculate_score(
+            {**base, "relevance_score": 100}
+        ) - self.scorer.calculate_score({**base, "relevance_score": 0})
         base2 = {"relevance_score": 50, "authority_score": 50, "platform_count": 2}
-        velocity_impact = (
-            self.scorer.calculate_score({**base2, "velocity_24h": 100})
-            - self.scorer.calculate_score({**base2, "velocity_24h": 0})
-        )
+        velocity_impact = self.scorer.calculate_score(
+            {**base2, "velocity_24h": 100}
+        ) - self.scorer.calculate_score({**base2, "velocity_24h": 0})
         assert relevance_impact > velocity_impact
 
 
@@ -181,15 +185,18 @@ class TestTrendScorerConvergence:
     def setup_method(self):
         self.scorer = TrendScorer()
 
-    @pytest.mark.parametrize("platform_count,expected", [
-        (1, 30.0),
-        (2, 50.0),
-        (3, 70.0),
-        (4, 85.0),
-        (5, 100.0),
-        (10, 100.0),
-        (0, 30.0),
-    ])
+    @pytest.mark.parametrize(
+        "platform_count,expected",
+        [
+            (1, 30.0),
+            (2, 50.0),
+            (3, 70.0),
+            (4, 85.0),
+            (5, 100.0),
+            (10, 100.0),
+            (0, 30.0),
+        ],
+    )
     def test_convergence_mapping(self, platform_count, expected):
         assert self.scorer._calc_convergence(platform_count) == expected
 
@@ -223,13 +230,30 @@ class TestScoreWithDetails:
         self.scorer = TrendScorer()
 
     def test_returns_all_required_keys(self):
-        data = {"relevance_score": 75, "velocity_24h": 60, "authority_score": 70, "platform_count": 3}
+        data = {
+            "relevance_score": 75,
+            "velocity_24h": 60,
+            "authority_score": 70,
+            "platform_count": 3,
+        }
         result = self.scorer.score_with_details(data)
-        for key in ("score", "score_level", "action", "should_push", "should_store", "score_breakdown"):
+        for key in (
+            "score",
+            "score_level",
+            "action",
+            "should_push",
+            "should_store",
+            "score_breakdown",
+        ):
             assert key in result, f"缺少字段: {key}"
 
     def test_score_breakdown_has_four_dimensions(self):
-        data = {"relevance_score": 75, "velocity_24h": 60, "authority_score": 70, "platform_count": 3}
+        data = {
+            "relevance_score": 75,
+            "velocity_24h": 60,
+            "authority_score": 70,
+            "platform_count": 3,
+        }
         breakdown = self.scorer.score_with_details(data)["score_breakdown"]
         for dim in ("relevance", "velocity", "authority", "convergence"):
             assert dim in breakdown
@@ -240,7 +264,12 @@ class TestScoreWithDetails:
         assert result["topic"] == "AI tools"
 
     def test_score_rounded_to_2_decimal(self):
-        data = {"relevance_score": 75, "velocity_24h": 60, "authority_score": 70, "platform_count": 3}
+        data = {
+            "relevance_score": 75,
+            "velocity_24h": 60,
+            "authority_score": 70,
+            "platform_count": 3,
+        }
         result = self.scorer.score_with_details(data)
         assert result["score"] == round(result["score"], 2)
 

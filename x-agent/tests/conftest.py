@@ -6,8 +6,9 @@ conftest.py - pytest 全局 fixtures
 
 import sys
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from unittest.mock import MagicMock, AsyncMock
 
 # 确保 modules/ 可被 import
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -51,14 +52,20 @@ def mock_db():
 def mock_llm_router():
     """模拟 LLMRouter（返回预设 JSON 响应）"""
     router = MagicMock()
-    router.generate_json = AsyncMock(return_value={
-        "tweets": [
-            {"angle": "Hot take", "content": "Test tweet 1 #AI", "hashtags": ["#AI"]},
-            {"angle": "Data/Research", "content": "Test tweet 2 #Data", "hashtags": ["#Data"]},
-            {"angle": "Interactive Poll", "content": "Test tweet 3? #Poll", "hashtags": ["#Poll"]},
-        ],
-        "media_suggestion": "ai, tech",
-    })
+    router.generate_json = AsyncMock(
+        return_value={
+            "tweets": [
+                {"angle": "Hot take", "content": "Test tweet 1 #AI", "hashtags": ["#AI"]},
+                {"angle": "Data/Research", "content": "Test tweet 2 #Data", "hashtags": ["#Data"]},
+                {
+                    "angle": "Interactive Poll",
+                    "content": "Test tweet 3? #Poll",
+                    "hashtags": ["#Poll"],
+                },
+            ],
+            "media_suggestion": "ai, tech",
+        }
+    )
     router.chat = AsyncMock(return_value="Mock LLM response")
     return router
 
@@ -67,13 +74,17 @@ def mock_llm_router():
 def mock_openclaw():
     """模拟 OpenClawBridge"""
     bridge = MagicMock()
-    bridge.post_content = AsyncMock(return_value={
-        "success": True,
-        "post_id": "mock_post_123",
-        "url": "https://x.com/status/mock_post_123",
-    })
-    bridge.comment_on_post = AsyncMock(return_value={
-        "success": True,
-        "comment_id": "mock_comment_123",
-    })
+    bridge.post_content = AsyncMock(
+        return_value={
+            "success": True,
+            "post_id": "mock_post_123",
+            "url": "https://x.com/status/mock_post_123",
+        }
+    )
+    bridge.comment_on_post = AsyncMock(
+        return_value={
+            "success": True,
+            "comment_id": "mock_comment_123",
+        }
+    )
     return bridge

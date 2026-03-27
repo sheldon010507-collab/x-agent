@@ -5,11 +5,12 @@ mock subprocess.run 和 shutil.which，完全离线运行。
 测试 CLI 调用、fallback 逻辑、风险评分计算。
 """
 
-import sys
 import json
-import pytest
+import sys
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -37,9 +38,15 @@ class TestResearcherFallback:
     def test_fallback_has_all_required_fields(self):
         result = self.researcher._fallback_result("ai_tools", "test error")
         for field in (
-            "niche", "relevance_score", "velocity_24h",
-            "authority_score", "platform_count", "risk_score",
-            "summary", "citations", "fallback",
+            "niche",
+            "relevance_score",
+            "velocity_24h",
+            "authority_score",
+            "platform_count",
+            "risk_score",
+            "summary",
+            "citations",
+            "fallback",
         ):
             assert field in result, f"缺少字段: {field}"
 
@@ -103,8 +110,10 @@ class TestResearcherCLISuccess:
         mock_result.returncode = 0
         mock_result.stdout = json.dumps(mock_output)
 
-        with patch("shutil.which", return_value="/usr/bin/last30days"), \
-             patch("subprocess.run", return_value=mock_result):
+        with (
+            patch("shutil.which", return_value="/usr/bin/last30days"),
+            patch("subprocess.run", return_value=mock_result),
+        ):
             result = self.researcher.research_topic("ai_tools")
 
         assert result["relevance_score"] == 85.0
@@ -125,8 +134,10 @@ class TestResearcherCLISuccess:
         mock_result.returncode = 0
         mock_result.stdout = json.dumps(mock_output)
 
-        with patch("shutil.which", return_value="/usr/bin/last30days"), \
-             patch("subprocess.run", return_value=mock_result):
+        with (
+            patch("shutil.which", return_value="/usr/bin/last30days"),
+            patch("subprocess.run", return_value=mock_result),
+        ):
             result = self.researcher.research_topic("ai_tools")
 
         assert "risk_score" in result
@@ -144,15 +155,23 @@ class TestResearcherCLIErrors:
         mock_result.returncode = 1
         mock_result.stderr = "Error: rate limit exceeded"
 
-        with patch("shutil.which", return_value="/usr/bin/last30days"), \
-             patch("subprocess.run", return_value=mock_result):
+        with (
+            patch("shutil.which", return_value="/usr/bin/last30days"),
+            patch("subprocess.run", return_value=mock_result),
+        ):
             result = self.researcher.research_topic("test")
         assert result.get("fallback") is True
 
     def test_timeout_gives_fallback(self):
         import subprocess
-        with patch("shutil.which", return_value="/usr/bin/last30days"), \
-             patch("subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="last30days", timeout=120)):
+
+        with (
+            patch("shutil.which", return_value="/usr/bin/last30days"),
+            patch(
+                "subprocess.run",
+                side_effect=subprocess.TimeoutExpired(cmd="last30days", timeout=120),
+            ),
+        ):
             result = self.researcher.research_topic("test")
         assert result.get("fallback") is True
 
@@ -161,14 +180,18 @@ class TestResearcherCLIErrors:
         mock_result.returncode = 0
         mock_result.stdout = "not valid json {{{"
 
-        with patch("shutil.which", return_value="/usr/bin/last30days"), \
-             patch("subprocess.run", return_value=mock_result):
+        with (
+            patch("shutil.which", return_value="/usr/bin/last30days"),
+            patch("subprocess.run", return_value=mock_result),
+        ):
             result = self.researcher.research_topic("test")
         assert result.get("fallback") is True
 
     def test_file_not_found_gives_fallback(self):
-        with patch("shutil.which", return_value="/usr/bin/last30days"), \
-             patch("subprocess.run", side_effect=FileNotFoundError("last30days not found")):
+        with (
+            patch("shutil.which", return_value="/usr/bin/last30days"),
+            patch("subprocess.run", side_effect=FileNotFoundError("last30days not found")),
+        ):
             result = self.researcher.research_topic("test")
         assert result.get("fallback") is True
 
