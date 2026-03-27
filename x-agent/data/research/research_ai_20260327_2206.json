@@ -1,0 +1,413 @@
+{
+  "niche": "ai",
+  "days": 7,
+  "sources": "x,reddit,youtube,web,tiktok,hackernews",
+  "relevance_score": 62.5,
+  "velocity_24h": 70.0,
+  "authority_score": 50.0,
+  "platform_count": 6,
+  "risk_score": 45.0,
+  "total_posts": 25,
+  "summary": "在 6 个平台发现了相关内容。话题热度较高，建议及时跟进。 ✅ 风险较低，可考虑自动发布。",
+  "citations": [
+    {
+      "platform": "reddit",
+      "title": "[Mock] Reddit 讨论: ai 领域热门话题 #0",
+      "url": "https://reddit.com/r/ai/mock_0"
+    },
+    {
+      "platform": "reddit",
+      "title": "[Mock] Reddit 讨论: ai 领域热门话题 #1",
+      "url": "https://reddit.com/r/ai/mock_1"
+    },
+    {
+      "platform": "reddit",
+      "title": "[Mock] Reddit 讨论: ai 领域热门话题 #2",
+      "url": "https://reddit.com/r/ai/mock_2"
+    },
+    {
+      "platform": "hackernews",
+      "title": "[Mock] Show HN: 关于 ai 的新项目",
+      "url": "https://news.ycombinator.com/item?id=mock_0"
+    },
+    {
+      "platform": "hackernews",
+      "title": "[Mock] Show HN: 关于 ai 的新项目",
+      "url": "https://news.ycombinator.com/item?id=mock_1"
+    },
+    {
+      "platform": "hackernews",
+      "title": "[Mock] Show HN: 关于 ai 的新项目",
+      "url": "https://news.ycombinator.com/item?id=mock_2"
+    },
+    {
+      "platform": "x",
+      "title": "[Mock X] ai 领域热门内容 #0",
+      "url": "https://x.com/mock_0"
+    },
+    {
+      "platform": "x",
+      "title": "[Mock X] ai 领域热门内容 #1",
+      "url": "https://x.com/mock_1"
+    },
+    {
+      "platform": "x",
+      "title": "[Mock X] ai 领域热门内容 #2",
+      "url": "https://x.com/mock_2"
+    },
+    {
+      "platform": "tiktok",
+      "title": "[Mock TIKTOK] ai 领域热门内容 #0",
+      "url": "https://tiktok.com/mock_0"
+    }
+  ],
+  "platforms": [
+    "reddit",
+    "hackernews",
+    "google_trends",
+    "x",
+    "tiktok",
+    "youtube"
+  ],
+  "platform_data": {
+    "reddit": {
+      "platform": "reddit",
+      "niche": "ai",
+      "posts": [
+        {
+          "title": "[Mock] Reddit 讨论: ai 领域热门话题 #0",
+          "score": 1131,
+          "url": "https://reddit.com/r/ai/mock_0",
+          "created_utc": 1774649161.348092,
+          "num_comments": 158,
+          "subreddit": "ai"
+        },
+        {
+          "title": "[Mock] Reddit 讨论: ai 领域热门话题 #1",
+          "score": 2623,
+          "url": "https://reddit.com/r/ai/mock_1",
+          "created_utc": 1774649161.3481,
+          "num_comments": 396,
+          "subreddit": "ai"
+        },
+        {
+          "title": "[Mock] Reddit 讨论: ai 领域热门话题 #2",
+          "score": 505,
+          "url": "https://reddit.com/r/ai/mock_2",
+          "created_utc": 1774649161.348105,
+          "num_comments": 290,
+          "subreddit": "ai"
+        },
+        {
+          "title": "[Mock] Reddit 讨论: ai 领域热门话题 #3",
+          "score": 2036,
+          "url": "https://reddit.com/r/ai/mock_3",
+          "created_utc": 1774649161.348109,
+          "num_comments": 83,
+          "subreddit": "ai"
+        },
+        {
+          "title": "[Mock] Reddit 讨论: ai 领域热门话题 #4",
+          "score": 1040,
+          "url": "https://reddit.com/r/ai/mock_4",
+          "created_utc": 1774649161.348113,
+          "num_comments": 114,
+          "subreddit": "ai"
+        }
+      ],
+      "fetched_at": "2026-03-27T22:06:01.348116",
+      "mock": true
+    },
+    "hackernews": {
+      "platform": "hackernews",
+      "niche": "ai",
+      "posts": [
+        {
+          "title": "[Mock] Show HN: 关于 ai 的新项目",
+          "score": 278,
+          "url": "https://news.ycombinator.com/item?id=mock_0",
+          "by": "user_0",
+          "time": 1774649161,
+          "descendants": 63
+        },
+        {
+          "title": "[Mock] Show HN: 关于 ai 的新项目",
+          "score": 268,
+          "url": "https://news.ycombinator.com/item?id=mock_1",
+          "by": "user_1",
+          "time": 1774649161,
+          "descendants": 86
+        },
+        {
+          "title": "[Mock] Show HN: 关于 ai 的新项目",
+          "score": 144,
+          "url": "https://news.ycombinator.com/item?id=mock_2",
+          "by": "user_2",
+          "time": 1774649161,
+          "descendants": 43
+        },
+        {
+          "title": "[Mock] Show HN: 关于 ai 的新项目",
+          "score": 243,
+          "url": "https://news.ycombinator.com/item?id=mock_3",
+          "by": "user_3",
+          "time": 1774649161,
+          "descendants": 53
+        },
+        {
+          "title": "[Mock] Show HN: 关于 ai 的新项目",
+          "score": 418,
+          "url": "https://news.ycombinator.com/item?id=mock_4",
+          "by": "user_4",
+          "time": 1774649161,
+          "descendants": 5
+        }
+      ],
+      "fetched_at": "2026-03-27T22:06:01.348153",
+      "mock": true
+    },
+    "google_trends": {
+      "platform": "google_trends",
+      "niche": "ai",
+      "keywords": [
+        "news",
+        "trending",
+        "popular"
+      ],
+      "interest_over_time": {
+        "ai": [
+          80,
+          96,
+          48,
+          64,
+          65,
+          42,
+          79
+        ]
+      },
+      "related_queries": {
+        "ai": {
+          "top": [
+            "ai tip 0",
+            "ai tip 1",
+            "ai tip 2",
+            "ai tip 3",
+            "ai tip 4"
+          ],
+          "rising": [
+            "ai trend 2024",
+            "ai trend 2024",
+            "ai trend 2024"
+          ]
+        }
+      },
+      "fetched_at": "2026-03-27T22:06:01.348180",
+      "mock": true
+    },
+    "x": {
+      "platform": "x",
+      "niche": "ai",
+      "posts": [
+        {
+          "title": "[Mock X] ai 领域热门内容 #0",
+          "engagement": 1428,
+          "url": "https://x.com/mock_0",
+          "author": "@ai_creator_0",
+          "created_at": "2026-03-27T22:06:01.348191",
+          "tags": [
+            "ai",
+            "trending",
+            "viral"
+          ]
+        },
+        {
+          "title": "[Mock X] ai 领域热门内容 #1",
+          "engagement": 2633,
+          "url": "https://x.com/mock_1",
+          "author": "@ai_creator_1",
+          "created_at": "2026-03-27T22:06:01.348196",
+          "tags": [
+            "ai",
+            "trending",
+            "viral"
+          ]
+        },
+        {
+          "title": "[Mock X] ai 领域热门内容 #2",
+          "engagement": 9256,
+          "url": "https://x.com/mock_2",
+          "author": "@ai_creator_2",
+          "created_at": "2026-03-27T22:06:01.348201",
+          "tags": [
+            "ai",
+            "trending",
+            "viral"
+          ]
+        },
+        {
+          "title": "[Mock X] ai 领域热门内容 #3",
+          "engagement": 2425,
+          "url": "https://x.com/mock_3",
+          "author": "@ai_creator_3",
+          "created_at": "2026-03-27T22:06:01.348205",
+          "tags": [
+            "ai",
+            "trending",
+            "viral"
+          ]
+        },
+        {
+          "title": "[Mock X] ai 领域热门内容 #4",
+          "engagement": 9417,
+          "url": "https://x.com/mock_4",
+          "author": "@ai_creator_4",
+          "created_at": "2026-03-27T22:06:01.348209",
+          "tags": [
+            "ai",
+            "trending",
+            "viral"
+          ]
+        }
+      ],
+      "fetched_at": "2026-03-27T22:06:01.348211",
+      "mock": true
+    },
+    "tiktok": {
+      "platform": "tiktok",
+      "niche": "ai",
+      "posts": [
+        {
+          "title": "[Mock TIKTOK] ai 领域热门内容 #0",
+          "engagement": 9773,
+          "url": "https://tiktok.com/mock_0",
+          "author": "@ai_creator_0",
+          "created_at": "2026-03-27T22:06:01.348220",
+          "tags": [
+            "ai",
+            "trending",
+            "viral"
+          ]
+        },
+        {
+          "title": "[Mock TIKTOK] ai 领域热门内容 #1",
+          "engagement": 7710,
+          "url": "https://tiktok.com/mock_1",
+          "author": "@ai_creator_1",
+          "created_at": "2026-03-27T22:06:01.348224",
+          "tags": [
+            "ai",
+            "trending",
+            "viral"
+          ]
+        },
+        {
+          "title": "[Mock TIKTOK] ai 领域热门内容 #2",
+          "engagement": 5922,
+          "url": "https://tiktok.com/mock_2",
+          "author": "@ai_creator_2",
+          "created_at": "2026-03-27T22:06:01.348228",
+          "tags": [
+            "ai",
+            "trending",
+            "viral"
+          ]
+        },
+        {
+          "title": "[Mock TIKTOK] ai 领域热门内容 #3",
+          "engagement": 6268,
+          "url": "https://tiktok.com/mock_3",
+          "author": "@ai_creator_3",
+          "created_at": "2026-03-27T22:06:01.348232",
+          "tags": [
+            "ai",
+            "trending",
+            "viral"
+          ]
+        },
+        {
+          "title": "[Mock TIKTOK] ai 领域热门内容 #4",
+          "engagement": 7634,
+          "url": "https://tiktok.com/mock_4",
+          "author": "@ai_creator_4",
+          "created_at": "2026-03-27T22:06:01.348236",
+          "tags": [
+            "ai",
+            "trending",
+            "viral"
+          ]
+        }
+      ],
+      "fetched_at": "2026-03-27T22:06:01.348238",
+      "mock": true
+    },
+    "youtube": {
+      "platform": "youtube",
+      "niche": "ai",
+      "posts": [
+        {
+          "title": "[Mock YOUTUBE] ai 领域热门内容 #0",
+          "engagement": 2659,
+          "url": "https://youtube.com/mock_0",
+          "author": "@ai_creator_0",
+          "created_at": "2026-03-27T22:06:01.348246",
+          "tags": [
+            "ai",
+            "trending",
+            "viral"
+          ]
+        },
+        {
+          "title": "[Mock YOUTUBE] ai 领域热门内容 #1",
+          "engagement": 6747,
+          "url": "https://youtube.com/mock_1",
+          "author": "@ai_creator_1",
+          "created_at": "2026-03-27T22:06:01.348250",
+          "tags": [
+            "ai",
+            "trending",
+            "viral"
+          ]
+        },
+        {
+          "title": "[Mock YOUTUBE] ai 领域热门内容 #2",
+          "engagement": 1144,
+          "url": "https://youtube.com/mock_2",
+          "author": "@ai_creator_2",
+          "created_at": "2026-03-27T22:06:01.348254",
+          "tags": [
+            "ai",
+            "trending",
+            "viral"
+          ]
+        },
+        {
+          "title": "[Mock YOUTUBE] ai 领域热门内容 #3",
+          "engagement": 1440,
+          "url": "https://youtube.com/mock_3",
+          "author": "@ai_creator_3",
+          "created_at": "2026-03-27T22:06:01.348258",
+          "tags": [
+            "ai",
+            "trending",
+            "viral"
+          ]
+        },
+        {
+          "title": "[Mock YOUTUBE] ai 领域热门内容 #4",
+          "engagement": 4102,
+          "url": "https://youtube.com/mock_4",
+          "author": "@ai_creator_4",
+          "created_at": "2026-03-27T22:06:01.348261",
+          "tags": [
+            "ai",
+            "trending",
+            "viral"
+          ]
+        }
+      ],
+      "fetched_at": "2026-03-27T22:06:01.348263",
+      "mock": true
+    }
+  },
+  "created_at": "2026-03-27T22:06:01.348773"
+}

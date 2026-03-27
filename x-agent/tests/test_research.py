@@ -1,14 +1,12 @@
 """
-test_research.py - 研究模块测试
+test_research.py - Researcher 单元测试
 
-mock subprocess.run 和 shutil.which，完全离线运行。
-测试 CLI 调用、fallback 逻辑、风险评分计算。
+测试策略：Mock 所有平台 fetcher，完全离线
 """
 
-import json
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -16,28 +14,63 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from modules.research import Researcher, research_topic
 
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def researcher(tmp_path):
+    """创建 Researcher 实例，mock 所有网络依赖"""
+    with (
+        patch("modules.research.RedditFetcher") as mock_reddit,
+        patch("modules.research.HackerNewsFetcher") as mock_hn,
+        patch("modules.research.GoogleTrendsFetcher") as mock_trends,
+        patch("modules.research.SimulatedPlatformFetcher") as mock_sim,
+    ):
+        mock_reddit.return_value.fetch = AsyncMock(
+            return_value={"posts": [], "engagement": 500, "top_posts": []}
+        )
+        mock_hn.return_value.fetch = AsyncMock(
+            return_value={"posts": [], "engagement": 200, "top_posts": []}
+        )
+        mock_trends.return_value.fetch = AsyncMock(
+            return_value={"posts": [], "interest": 75, "related_queries": []}
+        )
+        mock_sim.return_value.fetch = AsyncMock(
+            return_value={"posts": [], "engagement": 800, "top_posts": []}
+        )
+        r = Researcher(config=None)
+        r.cache_dir = tmp_path / "research"
+        r.cache_dir.mkdir()
+        yield r
+
+
+# ---------------------------------------------------------------------------
+# Researcher init
+# ---------------------------------------------------------------------------
+
 
 class TestResearcherInit:
-    """初始化测试"""
-
-    def test_cache_dir_created_on_init(self):
-        researcher = Researcher()
+    def test_cache_dir_created(self, researcher):
         assert researcher.cache_dir.exists()
 
-    def test_cache_dir_name_is_research(self):
-        researcher = Researcher()
-        assert researcher.cache_dir.name == "research"
+    def test_has_all_fetchers(self, researcher):
+        assert hasattr(researcher, "reddit_fetcher")
+        assert hasattr(researcher, "hn_fetcher")
+        assert hasattr(researcher, "trends_fetcher")
+        assert hasattr(researcher, "simulated_fetcher")
 
 
-class TestResearcherFallback:
-    """降级结果测试"""
+# ---------------------------------------------------------------------------
+# _empty_result
+# ---------------------------------------------------------------------------
 
-    def setup_method(self):
-        self.researcher = Researcher()
 
-    def test_fallback_has_all_required_fields(self):
-        result = self.researcher._fallback_result("ai_tools", "test error")
-        for field in (
+class TestEmptyResult:
+    def test_has_all_required_fields(self, researcher):
+        result = researcher._empty_result("ai_tools")
+        for field in [
             "niche",
             "relevance_score",
             "velocity_24h",
@@ -46,235 +79,131 @@ class TestResearcherFallback:
             "risk_score",
             "summary",
             "citations",
-            "fallback",
-        ):
-            assert field in result, f"缺少字段: {field}"
+            "platforms",
+            "created_at",
+            "error",
+        ]:
+            assert field in result, f"Missing field: {field}"
 
-    def test_fallback_preserves_niche(self):
-        result = self.researcher._fallback_result("crypto")
+    def test_preserves_niche(self, researcher):
+        result = researcher._empty_result("crypto")
         assert result["niche"] == "crypto"
 
-    def test_fallback_flag_is_true(self):
-        result = self.researcher._fallback_result("test")
-        assert result["fallback"] is True
+    def test_error_none_by_default(self, researcher):
+        result = researcher._empty_result("general")
+        assert result["error"] is None
 
-    def test_fallback_scores_in_valid_range(self):
-        result = self.researcher._fallback_result("test")
-        assert 0.0 <= result["relevance_score"] <= 100.0
-        assert 0.0 <= result["authority_score"] <= 100.0
-        assert 0.0 <= result["risk_score"] <= 100.0
+    def test_error_stored_when_provided(self, researcher):
+        result = researcher._empty_result("general", "connection timeout")
+        assert "connection timeout" in result["error"]
+        assert "connection timeout" in result["summary"]
 
-    def test_fallback_with_error_message_in_summary(self):
-        result = self.researcher._fallback_result("test", "CLI not found")
-        assert "CLI not found" in result["summary"]
+    def test_risk_score_100_on_empty(self, researcher):
+        result = researcher._empty_result("general")
+        assert result["risk_score"] == 100.0
 
-    def test_fallback_without_error(self):
-        result = self.researcher._fallback_result("test")
-        assert result["niche"] == "test"
-
-
-class TestResearcherCLINotInstalled:
-    """CLI 未安装时的行为"""
-
-    def setup_method(self):
-        self.researcher = Researcher()
-
-    def test_returns_fallback_when_cli_missing(self):
-        with patch("shutil.which", return_value=None):
-            result = self.researcher.research_topic("ai_tools")
-        assert result.get("fallback") is True
-
-    def test_fallback_niche_correct(self):
-        with patch("shutil.which", return_value=None):
-            result = self.researcher.research_topic("crypto")
-        assert result["niche"] == "crypto"
+    def test_scores_are_zero(self, researcher):
+        result = researcher._empty_result("general")
+        assert result["relevance_score"] == 0.0
+        assert result["velocity_24h"] == 0.0
+        assert result["authority_score"] == 0.0
+        assert result["platform_count"] == 0
 
 
-class TestResearcherCLISuccess:
-    """CLI 成功执行时的行为"""
-
-    def setup_method(self):
-        self.researcher = Researcher()
-
-    def test_parses_json_output(self):
-        mock_output = {
-            "niche": "ai_tools",
-            "relevance_score": 85.0,
-            "velocity_24h": 70.0,
-            "authority_score": 75.0,
-            "platform_count": 4,
-            "summary": "Test summary",
-            "citations": [],
-        }
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stdout = json.dumps(mock_output)
-
-        with (
-            patch("shutil.which", return_value="/usr/bin/last30days"),
-            patch("subprocess.run", return_value=mock_result),
-        ):
-            result = self.researcher.research_topic("ai_tools")
-
-        assert result["relevance_score"] == 85.0
-        assert result["niche"] == "ai_tools"
-
-    def test_adds_risk_score_to_result(self):
-        """CLI 成功时应自动附加 risk_score 字段"""
-        mock_output = {
-            "niche": "ai_tools",
-            "relevance_score": 80.0,
-            "velocity_24h": 60.0,
-            "authority_score": 70.0,
-            "platform_count": 3,
-            "summary": "Test",
-            "citations": [],
-        }
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stdout = json.dumps(mock_output)
-
-        with (
-            patch("shutil.which", return_value="/usr/bin/last30days"),
-            patch("subprocess.run", return_value=mock_result),
-        ):
-            result = self.researcher.research_topic("ai_tools")
-
-        assert "risk_score" in result
-        assert 0.0 <= result["risk_score"] <= 100.0
+# ---------------------------------------------------------------------------
+# _calculate_risk_score
+# ---------------------------------------------------------------------------
 
 
-class TestResearcherCLIErrors:
-    """CLI 错误场景"""
+class TestCalculateRiskScore:
+    def test_base_risk_is_30(self, researcher):
+        # platform_count >= 3, velocity <= 60, authority >= 60 → pure base 30
+        metrics = {"velocity": 50, "authority": 65, "platform_count": 3}
+        score = researcher._calculate_risk_score(metrics)
+        assert score == 30
 
-    def setup_method(self):
-        self.researcher = Researcher()
-
-    def test_nonzero_return_code_gives_fallback(self):
-        mock_result = MagicMock()
-        mock_result.returncode = 1
-        mock_result.stderr = "Error: rate limit exceeded"
-
-        with (
-            patch("shutil.which", return_value="/usr/bin/last30days"),
-            patch("subprocess.run", return_value=mock_result),
-        ):
-            result = self.researcher.research_topic("test")
-        assert result.get("fallback") is True
-
-    def test_timeout_gives_fallback(self):
-        import subprocess
-
-        with (
-            patch("shutil.which", return_value="/usr/bin/last30days"),
-            patch(
-                "subprocess.run",
-                side_effect=subprocess.TimeoutExpired(cmd="last30days", timeout=120),
-            ),
-        ):
-            result = self.researcher.research_topic("test")
-        assert result.get("fallback") is True
-
-    def test_invalid_json_gives_fallback(self):
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stdout = "not valid json {{{"
-
-        with (
-            patch("shutil.which", return_value="/usr/bin/last30days"),
-            patch("subprocess.run", return_value=mock_result),
-        ):
-            result = self.researcher.research_topic("test")
-        assert result.get("fallback") is True
-
-    def test_file_not_found_gives_fallback(self):
-        with (
-            patch("shutil.which", return_value="/usr/bin/last30days"),
-            patch("subprocess.run", side_effect=FileNotFoundError("last30days not found")),
-        ):
-            result = self.researcher.research_topic("test")
-        assert result.get("fallback") is True
-
-
-class TestResearcherRiskScore:
-    """风险评分计算测试"""
-
-    def setup_method(self):
-        self.researcher = Researcher()
-
-    def test_base_risk_is_30(self):
-        """低速、多平台、高权威度时接近基础分 30"""
-        data = {"velocity_24h": 10, "platform_count": 5, "authority_score": 90}
-        score = self.researcher._calculate_risk_score(data)
-        assert score == 30.0
-
-    def test_high_velocity_increases_risk(self):
-        low = self.researcher._calculate_risk_score(
-            {"velocity_24h": 10, "platform_count": 3, "authority_score": 70}
+    def test_high_velocity_increases_risk(self, researcher):
+        low_v = researcher._calculate_risk_score(
+            {"velocity": 50, "authority": 65, "platform_count": 3}
         )
-        high = self.researcher._calculate_risk_score(
-            {"velocity_24h": 95, "platform_count": 3, "authority_score": 70}
+        high_v = researcher._calculate_risk_score(
+            {"velocity": 90, "authority": 65, "platform_count": 3}
         )
-        assert high > low
+        assert high_v > low_v
 
-    def test_few_platforms_increases_risk(self):
-        many = self.researcher._calculate_risk_score(
-            {"velocity_24h": 30, "platform_count": 5, "authority_score": 70}
+    def test_few_platforms_increases_risk(self, researcher):
+        many = researcher._calculate_risk_score(
+            {"velocity": 50, "authority": 65, "platform_count": 5}
         )
-        few = self.researcher._calculate_risk_score(
-            {"velocity_24h": 30, "platform_count": 1, "authority_score": 70}
+        few = researcher._calculate_risk_score(
+            {"velocity": 50, "authority": 65, "platform_count": 1}
         )
         assert few > many
 
-    def test_low_authority_increases_risk(self):
-        high_auth = self.researcher._calculate_risk_score(
-            {"velocity_24h": 30, "platform_count": 3, "authority_score": 90}
+    def test_low_authority_increases_risk(self, researcher):
+        high_a = researcher._calculate_risk_score(
+            {"velocity": 50, "authority": 80, "platform_count": 3}
         )
-        low_auth = self.researcher._calculate_risk_score(
-            {"velocity_24h": 30, "platform_count": 3, "authority_score": 20}
+        low_a = researcher._calculate_risk_score(
+            {"velocity": 50, "authority": 20, "platform_count": 3}
         )
-        assert low_auth > high_auth
+        assert low_a > high_a
 
-    def test_risk_never_exceeds_100(self):
-        score = self.researcher._calculate_risk_score(
-            {"velocity_24h": 100, "platform_count": 1, "authority_score": 0}
+    def test_risk_capped_at_100(self, researcher):
+        score = researcher._calculate_risk_score(
+            {"velocity": 100, "authority": 5, "platform_count": 1}
         )
-        assert score <= 100.0
+        assert score <= 100
 
-    def test_risk_never_below_zero(self):
-        score = self.researcher._calculate_risk_score(
-            {"velocity_24h": 0, "platform_count": 10, "authority_score": 100}
+    def test_risk_never_negative(self, researcher):
+        score = researcher._calculate_risk_score(
+            {"velocity": 0, "authority": 100, "platform_count": 10}
         )
-        assert score >= 0.0
+        assert score >= 0
 
 
-class TestResearcherAsync:
-    """异步接口测试"""
+# ---------------------------------------------------------------------------
+# research_async
+# ---------------------------------------------------------------------------
 
-    def setup_method(self):
-        self.researcher = Researcher()
+
+class TestResearchAsync:
+    @pytest.mark.asyncio
+    async def test_returns_dict_with_niche(self, researcher):
+        result = await researcher.research_async("ai_tools")
+        assert isinstance(result, dict)
+        assert result["niche"] == "ai_tools"
 
     @pytest.mark.asyncio
-    async def test_research_async_returns_same_structure(self):
-        with patch("shutil.which", return_value=None):
-            result = await self.researcher.research_async("ai_tools")
-        assert "niche" in result
-        assert result.get("fallback") is True
+    async def test_has_required_keys(self, researcher):
+        result = await researcher.research_async("general")
+        for key in ["niche", "risk_score", "summary", "created_at"]:
+            assert key in result
 
     @pytest.mark.asyncio
-    async def test_research_batch_returns_all_results(self):
-        with patch("shutil.which", return_value=None):
-            results = await self.researcher.research_batch(["ai", "crypto", "fitness"])
+    async def test_batch_returns_all_niches(self, researcher):
+        niches = ["ai_tools", "crypto", "general"]
+        results = await researcher.research_batch(niches)
         assert len(results) == 3
-        for r in results:
-            assert "niche" in r
+        result_niches = [r["niche"] for r in results]
+        for niche in niches:
+            assert niche in result_niches
 
 
-class TestResearchConvenienceFunction:
-    """便捷函数测试"""
+# ---------------------------------------------------------------------------
+# Convenience function
+# ---------------------------------------------------------------------------
 
+
+class TestResearchTopicFunction:
     def test_research_topic_returns_dict(self):
-        with patch("shutil.which", return_value=None):
+        with (
+            patch("modules.research.RedditFetcher"),
+            patch("modules.research.HackerNewsFetcher"),
+            patch("modules.research.GoogleTrendsFetcher"),
+            patch("modules.research.SimulatedPlatformFetcher"),
+            patch("modules.research.Researcher.research_topic") as mock_rt,
+        ):
+            mock_rt.return_value = {"niche": "ai_tools", "risk_score": 30}
             result = research_topic("ai_tools")
         assert isinstance(result, dict)
-        assert "niche" in result

@@ -1,0 +1,413 @@
+{
+  "niche": "ai_tools",
+  "days": 7,
+  "sources": "x,reddit,youtube,web,tiktok,hackernews",
+  "relevance_score": 62.5,
+  "velocity_24h": 70.0,
+  "authority_score": 50.0,
+  "platform_count": 6,
+  "risk_score": 45.0,
+  "total_posts": 25,
+  "summary": "在 6 个平台发现了相关内容。话题热度较高，建议及时跟进。 ✅ 风险较低，可考虑自动发布。",
+  "citations": [
+    {
+      "platform": "reddit",
+      "title": "[Mock] Reddit 讨论: ai_tools 领域热门话题 #0",
+      "url": "https://reddit.com/r/ai_tools/mock_0"
+    },
+    {
+      "platform": "reddit",
+      "title": "[Mock] Reddit 讨论: ai_tools 领域热门话题 #1",
+      "url": "https://reddit.com/r/ai_tools/mock_1"
+    },
+    {
+      "platform": "reddit",
+      "title": "[Mock] Reddit 讨论: ai_tools 领域热门话题 #2",
+      "url": "https://reddit.com/r/ai_tools/mock_2"
+    },
+    {
+      "platform": "hackernews",
+      "title": "[Mock] Show HN: 关于 ai_tools 的新项目",
+      "url": "https://news.ycombinator.com/item?id=mock_0"
+    },
+    {
+      "platform": "hackernews",
+      "title": "[Mock] Show HN: 关于 ai_tools 的新项目",
+      "url": "https://news.ycombinator.com/item?id=mock_1"
+    },
+    {
+      "platform": "hackernews",
+      "title": "[Mock] Show HN: 关于 ai_tools 的新项目",
+      "url": "https://news.ycombinator.com/item?id=mock_2"
+    },
+    {
+      "platform": "x",
+      "title": "[Mock X] ai_tools 领域热门内容 #0",
+      "url": "https://x.com/mock_0"
+    },
+    {
+      "platform": "x",
+      "title": "[Mock X] ai_tools 领域热门内容 #1",
+      "url": "https://x.com/mock_1"
+    },
+    {
+      "platform": "x",
+      "title": "[Mock X] ai_tools 领域热门内容 #2",
+      "url": "https://x.com/mock_2"
+    },
+    {
+      "platform": "tiktok",
+      "title": "[Mock TIKTOK] ai_tools 领域热门内容 #0",
+      "url": "https://tiktok.com/mock_0"
+    }
+  ],
+  "platforms": [
+    "reddit",
+    "hackernews",
+    "google_trends",
+    "x",
+    "tiktok",
+    "youtube"
+  ],
+  "platform_data": {
+    "reddit": {
+      "platform": "reddit",
+      "niche": "ai_tools",
+      "posts": [
+        {
+          "title": "[Mock] Reddit 讨论: ai_tools 领域热门话题 #0",
+          "score": 2604,
+          "url": "https://reddit.com/r/ai_tools/mock_0",
+          "created_utc": 1774649161.365701,
+          "num_comments": 260,
+          "subreddit": "ai_tools"
+        },
+        {
+          "title": "[Mock] Reddit 讨论: ai_tools 领域热门话题 #1",
+          "score": 4011,
+          "url": "https://reddit.com/r/ai_tools/mock_1",
+          "created_utc": 1774649161.365709,
+          "num_comments": 417,
+          "subreddit": "ai_tools"
+        },
+        {
+          "title": "[Mock] Reddit 讨论: ai_tools 领域热门话题 #2",
+          "score": 852,
+          "url": "https://reddit.com/r/ai_tools/mock_2",
+          "created_utc": 1774649161.365714,
+          "num_comments": 422,
+          "subreddit": "ai_tools"
+        },
+        {
+          "title": "[Mock] Reddit 讨论: ai_tools 领域热门话题 #3",
+          "score": 4745,
+          "url": "https://reddit.com/r/ai_tools/mock_3",
+          "created_utc": 1774649161.365717,
+          "num_comments": 23,
+          "subreddit": "ai_tools"
+        },
+        {
+          "title": "[Mock] Reddit 讨论: ai_tools 领域热门话题 #4",
+          "score": 3557,
+          "url": "https://reddit.com/r/ai_tools/mock_4",
+          "created_utc": 1774649161.365722,
+          "num_comments": 361,
+          "subreddit": "ai_tools"
+        }
+      ],
+      "fetched_at": "2026-03-27T22:06:01.365725",
+      "mock": true
+    },
+    "hackernews": {
+      "platform": "hackernews",
+      "niche": "ai_tools",
+      "posts": [
+        {
+          "title": "[Mock] Show HN: 关于 ai_tools 的新项目",
+          "score": 94,
+          "url": "https://news.ycombinator.com/item?id=mock_0",
+          "by": "user_0",
+          "time": 1774649161,
+          "descendants": 88
+        },
+        {
+          "title": "[Mock] Show HN: 关于 ai_tools 的新项目",
+          "score": 247,
+          "url": "https://news.ycombinator.com/item?id=mock_1",
+          "by": "user_1",
+          "time": 1774649161,
+          "descendants": 1
+        },
+        {
+          "title": "[Mock] Show HN: 关于 ai_tools 的新项目",
+          "score": 216,
+          "url": "https://news.ycombinator.com/item?id=mock_2",
+          "by": "user_2",
+          "time": 1774649161,
+          "descendants": 72
+        },
+        {
+          "title": "[Mock] Show HN: 关于 ai_tools 的新项目",
+          "score": 393,
+          "url": "https://news.ycombinator.com/item?id=mock_3",
+          "by": "user_3",
+          "time": 1774649161,
+          "descendants": 2
+        },
+        {
+          "title": "[Mock] Show HN: 关于 ai_tools 的新项目",
+          "score": 320,
+          "url": "https://news.ycombinator.com/item?id=mock_4",
+          "by": "user_4",
+          "time": 1774649161,
+          "descendants": 87
+        }
+      ],
+      "fetched_at": "2026-03-27T22:06:01.365759",
+      "mock": true
+    },
+    "google_trends": {
+      "platform": "google_trends",
+      "niche": "ai_tools",
+      "keywords": [
+        "ChatGPT",
+        "AI tools",
+        "artificial intelligence"
+      ],
+      "interest_over_time": {
+        "ai_tools": [
+          92,
+          30,
+          76,
+          49,
+          86,
+          82,
+          48
+        ]
+      },
+      "related_queries": {
+        "ai_tools": {
+          "top": [
+            "ai_tools tip 0",
+            "ai_tools tip 1",
+            "ai_tools tip 2",
+            "ai_tools tip 3",
+            "ai_tools tip 4"
+          ],
+          "rising": [
+            "ai_tools trend 2024",
+            "ai_tools trend 2024",
+            "ai_tools trend 2024"
+          ]
+        }
+      },
+      "fetched_at": "2026-03-27T22:06:01.365785",
+      "mock": true
+    },
+    "x": {
+      "platform": "x",
+      "niche": "ai_tools",
+      "posts": [
+        {
+          "title": "[Mock X] ai_tools 领域热门内容 #0",
+          "engagement": 7661,
+          "url": "https://x.com/mock_0",
+          "author": "@ai_tools_creator_0",
+          "created_at": "2026-03-27T22:06:01.365797",
+          "tags": [
+            "ai_tools",
+            "trending",
+            "viral"
+          ]
+        },
+        {
+          "title": "[Mock X] ai_tools 领域热门内容 #1",
+          "engagement": 3997,
+          "url": "https://x.com/mock_1",
+          "author": "@ai_tools_creator_1",
+          "created_at": "2026-03-27T22:06:01.365801",
+          "tags": [
+            "ai_tools",
+            "trending",
+            "viral"
+          ]
+        },
+        {
+          "title": "[Mock X] ai_tools 领域热门内容 #2",
+          "engagement": 2302,
+          "url": "https://x.com/mock_2",
+          "author": "@ai_tools_creator_2",
+          "created_at": "2026-03-27T22:06:01.365805",
+          "tags": [
+            "ai_tools",
+            "trending",
+            "viral"
+          ]
+        },
+        {
+          "title": "[Mock X] ai_tools 领域热门内容 #3",
+          "engagement": 5357,
+          "url": "https://x.com/mock_3",
+          "author": "@ai_tools_creator_3",
+          "created_at": "2026-03-27T22:06:01.365809",
+          "tags": [
+            "ai_tools",
+            "trending",
+            "viral"
+          ]
+        },
+        {
+          "title": "[Mock X] ai_tools 领域热门内容 #4",
+          "engagement": 5062,
+          "url": "https://x.com/mock_4",
+          "author": "@ai_tools_creator_4",
+          "created_at": "2026-03-27T22:06:01.365813",
+          "tags": [
+            "ai_tools",
+            "trending",
+            "viral"
+          ]
+        }
+      ],
+      "fetched_at": "2026-03-27T22:06:01.365815",
+      "mock": true
+    },
+    "tiktok": {
+      "platform": "tiktok",
+      "niche": "ai_tools",
+      "posts": [
+        {
+          "title": "[Mock TIKTOK] ai_tools 领域热门内容 #0",
+          "engagement": 1330,
+          "url": "https://tiktok.com/mock_0",
+          "author": "@ai_tools_creator_0",
+          "created_at": "2026-03-27T22:06:01.365824",
+          "tags": [
+            "ai_tools",
+            "trending",
+            "viral"
+          ]
+        },
+        {
+          "title": "[Mock TIKTOK] ai_tools 领域热门内容 #1",
+          "engagement": 6987,
+          "url": "https://tiktok.com/mock_1",
+          "author": "@ai_tools_creator_1",
+          "created_at": "2026-03-27T22:06:01.365828",
+          "tags": [
+            "ai_tools",
+            "trending",
+            "viral"
+          ]
+        },
+        {
+          "title": "[Mock TIKTOK] ai_tools 领域热门内容 #2",
+          "engagement": 8365,
+          "url": "https://tiktok.com/mock_2",
+          "author": "@ai_tools_creator_2",
+          "created_at": "2026-03-27T22:06:01.365831",
+          "tags": [
+            "ai_tools",
+            "trending",
+            "viral"
+          ]
+        },
+        {
+          "title": "[Mock TIKTOK] ai_tools 领域热门内容 #3",
+          "engagement": 2100,
+          "url": "https://tiktok.com/mock_3",
+          "author": "@ai_tools_creator_3",
+          "created_at": "2026-03-27T22:06:01.365835",
+          "tags": [
+            "ai_tools",
+            "trending",
+            "viral"
+          ]
+        },
+        {
+          "title": "[Mock TIKTOK] ai_tools 领域热门内容 #4",
+          "engagement": 1594,
+          "url": "https://tiktok.com/mock_4",
+          "author": "@ai_tools_creator_4",
+          "created_at": "2026-03-27T22:06:01.365839",
+          "tags": [
+            "ai_tools",
+            "trending",
+            "viral"
+          ]
+        }
+      ],
+      "fetched_at": "2026-03-27T22:06:01.365841",
+      "mock": true
+    },
+    "youtube": {
+      "platform": "youtube",
+      "niche": "ai_tools",
+      "posts": [
+        {
+          "title": "[Mock YOUTUBE] ai_tools 领域热门内容 #0",
+          "engagement": 2935,
+          "url": "https://youtube.com/mock_0",
+          "author": "@ai_tools_creator_0",
+          "created_at": "2026-03-27T22:06:01.365849",
+          "tags": [
+            "ai_tools",
+            "trending",
+            "viral"
+          ]
+        },
+        {
+          "title": "[Mock YOUTUBE] ai_tools 领域热门内容 #1",
+          "engagement": 1990,
+          "url": "https://youtube.com/mock_1",
+          "author": "@ai_tools_creator_1",
+          "created_at": "2026-03-27T22:06:01.365853",
+          "tags": [
+            "ai_tools",
+            "trending",
+            "viral"
+          ]
+        },
+        {
+          "title": "[Mock YOUTUBE] ai_tools 领域热门内容 #2",
+          "engagement": 4081,
+          "url": "https://youtube.com/mock_2",
+          "author": "@ai_tools_creator_2",
+          "created_at": "2026-03-27T22:06:01.365857",
+          "tags": [
+            "ai_tools",
+            "trending",
+            "viral"
+          ]
+        },
+        {
+          "title": "[Mock YOUTUBE] ai_tools 领域热门内容 #3",
+          "engagement": 4896,
+          "url": "https://youtube.com/mock_3",
+          "author": "@ai_tools_creator_3",
+          "created_at": "2026-03-27T22:06:01.365860",
+          "tags": [
+            "ai_tools",
+            "trending",
+            "viral"
+          ]
+        },
+        {
+          "title": "[Mock YOUTUBE] ai_tools 领域热门内容 #4",
+          "engagement": 9704,
+          "url": "https://youtube.com/mock_4",
+          "author": "@ai_tools_creator_4",
+          "created_at": "2026-03-27T22:06:01.365864",
+          "tags": [
+            "ai_tools",
+            "trending",
+            "viral"
+          ]
+        }
+      ],
+      "fetched_at": "2026-03-27T22:06:01.365866",
+      "mock": true
+    }
+  },
+  "created_at": "2026-03-27T22:06:01.365939"
+}
