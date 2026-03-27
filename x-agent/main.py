@@ -24,7 +24,7 @@ from pathlib import Path
 # 添加项目路径
 sys.path.insert(0, str(Path(__file__).parent))
 
-from modules.config import config
+from config import config
 from modules.database import init_database, get_database
 from modules.llm_router import LLMRouter
 from modules.generator import ContentGenerator
@@ -32,7 +32,6 @@ from modules.bot_v0_final import create_bot_v0_final as create_bot
 from modules.scheduler import create_scheduler
 from modules.openclaw_bridge import create_openclaw_bridge
 
-# 配置日志（同时输出到控制台和文件）
 log_dir = Path(__file__).parent / 'data'
 log_dir.mkdir(exist_ok=True)
 
