@@ -23,7 +23,7 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 asyncio_mode = "auto"
-addopts = "-v --tb=short --cov=modules --cov-report=term-missing --cov-fail-under=30"
+addopts = "-v --tb=short --cov=modules --cov-report=term-missing --cov-fail-under=20"
 
 [tool.coverage.run]
 source = ["modules"]

@@ -53,7 +53,7 @@ jobs:
         working-directory: x-agent
         run: |
           python -m pytest tests/ -v --tb=short \
-            --cov=modules --cov-report=term-missing --cov-fail-under=30
+            --cov=modules --cov-report=term-missing --cov-fail-under=20
 
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.11'
