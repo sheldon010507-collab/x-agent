@@ -1,4 +1,4 @@
-# X-Agent v3.0
+# X-Agent v0 Final
 
 <div align="center">
 
@@ -8,7 +8,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![GitHub stars](https://img.shields.io/github/stars/yourusername/x-agent.svg?style=social)](https://github.com/yourusername/x-agent/stargazers)
+[![Version](https://img.shields.io/badge/version-v0_Final-brightgreen)](https://github.com/sheldon010507-collab/x-agent)
 
 [English](#english) | [中文](#中文)
 
@@ -17,6 +17,7 @@
 ---
 
 <a name="english"></a>
+
 ## English
 
 ### Features
@@ -25,7 +26,7 @@
 - 🎯 **4-Dimensional Scoring** - Relevance, Velocity, Authority, Convergence scoring system
 - 🎭 **7 Pre-built Niches** - Adult UK, AI Tools, Beauty, Fitness, Crypto, Humor, Custom
 - 🤖 **Multi-LLM Support** - OpenAI, Anthropic, Gemini, DeepSeek, Moonshot, Qwen, Zhipu
-- 🛡️ **Anti-Ban System** - Random delays, content variants, daily limits for safe automation
+- 🛡️ **Anti-Ban System** - Random delays (10-40s), content variants, daily limits for safe automation
 - 📱 **Telegram Bot** - Full control via Telegram commands
 - 📊 **Supabase Backend** - Cloud database with real-time sync
 
@@ -33,7 +34,7 @@
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/yourusername/x-agent.git
+git clone https://github.com/sheldon010507-collab/x-agent.git
 cd x-agent
 
 # 2. Install dependencies
@@ -47,7 +48,7 @@ cp x-agent/.env.example x-agent/.env
 python x-agent/main.py
 ```
 
-See [UP_AND_RUNNING.md](./docs/UP_AND_RUNNING.md) for detailed setup guide.
+See [UP_AND_RUNNING.md](./x-agent/docs/UP_AND_RUNNING.md) for detailed setup guide.
 
 ### Supported Niches
 
@@ -70,7 +71,7 @@ x-agent/
 │   ├── scorer.py        # 4D scoring system
 │   ├── generator.py     # A/B/C content generation
 │   ├── llm_router.py    # Multi-LLM routing
-│   ├── openclaw_bridge.py  # Anti-ban automation
+│   ├── openclaw_bridge.py # Anti-ban automation
 │   ├── bot.py           # Telegram Bot
 │   └── scheduler.py     # Task scheduling
 ├── prompts/             # Content templates
@@ -81,6 +82,7 @@ x-agent/
 ---
 
 <a name="中文"></a>
+
 ## 中文
 
 ### 功能特性
@@ -89,7 +91,7 @@ x-agent/
 - 🎯 **四维评分系统** - 相关度、增速、权威度、汇聚度复合评分
 - 🎭 **7 种预置领域** - 成人用品、AI 工具、美妆、健身、加密货币、幽默、自定义
 - 🤖 **多模型支持** - OpenAI、Anthropic、Gemini、DeepSeek、Moonshot、Qwen、Zhipu
-- 🛡️ **防封机制** - 随机延迟、内容变体、每日上限
+- 🛡️ **防封机制** - 随机延迟(10-40秒)、内容变体、每日上限
 - 📱 **Telegram Bot** - 完整的 Telegram 命令控制
 - 📊 **Supabase 后端** - 云数据库实时同步
 
@@ -97,7 +99,7 @@ x-agent/
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/yourusername/x-agent.git
+git clone https://github.com/sheldon010507-collab/x-agent.git
 cd x-agent
 
 # 2. 安装依赖
@@ -111,7 +113,7 @@ cp x-agent/.env.example x-agent/.env
 python x-agent/main.py
 ```
 
-详细设置请参考 [UP_AND_RUNNING.md](./docs/UP_AND_RUNNING.md)。
+详细设置请参考 [UP_AND_RUNNING.md](./x-agent/docs/UP_AND_RUNNING.md)。
 
 ### 支持的领域
 
@@ -134,7 +136,7 @@ x-agent/
 │   ├── scorer.py        # 四维评分系统
 │   ├── generator.py     # A/B/C 内容生成
 │   ├── llm_router.py    # 多模型路由
-│   ├── openclaw_bridge.py  # 防封自动化
+│   ├── openclaw_bridge.py # 防封自动化
 │   ├── bot.py           # Telegram Bot
 │   └── scheduler.py     # 任务调度
 ├── prompts/             # 内容模板
@@ -146,21 +148,15 @@ x-agent/
 
 ## Documentation
 
-- [UP_AND_RUNNING.md](./docs/UP_AND_RUNNING.md) - 5分钟上手指南
-- [CHANGELOG.md](./docs/CHANGELOG.md) - 版本变更记录
-- [DEPLOYMENT.md](./docs/DEPLOYMENT.md) - 生产部署指南
+- [UP_AND_RUNNING.md](./x-agent/docs/UP_AND_RUNNING.md) - 5分钟上手指南
+- [CHANGELOG.md](./x-agent/docs/CHANGELOG.md) - 版本变更记录
+- [DEPLOYMENT.md](./x-agent/docs/DEPLOYMENT.md) - 生产部署指南
 - [CONTRIBUTING.md](./CONTRIBUTING.md) - 贡献指南
 
 ## License
 
 [MIT License](./LICENSE)
 
-## Star History
+---
 
-<a href="https://www.star-history.com/#yourusername/x-agent&Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=yourusername/x-agent&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=yourusername/x-agent&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=yourusername/x-agent&type=Date" />
- </picture>
-</a>
+⭐ **Star 支持一下** ～ 感谢每一位贡献者！
