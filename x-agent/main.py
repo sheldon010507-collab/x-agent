@@ -16,23 +16,23 @@ v3.0 更新：
 """
 
 import asyncio
+import logging
 import signal
 import sys
-import logging
 from pathlib import Path
 
 # 添加项目路径
 sys.path.insert(0, str(Path(__file__).parent))
 
 from config import config
-from modules.database import init_database, get_database
-from modules.llm_router import LLMRouter
-from modules.generator import ContentGenerator
 from modules.bot_v0_final import create_bot_v0_final as create_bot
-from modules.scheduler import create_scheduler
+from modules.database import get_database, init_database
+from modules.generator import ContentGenerator
+from modules.llm_router import LLMRouter
 from modules.openclaw_bridge import create_openclaw_bridge
+from modules.scheduler import create_scheduler
 
-log_dir = Path(__file__).parent / 'data'
+log_dir = Path(__file__).parent / "data"
 log_dir.mkdir(exist_ok=True)
 
 logging.basicConfig(
@@ -40,8 +40,8 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler(log_dir / 'x-agent.log', encoding='utf-8')
-    ]
+        logging.FileHandler(log_dir / "x-agent.log", encoding="utf-8"),
+    ],
 )
 
 logger = logging.getLogger(__name__)
@@ -49,7 +49,7 @@ logger = logging.getLogger(__name__)
 
 class XAgentApp:
     """X Agent 主应用类"""
-    
+
     def __init__(self):
         """初始化应用"""
         self.db = None
@@ -59,11 +59,11 @@ class XAgentApp:
         self.scheduler = None
         self.openclaw_bridge = None
         self.running = False
-    
+
     async def initialize(self):
         """初始化所有组件"""
         logger.info("🚀 Initializing X Agent v3.0...")
-        
+
         # 1. 初始化数据库
         try:
             self.db = init_database(config.supabase_url, config.supabase_key)
@@ -71,7 +71,7 @@ class XAgentApp:
         except Exception as e:
             logger.error(f"❌ Database initialization failed: {e}")
             raise
-        
+
         # 2. 初始化 LLM 路由
         try:
             self.llm_router = LLMRouter(config)
@@ -79,13 +79,13 @@ class XAgentApp:
         except Exception as e:
             logger.error(f"❌ LLM Router initialization failed: {e}")
             raise
-        
+
         # 3. 初始化内容生成器
         try:
-            niche = 'general'
+            niche = "general"
             try:
                 niche_data = self.db.get_current_niche()
-                niche = niche_data or 'general'
+                niche = niche_data or "general"
             except:
                 pass
             self.generator = ContentGenerator(self.llm_router, niche)
@@ -93,7 +93,7 @@ class XAgentApp:
         except Exception as e:
             logger.error(f"❌ Content Generator initialization failed: {e}")
             raise
-        
+
         # 4. 初始化 OpenClaw 桥接器
         try:
             self.openclaw_bridge = await create_openclaw_bridge(config.openclaw_api_endpoint)
@@ -101,77 +101,77 @@ class XAgentApp:
         except Exception as e:
             logger.error(f"❌ OpenClaw Bridge initialization failed: {e}")
             raise
-        
+
         # 5. 初始化 Bot
         try:
             self.bot = create_bot(
                 config.telegram_bot_token,
                 db=self.db,
                 llm_router=self.llm_router,
-                generator=self.generator
+                generator=self.generator,
             )
             logger.info("✅ Telegram Bot initialized")
         except Exception as e:
             logger.error(f"❌ Telegram Bot initialization failed: {e}")
             raise
-        
+
         # 6. 初始化调度器
         try:
             self.scheduler = create_scheduler(
                 db=self.db,
                 generator=self.generator,
                 openclaw_bridge=self.openclaw_bridge,
-                bot=self.bot
+                bot=self.bot,
             )
             logger.info("✅ Scheduler initialized")
         except Exception as e:
             logger.error(f"❌ Scheduler initialization failed: {e}")
             raise
-        
+
         logger.info("🎉 All components initialized successfully!")
-    
+
     async def start(self):
         """启动应用"""
         if self.running:
             logger.warning("Application is already running")
             return
-        
+
         logger.info("🚀 Starting X Agent v3.0...")
         self.running = True
-        
+
         # 启动调度器
         if self.scheduler:
             await self.scheduler.start()
             logger.info("✅ Scheduler started")
-        
+
         # 启动 Bot
         if self.bot:
             logger.info("✅ Bot started (polling)")
-        
+
         logger.info("🎉 X Agent v3.0 is now running!")
-        
+
         # 保持运行
         while self.running:
             await asyncio.sleep(1)
-    
+
     async def stop(self):
         """停止应用"""
         if not self.running:
             return
-        
+
         logger.info("🛑 Stopping X Agent v3.0...")
         self.running = False
-        
+
         # 停止调度器
         if self.scheduler:
             await self.scheduler.stop()
             logger.info("✅ Scheduler stopped")
-        
+
         # 停止 Bot
         if self.bot and self.bot.application:
             await self.bot.application.stop()
             logger.info("✅ Bot stopped")
-        
+
         logger.info("👋 X Agent v3.0 stopped")
 
 
@@ -212,5 +212,5 @@ def main():
         pass
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
