@@ -360,6 +360,13 @@ class XAgentBotV0Final:
         if update.message:
             await update.message.reply_text("⚙️ 设置功能开发中...")
     
+
+    async def cmd_log(self, update: Update, context: CallbackContext) -> None:
+        """快捷录入今日数据"""
+        if update.message:
+            await update.message.reply_text("📝 请录入今日数据：\n发帖数：\n评论数：\n最高互动：")
+        # TODO: 实现具体录入逻辑
+
     async def cmd_help(self, update: Update, context: CallbackContext) -> None:
         """帮助"""
         help_text = (
