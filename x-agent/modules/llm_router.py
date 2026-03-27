@@ -160,6 +160,6 @@ def get_llm(config=None) -> LLMRouter:
     if config:
         return LLMRouter(config)
     if _default_router is None:
-        from modules.config import config as cfg
+        from config import config as cfg
         _default_router = LLMRouter(cfg)
     return _default_router
