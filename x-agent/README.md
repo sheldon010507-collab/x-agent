@@ -4,7 +4,7 @@
 热点监控 + AI 内容生产 + OpenClaw 自动发帖/评论 + 每日复盘
 
 ![Status](https://img.shields.io/badge/status-production--ready-green)
-![Version](https://img.shields.io/badge/version-v0--final-blue)
+![Version](https://img.shields.io/badge/version-v0--final-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
 ---
