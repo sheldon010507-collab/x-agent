@@ -9,6 +9,7 @@ bot_v0_final.py - X-Agent v0 Final 半自动流程 Bot 模块
 """
 
 import logging
+from datetime import datetime
 from typing import Dict, Optional, Any
 from telegram import (
     Update,
@@ -25,11 +26,11 @@ from telegram.ext import (
 logger = logging.getLogger(__name__)
 
 
-def create_bot_v0_final(token: str, db=None, llm_router=None, generator=None, 
-                        config=None, researcher=None, scorer=None):
+def create_bot_v0_final(token: str, db=None, llm_router=None, generator=None,
+                        config=None, researcher=None, scorer=None, openclaw_bridge=None):
     """
     创建 v0 Final Bot 实例
-    
+
     Args:
         token: Telegram Bot Token
         db: Database 实例
@@ -38,7 +39,8 @@ def create_bot_v0_final(token: str, db=None, llm_router=None, generator=None,
         config: Config 配置
         researcher: Researcher 实例
         scorer: Scorer 实例
-    
+        openclaw_bridge: OpenClawBridge 实例（用于自动发布）
+
     Returns:
         XAgentBotV0Final 实例
     """
@@ -49,7 +51,8 @@ def create_bot_v0_final(token: str, db=None, llm_router=None, generator=None,
         generator=generator,
         config=config,
         researcher=researcher,
-        scorer=scorer
+        scorer=scorer,
+        openclaw_bridge=openclaw_bridge,
     )
 
 
@@ -63,8 +66,8 @@ class XAgentBotV0Final:
     3. 每日 21:00 自动推送复盘报告
     """
     
-    def __init__(self, token: str, db=None, llm_router=None, generator=None, 
-                 config=None, researcher=None, scorer=None):
+    def __init__(self, token: str, db=None, llm_router=None, generator=None,
+                 config=None, researcher=None, scorer=None, openclaw_bridge=None):
         self.token = token
         self.db = db
         self.llm_router = llm_router
@@ -72,6 +75,7 @@ class XAgentBotV0Final:
         self.config = config
         self.researcher = researcher
         self.scorer = scorer
+        self.openclaw_bridge = openclaw_bridge
         self.application: Application = None
         self.user_states: Dict[int, Dict] = {}
         
@@ -89,6 +93,7 @@ class XAgentBotV0Final:
         self.application.add_handler(CommandHandler("create", self.cmd_create))
         self.application.add_handler(CommandHandler("report", self.cmd_report))
         self.application.add_handler(CommandHandler("settings", self.cmd_settings))
+        self.application.add_handler(CommandHandler("log", self.cmd_log))
         self.application.add_handler(CommandHandler("help", self.cmd_help))
         
         # Inline 按钮回调处理器
@@ -290,24 +295,42 @@ class XAgentBotV0Final:
         if action == "auto":
             # 自动发布 (低风险内容)
             await query.edit_message_text("🤖 正在自动发布...")
-            # TODO: 调用 openclaw_bridge.publish()
-            await query.edit_message_text("✅ 已自动发布!")
-            
+            user_state = self.user_states.get(user_id, {})
+            generated = user_state.get("generated", {})
+            content = generated.get("content", "")
+            if self.openclaw_bridge and content:
+                try:
+                    result = await self.openclaw_bridge.post_content(content)
+                    if result.get("success"):
+                        url = result.get("url", "")
+                        msg = f"✅ 已自动发布!\n🔗 {url}" if url else "✅ 已自动发布!"
+                    else:
+                        msg = f"❌ 发布失败: {result.get('reason', '未知错误')}"
+                except Exception as e:
+                    logger.error(f"自动发布异常: {e}")
+                    msg = f"❌ 发布异常: {e}"
+            else:
+                msg = "⚠️ 发布组件未初始化，请手动复制内容后发布"
+            await query.edit_message_text(msg)
+            if user_id in self.user_states:
+                del self.user_states[user_id]
+
         elif action == "manual":
-            # 人工确认发布 - 显示最终确认
+            # 人工确认发布 - 提示手动操作
             await query.edit_message_text("✅ 请复制内容后手动发布到 X/Twitter")
-            # TODO: 显示复制按钮或跳转链接
-            
+            if user_id in self.user_states:
+                del self.user_states[user_id]
+
         elif action == "regen":
-            # 重新生成
+            # 重新生成 - 使用 query.message（callback 中 update.message 为 None）
             await query.edit_message_text("🔄 正在重新生成...")
-            # 重新创建消息对象来模拟 /create 命令
-            if update.message and update.message.chat:
+            if query.message and query.message.chat:
                 fake_update = type('FakeUpdate', (), {
+                    'effective_user': query.from_user,
                     'message': type('FakeMessage', (), {
-                        'chat': update.message.chat,
-                        'reply_text': update.message.reply_text
-                    })()
+                        'chat': query.message.chat,
+                        'reply_text': query.message.reply_text,
+                    })(),
                 })()
                 await self.cmd_create(fake_update, context)
             
@@ -328,7 +351,7 @@ class XAgentBotV0Final:
         # TODO: 从数据库获取今日数据
         report_text = (
             "📊 **今日复盘报告**\n\n"
-            f"日期：2026-03-27\n\n"
+            f"日期：{datetime.now().strftime('%Y-%m-%d')}\n\n"
             "📝 发帖数：0\n"
             "💬 评论数：0\n"
             "❤️ 最高互动：0\n\n"

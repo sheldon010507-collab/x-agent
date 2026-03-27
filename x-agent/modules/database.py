@@ -11,10 +11,33 @@ database.py - 数据库操作模块
 版本：V0 Final
 """
 
+import functools
+import logging
 from supabase import create_client, Client
 from typing import List, Dict, Optional, Any
 from datetime import datetime, date
 import uuid
+
+logger = logging.getLogger(__name__)
+
+
+class DatabaseError(Exception):
+    """数据库操作异常"""
+    pass
+
+
+def db_operation(method):
+    """数据库操作装饰器 — 统一捕获 Supabase 异常并记录日志"""
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        try:
+            return method(self, *args, **kwargs)
+        except DatabaseError:
+            raise
+        except Exception as e:
+            logger.error(f"[DB] {method.__name__} failed: {e}", exc_info=True)
+            raise DatabaseError(f"操作失败 ({method.__name__}): {e}") from e
+    return wrapper
 
 
 class Database:
@@ -25,7 +48,8 @@ class Database:
         self.client: Client = create_client(supabase_url, supabase_key)
     
     # ========== Trends 表操作 ==========
-    
+
+    @db_operation
     def create_trend(self, niche: str, topic: str, source: str, score: float,
                      summary: str = None, citations: Dict = None, url: str = None) -> Dict:
         """创建新的热点记录"""
@@ -43,6 +67,7 @@ class Database:
         result = self.client.table('trends').insert(data).execute()
         return result.data[0] if result.data else None
     
+    @db_operation
     def get_trends_by_score(self, min_score: float = 60, limit: int = 20) -> List[Dict]:
         """获取高于指定分数的热点（按分数降序）"""
         result = self.client.table('trends') \
@@ -54,6 +79,7 @@ class Database:
             .execute()
         return result.data
     
+    @db_operation
     def get_trend_by_id(self, trend_id: str) -> Optional[Dict]:
         """根据 ID 获取热点"""
         result = self.client.table('trends') \
@@ -62,6 +88,7 @@ class Database:
             .execute()
         return result.data[0] if result.data else None
     
+    @db_operation
     def update_trend_status(self, trend_id: str, status: str) -> None:
         """更新热点状态"""
         self.client.table('trends') \
@@ -75,6 +102,7 @@ class Database:
 
     # ========== V0 Final: risk_score 操作 ==========
     
+    @db_operation
     def update_trend_risk_score(self, trend_id: str, risk_score: float) -> None:
         """更新热点风险评分 (V0 Final)"""
         self.client.table('trends') \
@@ -82,6 +110,7 @@ class Database:
             .eq('id', trend_id) \
             .execute()
     
+    @db_operation
     def get_trends_by_risk(self, max_risk: float = 70, limit: int = 20) -> List[Dict]:
         """获取低风险热点 (V0 Final: risk_score < 70 才可自动发布)"""
         result = self.client.table('trends') \
@@ -93,6 +122,7 @@ class Database:
             .execute()
         return result.data
     
+    @db_operation
     def get_medium_score_trends(self, min_score: float = 60, max_score: float = 79.99) -> List[Dict]:
         """获取中等分数热点（60-79 分，用于每日汇总）"""
         result = self.client.table('trends') \
@@ -106,6 +136,7 @@ class Database:
     
     # ========== Content Queue 表操作 ==========
     
+    @db_operation
     def create_content(self, trend_id: str, type: str, content: str,
                        media_suggestion: str = None, status: str = 'draft') -> Dict:
         """创建内容草稿"""
@@ -120,6 +151,7 @@ class Database:
         result = self.client.table('content_queue').insert(data).execute()
         return result.data[0] if result.data else None
     
+    @db_operation
     def get_content_queue(self, status: str = 'draft', limit: int = 20) -> List[Dict]:
         """获取待发布内容队列"""
         result = self.client.table('content_queue') \
@@ -130,6 +162,7 @@ class Database:
             .execute()
         return result.data
     
+    @db_operation
     def update_content_status(self, content_id: str, status: str) -> None:
         """更新内容状态"""
         self.client.table('content_queue') \
@@ -139,6 +172,7 @@ class Database:
 
     # ========== V0 Final: 内容状态流转 (draft → confirmed/rejected/published) ==========
     
+    @db_operation
     def confirm_content(self, content_id: str) -> None:
         """确认内容发布 (V0 Final: draft → confirmed)"""
         self.client.table('content_queue') \
@@ -149,6 +183,7 @@ class Database:
             .eq('id', content_id) \
             .execute()
     
+    @db_operation
     def reject_content(self, content_id: str) -> None:
         """拒绝内容 (V0 Final: draft → rejected)"""
         self.client.table('content_queue') \
@@ -159,6 +194,7 @@ class Database:
             .eq('id', content_id) \
             .execute()
     
+    @db_operation
     def publish_content(self, content_id: str) -> None:
         """标记内容已发布 (V0 Final: confirmed → published)"""
         self.client.table('content_queue') \
@@ -169,7 +205,8 @@ class Database:
             .eq('id', content_id) \
             .execute()
     
-    def create_content_with_risk(self, trend_id: str, type: str, content: str, 
+    @db_operation
+    def create_content_with_risk(self, trend_id: str, type: str, content: str,
                                   media_suggestion: str = None, risk_score: float = 50.0) -> Dict:
         """创建带风险评分的内容草稿 (V0 Final)"""
         data = {
@@ -186,6 +223,7 @@ class Database:
     
     # ========== Daily Log 表操作 ==========
     
+    @db_operation
     def create_daily_log(self, date: date, posts_count: int = 0,
                          comments_count: int = 0, likes_count: int = 0,
                          rt_count: int = 0, top_engagement: int = 0,
@@ -204,6 +242,7 @@ class Database:
         result = self.client.table('daily_log').insert(data).execute()
         return result.data[0] if result.data else None
     
+    @db_operation
     def get_daily_log(self, date: date) -> Optional[Dict]:
         """获取指定日期的记录"""
         result = self.client.table('daily_log') \
@@ -212,6 +251,7 @@ class Database:
             .execute()
         return result.data[0] if result.data else None
     
+    @db_operation
     def update_daily_log(self, date: date, **kwargs) -> None:
         """更新每日记录"""
         self.client.table('daily_log') \
@@ -221,6 +261,7 @@ class Database:
     
     # ========== Niche 表操作 ==========
     
+    @db_operation
     def get_current_niche(self) -> Optional[str]:
         """获取当前激活的 Niche"""
         result = self.client.table('niche') \
@@ -229,6 +270,7 @@ class Database:
             .execute()
         return result.data[0]['name'] if result.data else None
     
+    @db_operation
     def set_niche(self, niche_name: str, voice_file: str = None) -> None:
         """切换 Niche"""
         # 先停用所有 Niche
@@ -259,6 +301,7 @@ class Database:
     
     # ========== Automation Settings 表操作 ==========
     
+    @db_operation
     def get_automation_settings(self) -> Dict:
         """获取自动化设置"""
         result = self.client.table('automation_settings') \
@@ -272,6 +315,7 @@ class Database:
         
         return self.create_default_automation_settings()
     
+    @db_operation
     def create_default_automation_settings(self) -> Dict:
         """创建默认自动化设置"""
         data = {
@@ -287,6 +331,7 @@ class Database:
         result = self.client.table('automation_settings').insert(data).execute()
         return result.data[0] if result.data else data
     
+    @db_operation
     def update_automation_settings(self, **kwargs) -> Dict:
         """更新自动化设置"""
         current = self.get_automation_settings()
@@ -304,6 +349,7 @@ class Database:
     
     # ========== Strategy 表操作 ==========
     
+    @db_operation
     def get_current_strategy(self, niche: str) -> Optional[Dict]:
         """获取当前 Niche 的策略"""
         result = self.client.table('strategy') \
@@ -314,6 +360,7 @@ class Database:
             .execute()
         return result.data[0] if result.data else None
     
+    @db_operation
     def create_strategy(self, niche: str, version: int, content: str) -> Dict:
         """创建新策略版本"""
         data = {
@@ -327,6 +374,7 @@ class Database:
     
     # ========== 统计查询 ==========
     
+    @db_operation
     def get_today_stats(self, date: date = None) -> Dict:
         """获取今日统计"""
         if date is None:

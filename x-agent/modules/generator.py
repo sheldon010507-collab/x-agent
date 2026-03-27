@@ -51,33 +51,35 @@ class ContentGenerator:
             # 使用通用语气
             return f"Niche: {niche}\nTone: Professional and engaging"
     
+    async def _generate_with_fallback(self, prompt: str, system: str, validator_fn, mock_fn, *mock_args) -> Dict:
+        """通用生成流程：调用 LLM → 验证 → fallback"""
+        try:
+            result = await self.llm_router.generate_json(prompt, system=system)
+            return validator_fn(result)
+        except Exception:
+            return mock_fn(*mock_args)
+
     async def generate_type_a(self, topic: str, summary: str = '', source: str = '', score: float = 50.0) -> Dict:
         """
         生成 A 类推文（3 条备选）
-        
+
         Args:
             topic: 话题
             summary: 热点摘要
             source: 来源
             score: 热点评分
-        
+
         Returns:
             Dict: 包含 3 条推文的 JSON
         """
         prompt = self._build_type_a_prompt(topic, summary, source, score)
-        
-        try:
-            result = await self.llm_router.generate_json(prompt, system=f"""你是 X 智能运营助手，专门为 {self.niche} 领域创作高质量的推文内容。
+        system = f"""你是 X 智能运营助手，专门为 {self.niche} 领域创作高质量的推文内容。
 当前 Niche 的语气风格：
 {self.voice_style}
 
 请生成 3 条不同角度的推文，每条控制在 280 字符以内，包含 2-3 个相关 hashtag。
-严格按照 JSON 格式返回。""")
-            
-            return self._validate_type_a_result(result)
-        except Exception as e:
-            # 返回模拟结果
-            return self._mock_type_a_result(topic)
+严格按照 JSON 格式返回。"""
+        return await self._generate_with_fallback(prompt, system, self._validate_type_a_result, self._mock_type_a_result, topic)
     
     def _build_type_a_prompt(self, topic: str, summary: str, source: str, score: float) -> str:
         """构建 A 类生成 Prompt"""
@@ -165,18 +167,13 @@ class ContentGenerator:
             Dict: 视频脚本 JSON
         """
         prompt = self._build_type_b_prompt(topic, summary, source, score)
-        
-        try:
-            result = await self.llm_router.generate_json(prompt, system=f"""你是 X 智能运营助手，专门为 {self.niche} 领域创作短视频脚本。
+        system = f"""你是 X 智能运营助手，专门为 {self.niche} 领域创作短视频脚本。
 当前 Niche 的语气风格：
 {self.voice_style}
 
 请生成一个 30 秒视频脚本，包含清晰的开场钩子、主体内容和 CTA。
-严格按照 JSON 格式返回。""")
-            
-            return self._validate_type_b_result(result)
-        except Exception as e:
-            return self._mock_type_b_result(topic)
+严格按照 JSON 格式返回。"""
+        return await self._generate_with_fallback(prompt, system, self._validate_type_b_result, self._mock_type_b_result, topic)
     
     def _build_type_b_prompt(self, topic: str, summary: str, source: str, score: float) -> str:
         """构建 B 类生成 Prompt"""
@@ -253,9 +250,7 @@ class ContentGenerator:
             Dict: 评论列表
         """
         prompt = self._build_comment_prompt(post_content, author, hashtags)
-        
-        try:
-            result = await self.llm_router.generate_json(prompt, system=f"""你是 X 智能运营助手，专门为 {self.niche} 领域创作自然、有吸引力的评论。
+        system = f"""你是 X 智能运营助手，专门为 {self.niche} 领域创作自然、有吸引力的评论。
 当前 Niche 的语气风格：
 {self.voice_style}
 
@@ -282,11 +277,8 @@ class ContentGenerator:
       "has_cta": false
     }}
   ]
-}}""")
-            
-            return self._validate_comment_result(result)
-        except Exception as e:
-            return self._mock_comment_result()
+}}"""
+        return await self._generate_with_fallback(prompt, system, self._validate_comment_result, self._mock_comment_result)
     
     def _build_comment_prompt(self, post_content: str, author: str, hashtags: List[str]) -> str:
         """构建评论生成 Prompt"""
@@ -318,7 +310,7 @@ class ContentGenerator:
         self.niche = niche
         self.voice_style = self._load_niche_voice(niche)
 
-    async def generate(self, content_type: str, topic: str, niche: str = None) -> Dict:
+    async def generate(self, topic: str, content_type: str = 'a', niche: str = None) -> Dict:
         """
         统一生成入口 - V0 Final
         
