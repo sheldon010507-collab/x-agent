@@ -28,7 +28,13 @@ from modules.config import config
 from modules.database import init_database, get_database
 from modules.llm_router import LLMRouter
 from modules.generator import ContentGenerator
-from modules.bot import create_bot
+# V0 Final: 使用半自动 Bot 版本
+try:
+    from modules.bot_v0_final import create_bot_v0_final as create_bot
+    logger.info("✅ 使用 v0 Final 半自动 Bot")
+except ImportError:
+    from modules.bot import create_bot
+    logger.warning("⚠️ 使用旧版 Bot")
 from modules.scheduler import create_scheduler
 from modules.openclaw_bridge import create_openclaw_bridge
 
