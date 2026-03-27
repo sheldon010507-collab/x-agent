@@ -1,0 +1,50 @@
+{
+  "relevance_score": 71.0,
+  "velocity_24h": 51.0,
+  "authority_score": 61.0,
+  "platform_count": 3,
+  "summary": "Research summary for: AI breakthrough",
+  "platforms": [
+    "x",
+    "reddit",
+    "youtube"
+  ],
+  "citations": [
+    {
+      "platform": "x",
+      "url": "https://x.com/search?q=AI+breakthrough",
+      "title": "Search results for AI breakthrough",
+      "engagement": 100
+    },
+    {
+      "platform": "reddit",
+      "url": "https://reddit.com/search?q=AI+breakthrough",
+      "title": "Reddit discussions about AI breakthrough",
+      "engagement": 50
+    }
+  ],
+  "insights": [],
+  "engagement": 150,
+  "engagement_24h": 150,
+  "trends": [],
+  "key_insights": [
+    "AI breakthrough is gaining traction across multiple platforms",
+    "Consider creating content around this topic"
+  ],
+  "images": [],
+  "videos": [],
+  "time_range": {
+    "days": 7,
+    "start_date": "2026-03-18T23:36:44.638044",
+    "end_date": "2026-03-25T23:36:44.638152"
+  },
+  "topic": "AI breakthrough",
+  "niche": "ai_tools",
+  "created_at": "2026-03-25T23:36:44.638228",
+  "research_days": 7,
+  "sources_requested": [
+    "x",
+    "reddit",
+    "youtube"
+  ]
+}
