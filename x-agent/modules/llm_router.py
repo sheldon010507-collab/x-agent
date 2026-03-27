@@ -1,6 +1,13 @@
 """
-llm_router.py - 多供应商 LLM 统一路由器
-支持: OpenAI, Anthropic, Groq, Gemini, OpenRouter, NVIDIA NIM, Ollama
+llm_router.py - LLM路由模块
+
+【V0 Final】此版本为生产级开源版本
+
+功能：
+- 多模型支持
+- 自动降级
+
+版本：V0 Final
 """
 
 import logging

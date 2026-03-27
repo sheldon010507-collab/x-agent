@@ -1,12 +1,15 @@
 """
 generator.py - 内容生成模块
 
-支持：
-- A 类：AI 全自动推文（3 条备选）
-- B 类：30 秒视频脚本
-- C 类：智能评论（带 emoji + 问题结尾）
+【V0 Final】此版本为生产级开源版本
 
-注入 Niche 语气（从 niche_voices/ 读取）
+功能：
+- A类推文生成
+- B类视频脚本
+- C类智能评论
+- Niche语气注入
+
+版本：V0 Final
 """
 
 import asyncio

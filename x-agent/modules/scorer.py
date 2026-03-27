@@ -1,3 +1,13 @@
+""" scorer.py - 热点复合评分模块
+
+【V0 Final】此版本为生产级开源版本
+
+功能：
+- 四维评分系统（Relevance + Velocity + Authority + Convergence）
+- 风险评分计算（risk_score）
+- 热点等级判定（HIGH/MEDIUM/LOW）
+
+版本：V0 Final
 """
 scorer.py - 热点复合评分模块
 

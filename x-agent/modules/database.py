@@ -1,7 +1,14 @@
 """
-database.py - Supabase 数据库操作封装
+database.py - 数据库操作模块
 
-负责所有表的 CRUD 操作
+【V0 Final】此版本为生产级开源版本
+
+功能：
+- CRUD封装
+- risk_score字段
+- 状态流转
+
+版本：V0 Final
 """
 
 from supabase import create_client, Client

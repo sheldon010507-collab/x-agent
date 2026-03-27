@@ -1,16 +1,15 @@
 """
-openclaw_bridge.py - OpenClaw 集成模块
+openclaw_bridge.py - OpenClaw集成模块
+
+【V0 Final】此版本为生产级开源版本
 
 功能：
-- 调用 OpenClaw Skills（x-poster, x-smart-commenter）
-- 自动发帖
-- 智能评论（带随机延迟）
-- 点赞/RT 开关控制
+- 自动发帖/评论
+- 防封机制
+- 随机延迟
+- 每日上限控制
 
-v3.0 防封强化：
-- 规则1: 随机延迟 10-40 秒
-- 规则2: 内容轻微变体（emoji 随机）
-- 规则3: 每日上限从环境变量读取
+版本：V0 Final
 """
 
 import asyncio

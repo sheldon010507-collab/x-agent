@@ -1,24 +1,14 @@
 """
-bot.py - Telegram Bot 交互模块 v3.0
+bot.py - Telegram Bot交互模块
 
-实现所有 Bot 指令：
-- /start - 今日热点概览
-- /set_niche - 切换 Niche 模式
-- /research - 深度研究话题
-- /trends - 热点列表
-- /create - 创建内容（A/B/C 类）
-- /queue - 草稿队列
-- /log - 录入数据
-- /report - 复盘报告
-- /strategy - 查看策略
-- /settings - 自动化设置
-- /llm - LLM 切换
-- /score - 计算热点评分
+【V0 Final】此版本为生产级开源版本
 
-v3.0 更新：
-- 完善所有命令功能
-- 集成 research.py 和 scorer.py
-- 添加 /score 命令
+功能：
+- 完整命令支持
+- Inline按钮
+- 半自动确认流程
+
+版本：V0 Final
 """
 
 import logging
