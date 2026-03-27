@@ -1,5 +1,13 @@
 # X-Agent v0 Final
 
+> ⚠️ **风险声明 / Risk Disclaimer**
+>
+> 本工具仅供学习和研究用途。使用本工具进行自动化操作可能违反平台服务条款。
+> 作者不对因使用本工具导致的任何账号封禁、数据损失或其他后果负责。
+>
+> This tool is for learning and research purposes only. Automated operations may violate platform Terms of Service.
+> The author is not responsible for any account bans, data loss, or other consequences.
+
 **X（Twitter）智能运营Agent**
 热点监控 + AI内容生产 + OpenClaw自动发帖/评论 + 每日复盘
 
