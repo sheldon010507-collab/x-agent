@@ -1,13 +1,15 @@
--- X-Agent v2.0 数据库初始化脚本
+-- X-Agent v0 Final 数据库初始化脚本
+-- V0 Final: 添加 risk_score 字段 + 内容状态流转
 -- 在 Supabase SQL 编辑器中执行
 
--- 热点记录表
+-- 热点记录表 (V0 Final: 添加 risk_score)
 CREATE TABLE IF NOT EXISTS trends (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     niche text NOT NULL,
     topic text NOT NULL,
     source text NOT NULL,
     score numeric NOT NULL,
+    risk_score numeric DEFAULT 50.0,  -- V0 Final: 风险评分 (0-100)
     summary text,
     citations jsonb,
     url text,
@@ -15,14 +17,18 @@ CREATE TABLE IF NOT EXISTS trends (
     created_at timestamptz DEFAULT now()
 );
 
--- 内容草稿表
+-- 内容草稿表 (V0 Final: 状态流转 draft → confirmed/rejected)
 CREATE TABLE IF NOT EXISTS content_queue (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     trend_id uuid REFERENCES trends(id),
     type text NOT NULL,
     content text NOT NULL,
     media_suggestion text,
-    status text DEFAULT 'draft',
+    risk_score numeric DEFAULT 50.0,  -- V0 Final: 内容风险评分
+    status text DEFAULT 'draft',  -- V0 Final: draft/confirmed/rejected/published
+    confirmed_at timestamptz,     -- V0 Final: 确认时间
+    rejected_at timestamptz,      -- V0 Final: 拒绝时间
+    published_at timestamptz,     -- V0 Final: 发布时间
     created_at timestamptz DEFAULT now()
 );
 

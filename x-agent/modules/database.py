@@ -65,6 +65,26 @@ class Database:
     def get_high_score_trends(self, min_score: float = 80) -> List[Dict]:
         """获取高分热点（≥80 分，用于立即推送）"""
         return self.get_trends_by_score(min_score)
+
+    # ========== V0 Final: risk_score 操作 ==========
+    
+    def update_trend_risk_score(self, trend_id: str, risk_score: float) -> None:
+        """更新热点风险评分 (V0 Final)"""
+        self.client.table('trends') \
+            .update({'risk_score': risk_score}) \
+            .eq('id', trend_id) \
+            .execute()
+    
+    def get_trends_by_risk(self, max_risk: float = 70, limit: int = 20) -> List[Dict]:
+        """获取低风险热点 (V0 Final: risk_score < 70 才可自动发布)"""
+        result = self.client.table('trends') \
+            .select('*') \
+            .lt('risk_score', max_risk) \
+            .eq('status', 'new') \
+            .order('score', desc=True) \
+            .limit(limit) \
+            .execute()
+        return result.data
     
     def get_medium_score_trends(self, min_score: float = 60, max_score: float = 79.99) -> List[Dict]:
         """获取中等分数热点（60-79 分，用于每日汇总）"""
@@ -109,6 +129,53 @@ class Database:
             .update({'status': status}) \
             .eq('id', content_id) \
             .execute()
+
+    # ========== V0 Final: 内容状态流转 (draft → confirmed/rejected/published) ==========
+    
+    def confirm_content(self, content_id: str) -> None:
+        """确认内容发布 (V0 Final: draft → confirmed)"""
+        self.client.table('content_queue') \
+            .update({
+                'status': 'confirmed',
+                'confirmed_at': datetime.now().isoformat()
+            }) \
+            .eq('id', content_id) \
+            .execute()
+    
+    def reject_content(self, content_id: str) -> None:
+        """拒绝内容 (V0 Final: draft → rejected)"""
+        self.client.table('content_queue') \
+            .update({
+                'status': 'rejected',
+                'rejected_at': datetime.now().isoformat()
+            }) \
+            .eq('id', content_id) \
+            .execute()
+    
+    def publish_content(self, content_id: str) -> None:
+        """标记内容已发布 (V0 Final: confirmed → published)"""
+        self.client.table('content_queue') \
+            .update({
+                'status': 'published',
+                'published_at': datetime.now().isoformat()
+            }) \
+            .eq('id', content_id) \
+            .execute()
+    
+    def create_content_with_risk(self, trend_id: str, type: str, content: str, 
+                                  media_suggestion: str = None, risk_score: float = 50.0) -> Dict:
+        """创建带风险评分的内容草稿 (V0 Final)"""
+        data = {
+            'id': str(uuid.uuid4()),
+            'trend_id': trend_id,
+            'type': type,
+            'content': content,
+            'media_suggestion': media_suggestion,
+            'risk_score': risk_score,
+            'status': 'draft'
+        }
+        result = self.client.table('content_queue').insert(data).execute()
+        return result.data[0] if result.data else None
     
     # ========== Daily Log 表操作 ==========
     
