@@ -1,15 +1,15 @@
 """
-openclaw_bridge.py - OpenClaw集成模块
+openclaw_bridge.py - X (Twitter) 集成模块
 
-【V0 Final】此版本为生产级开源版本
+【V1 Browser Automation】使用 Playwright 无头浏览器自动化 X
 
 功能：
-- 自动发帖/评论
-- 防封机制
-- 随机延迟
+- 浏览器自动化发帖/评论/点赞
+- 防封机制（随机延迟、内容变体）
 - 每日上限控制
+- Session 管理（登录状态持久化）
 
-版本：V0 Final
+版本：V1 - Browser Automation Edition
 """
 
 import asyncio
@@ -18,6 +18,8 @@ import os
 import random
 from datetime import datetime
 from typing import Dict, List, Optional
+
+from .x_automation import XAutomation, create_x_automation
 
 logger = logging.getLogger(__name__)
 
@@ -35,21 +37,24 @@ PHRASE_VARIANTS = ["", " Interesting.", " Thoughts?", " 👀", " Just saying.", 
 
 
 class OpenClawBridge:
-    """OpenClaw 桥接器 - 带防封机制"""
+    """X (Twitter) 自动化桥接器 - 浏览器自动化版本"""
 
     def __init__(self, api_endpoint: str = "http://localhost:8080"):
         """
-        初始化 OpenClaw 桥接器
+        初始化 X 自动化桥接器
 
         Args:
-            api_endpoint: OpenClaw API 端点
+            api_endpoint: OpenClaw API 端点（暂未使用，保持兼容性）
         """
         self.api_endpoint = api_endpoint
+        self.x_automation: Optional[XAutomation] = None
+        self.initialized = False
 
         # 开关控制
         self.auto_like_enabled = False
         self.auto_rt_enabled = False
         self.auto_post_enabled = False
+        self.auto_comment_enabled = True
 
         # 每日上限（从环境变量读取）
         self.daily_like_limit = MAX_LIKES_PER_DAY
@@ -63,44 +68,7 @@ class OpenClawBridge:
         self.post_count = 0
         self.comment_count = 0
 
-    # ==================== 防封规则 ====================
-
-    def _random_delay(self, min_sec: float = None, max_sec: float = None):
-        """
-        规则1: 随机延迟 10-40 秒
-
-        Args:
-            min_sec: 最小延迟（默认从环境变量）
-            max_sec: 最大延迟（默认从环境变量）
-        """
-        min_sec = min_sec or DELAY_MIN
-        max_sec = max_sec or DELAY_MAX
-        delay = random.uniform(min_sec, max_sec)
-        logger.info(f"[防封] 随机延迟 {delay:.1f} 秒")
-        return delay
-
-    def _apply_content_variant(self, content: str) -> str:
-        """
-        规则2: 内容轻微变体
-
-        Args:
-            content: 原始内容
-
-        Returns:
-            str: 变体后的内容
-        """
-        # 随机添加 emoji
-        if random.random() > 0.5:
-            emoji = random.choice(EMOJI_VARIANTS)
-            content = f"{content} {emoji}"
-
-        # 随机添加短语
-        if random.random() > 0.7:
-            phrase = random.choice(PHRASE_VARIANTS)
-            content = f"{content}{phrase}"
-
-        logger.debug(f"[防封] 内容变体: {content[:50]}...")
-        return content.strip()
+    # ==================== 每日限制检查 ====================
 
     def _check_daily_limit(self, action: str) -> bool:
         """
@@ -129,6 +97,42 @@ class OpenClawBridge:
 
     # ==================== 发帖功能 ====================
 
+    async def initialize(self) -> bool:
+        """初始化 X 自动化"""
+        try:
+            self.x_automation = await create_x_automation()
+            self.initialized = self.x_automation.logged_in
+
+            if self.initialized:
+                logger.info("✅ X 自动化已初始化并登录")
+            else:
+                logger.warning("⚠️ X 自动化已初始化，但未登录（需要手动登录）")
+
+            return True
+        except Exception as e:
+            logger.error(f"初始化 X 自动化失败: {e}")
+            return False
+
+    async def login_x(self, email: str, password: str, phone: Optional[str] = None) -> bool:
+        """
+        登录 X 账号
+
+        Args:
+            email: 邮箱或用户名
+            password: 密码
+            phone: 可选，如果需要电话验证
+
+        Returns:
+            bool: 登录成功
+        """
+        if not self.x_automation:
+            logger.error("X 自动化未初始化")
+            return False
+
+        success = await self.x_automation.login(email, password, phone)
+        self.initialized = success
+        return success
+
     async def post_content(
         self,
         content: str,
@@ -137,11 +141,11 @@ class OpenClawBridge:
         apply_variant: bool = True,
     ) -> Dict:
         """
-        通过 OpenClaw 自动发帖
+        通过浏览器自动化发帖到 X
 
         Args:
             content: 帖子内容
-            media_suggestion: 配图建议
+            media_suggestion: 配图建议（暂未支持）
             niche: Niche 领域
             apply_variant: 是否应用内容变体
 
@@ -151,6 +155,9 @@ class OpenClawBridge:
         if not self.auto_post_enabled:
             return {"success": False, "reason": "Auto post is disabled"}
 
+        if not self.initialized or not self.x_automation:
+            return {"success": False, "reason": "X 自动化未初始化或未登录"}
+
         if not self._check_daily_limit("post"):
             return {
                 "success": False,
@@ -158,19 +165,12 @@ class OpenClawBridge:
             }
 
         try:
-            # 规则1: 随机延迟
-            delay = self._random_delay()
-            await asyncio.sleep(delay)
+            # 调用 X 自动化发帖
+            result = await self.x_automation.post(content, apply_variant=apply_variant)
 
-            # 规则2: 内容变体
-            if apply_variant:
-                content = self._apply_content_variant(content)
-
-            # 调用 x-poster skill
-            result = await self._call_x_poster(content, media_suggestion)
-
-            self.post_count += 1
-            logger.info(f"[发帖] 成功，今日第 {self.post_count} 条")
+            if result.get("success"):
+                self.post_count += 1
+                logger.info(f"[发帖] 成功，今日第 {self.post_count} 条")
 
             return result
 
@@ -178,81 +178,16 @@ class OpenClawBridge:
             logger.error(f"[发帖] 错误: {e}")
             return {"success": False, "reason": str(e)}
 
-    async def _call_x_poster(self, content: str, media_suggestion: str = None) -> Dict:
-        """调用 x-poster skill"""
-        # TODO: 实际调用 OpenClaw API
-        logger.info(f"[x-poster] 发帖: {content[:50]}...")
-
-        return {
-            "success": True,
-            "post_id": f'mock_{datetime.now().strftime("%Y%m%d%H%M%S")}',
-            "url": "https://x.com/status/mock",
-            "content": content,
-            "posted_at": datetime.now().isoformat(),
-        }
-
-    # ==================== 评论功能 ====================
-
-    async def comment_on_post(
-        self, post_url: str, comment: str, apply_variant: bool = True
-    ) -> Dict:
-        """
-        智能评论（带防封）
-
-        Args:
-            post_url: 原帖链接
-            comment: 评论内容
-            apply_variant: 是否应用内容变体
-
-        Returns:
-            Dict: 评论结果
-        """
-        if not self._check_daily_limit("comment"):
-            return {
-                "success": False,
-                "reason": f"Daily comment limit reached: {self.daily_comment_limit}",
-            }
-
-        try:
-            # 规则1: 随机延迟
-            delay = self._random_delay()
-            await asyncio.sleep(delay)
-
-            # 规则2: 内容变体
-            if apply_variant:
-                comment = self._apply_content_variant(comment)
-
-            # 调用 x-smart-commenter skill
-            result = await self._call_smart_commenter(post_url, comment)
-
-            self.comment_count += 1
-            logger.info(f"[评论] 成功，今日第 {self.comment_count} 条")
-
-            return result
-
-        except Exception as e:
-            logger.error(f"[评论] 错误: {e}")
-            return {"success": False, "reason": str(e)}
-
-    async def _call_smart_commenter(self, post_url: str, comment: str) -> Dict:
-        """调用 x-smart-commenter skill"""
-        # TODO: 实际调用 OpenClaw API
-        logger.info(f"[x-smart-commenter] 评论: {post_url} -> {comment[:50]}...")
-
-        return {
-            "success": True,
-            "comment_id": f'mock_comment_{datetime.now().strftime("%Y%m%d%H%M%S")}',
-            "url": post_url,
-            "comment": comment,
-            "commented_at": datetime.now().isoformat(),
-        }
 
     # ==================== 点赞/转发 ====================
 
     async def like_post(self, post_url: str) -> Dict:
-        """点赞帖子"""
+        """点赞 X 帖子"""
         if not self.auto_like_enabled:
             return {"success": False, "reason": "Auto like is disabled"}
+
+        if not self.initialized or not self.x_automation:
+            return {"success": False, "reason": "X 自动化未初始化或未登录"}
 
         if not self._check_daily_limit("like"):
             return {
@@ -261,53 +196,37 @@ class OpenClawBridge:
             }
 
         try:
-            delay = self._random_delay(5, 15)  # 点赞延迟较短
-            await asyncio.sleep(delay)
-
-            result = await self._call_like(post_url)
-            self.like_count += 1
+            result = await self.x_automation.like(post_url)
+            if result.get("success"):
+                self.like_count += 1
+                logger.info(f"[点赞] 成功，今日第 {self.like_count} 个")
             return result
 
         except Exception as e:
             logger.error(f"[点赞] 错误: {e}")
             return {"success": False, "reason": str(e)}
 
-    async def _call_like(self, post_url: str) -> Dict:
-        """调用点赞 API"""
-        logger.info(f"[点赞] {post_url}")
-        return {"success": True, "liked_at": datetime.now().isoformat()}
-
     async def retweet_post(self, post_url: str, comment: str = None) -> Dict:
-        """转发帖子"""
+        """转发 X 帖子"""
         if not self.auto_rt_enabled:
             return {"success": False, "reason": "Auto RT is disabled"}
+
+        if not self.initialized or not self.x_automation:
+            return {"success": False, "reason": "X 自动化未初始化或未登录"}
 
         if not self._check_daily_limit("rt"):
             return {"success": False, "reason": f"Daily RT limit reached: {self.daily_rt_limit}"}
 
         try:
-            delay = self._random_delay()
-            await asyncio.sleep(delay)
-
-            if comment:
-                comment = self._apply_content_variant(comment)
-
-            result = await self._call_retweet(post_url, comment)
-            self.rt_count += 1
+            result = await self.x_automation.retweet(post_url, comment)
+            if result.get("success"):
+                self.rt_count += 1
+                logger.info(f"[转发] 成功，今日第 {self.rt_count} 条")
             return result
 
         except Exception as e:
             logger.error(f"[转发] 错误: {e}")
             return {"success": False, "reason": str(e)}
-
-    async def _call_retweet(self, post_url: str, comment: str = None) -> Dict:
-        """调用转发 API"""
-        logger.info(f"[转发] {post_url} (评论: {comment is not None})")
-        return {
-            "success": True,
-            "retweeted_at": datetime.now().isoformat(),
-            "with_comment": comment is not None,
-        }
 
     # ==================== 配置方法 ====================
 
@@ -355,10 +274,17 @@ class OpenClawBridge:
 
     def get_status(self) -> Dict:
         """获取当前状态"""
+        x_status = self.x_automation.get_status() if self.x_automation else {}
+
         return {
-            "auto_like": self.auto_like_enabled,
-            "auto_rt": self.auto_rt_enabled,
-            "auto_post": self.auto_post_enabled,
+            "initialized": self.initialized,
+            "x_logged_in": self.x_automation.logged_in if self.x_automation else False,
+            "auto_settings": {
+                "auto_like": self.auto_like_enabled,
+                "auto_rt": self.auto_rt_enabled,
+                "auto_post": self.auto_post_enabled,
+                "auto_comment": self.auto_comment_enabled,
+            },
             "daily_counts": {
                 "like": self.like_count,
                 "rt": self.rt_count,
@@ -371,7 +297,13 @@ class OpenClawBridge:
                 "post": self.daily_post_limit,
                 "comment": self.daily_comment_limit,
             },
+            "x_automation": x_status,
         }
+
+    async def close(self) -> None:
+        """关闭浏览器"""
+        if self.x_automation:
+            await self.x_automation.close()
 
 
 # 便捷函数
