@@ -30,8 +30,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .research_optimization import RateLimitConfig, ConcurrentLimiter, gather_with_timeout
 from .deduplicator import ContentDeduplicator
+from .research_optimization import ConcurrentLimiter, RateLimitConfig, gather_with_timeout
 
 try:
     import aiohttp
@@ -402,7 +402,9 @@ class Researcher:
         Returns:
             Dict: 研究结果
         """
-        logger.info(f"开始异步研究: {niche}, days={days}, sources={sources}, timeout={timeout_secs}s")
+        logger.info(
+            f"开始异步研究: {niche}, days={days}, sources={sources}, timeout={timeout_secs}s"
+        )
 
         source_list = [s.strip().lower() for s in sources.split(",")]
 
@@ -418,14 +420,18 @@ class Researcher:
                 try:
                     # 执行获取（带超时）
                     result = await asyncio.wait_for(
-                        fetcher.fetch(niche, days, timeout=self.rate_limit_config.request_timeout_secs),
+                        fetcher.fetch(
+                            niche, days, timeout=self.rate_limit_config.request_timeout_secs
+                        ),
                         timeout=self.rate_limit_config.request_timeout_secs,
                     )
                     return platform, result
                 finally:
                     self.concurrent_limiter.release(platform)
             except asyncio.TimeoutError:
-                logger.warning(f"[{platform}] 超时（{self.rate_limit_config.request_timeout_secs}s）")
+                logger.warning(
+                    f"[{platform}] 超时（{self.rate_limit_config.request_timeout_secs}s）"
+                )
                 return platform, {"error": "timeout", "platform": platform}
             except Exception as e:
                 logger.warning(f"[{platform}] 错误: {e}")
@@ -462,7 +468,9 @@ class Researcher:
             return self._empty_result(niche)
 
         try:
-            results = await gather_with_timeout(tasks, timeout=timeout_secs, return_exceptions=False)
+            results = await gather_with_timeout(
+                tasks, timeout=timeout_secs, return_exceptions=False
+            )
         except Exception as e:
             logger.error(f"并行获取失败: {e}")
             return self._empty_result(niche, str(e))
@@ -507,9 +515,7 @@ class Researcher:
             unique_citations = self.deduplicator.deduplicate_batch(
                 citations, content_key="text", score_key="score"
             )
-            logger.info(
-                f"去重: {len(citations)} citations → {len(unique_citations)} unique"
-            )
+            logger.info(f"去重: {len(citations)} citations → {len(unique_citations)} unique")
             citations = unique_citations
 
         # 计算指标

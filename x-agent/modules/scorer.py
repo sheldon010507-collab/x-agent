@@ -165,6 +165,7 @@ class TrendScorer:
 
             # 指数衰减：decay = 0.5^(age / half_life)
             import math
+
             half_life_hours = half_life_days * 24
             decay = math.pow(0.5, age_hours / half_life_hours)
 
@@ -341,14 +342,22 @@ class TrendScorer:
                 "temporal_decay": round(temporal_decay, 3),
                 "platform_diversity_bonus": round(diversity_bonus, 3),
             },
-            "temporal_analysis": {
-                "created_at": trend_data.get("created_at"),
-                "decay_factor": round(temporal_decay, 3),
-            } if enable_temporal_decay else None,
-            "diversity_analysis": {
-                "platforms": trend_data.get("platform_sources", []),
-                "bonus_factor": round(diversity_bonus, 3),
-            } if enable_platform_diversity else None,
+            "temporal_analysis": (
+                {
+                    "created_at": trend_data.get("created_at"),
+                    "decay_factor": round(temporal_decay, 3),
+                }
+                if enable_temporal_decay
+                else None
+            ),
+            "diversity_analysis": (
+                {
+                    "platforms": trend_data.get("platform_sources", []),
+                    "bonus_factor": round(diversity_bonus, 3),
+                }
+                if enable_platform_diversity
+                else None
+            ),
         }
 
 
