@@ -9,6 +9,7 @@ research.py - 原生异步多平台数据采集模块
 - 支持 aiohttp 异步 HTTP 请求
 - 本地缓存机制
 - 风险评分计算
+- 【增强】并发限制、指数退避重试、超时保护、速率限制感知
 
 支持平台：
 - Reddit (通过 PRAW 或直接 API)
@@ -17,7 +18,7 @@ research.py - 原生异步多平台数据采集模块
 - X/Twitter (模拟数据，需要 API 密钥)
 - TikTok/YouTube (模拟数据，需要爬虫)
 
-版本：V0 Final 重构版
+版本：V0 Final 增强版（含研究优化）
 """
 
 import asyncio
@@ -28,6 +29,9 @@ import random
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+from .research_optimization import RateLimitConfig, ConcurrentLimiter, gather_with_timeout
+from .deduplicator import ContentDeduplicator
 
 try:
     import aiohttp
@@ -59,7 +63,18 @@ class PlatformFetcher:
     def __init__(self, config=None):
         self.config = config
 
-    async def fetch(self, niche: str, days: int = 7) -> Dict:
+    async def fetch(self, niche: str, days: int = 7, timeout: float = 10.0) -> Dict:
+        """
+        获取平台数据
+
+        Args:
+            niche: 研究领域
+            days: 回溯天数
+            timeout: 请求超时时间（秒）
+
+        Returns:
+            平台数据字典
+        """
         raise NotImplementedError
 
 
@@ -345,11 +360,12 @@ class Researcher:
     【V0 Final 重构版】原生异步实现，不依赖外部 CLI
     """
 
-    def __init__(self, config=None):
+    def __init__(self, config=None, rate_limit_config: Optional[RateLimitConfig] = None):
         """初始化研究员
 
         Args:
             config: Config 实例
+            rate_limit_config: 速率限制配置（可选）
         """
         self.config = config
         self.cache_dir = Path("data/research")
@@ -361,67 +377,92 @@ class Researcher:
         self.trends_fetcher = GoogleTrendsFetcher(config)
         self.simulated_fetcher = SimulatedPlatformFetcher(config)
 
-        logger.info("✅ Researcher 初始化完成 (原生异步模式)")
+        # 初始化优化模块
+        self.rate_limit_config = rate_limit_config or RateLimitConfig()
+        self.concurrent_limiter = ConcurrentLimiter(self.rate_limit_config)
+        self.deduplicator = ContentDeduplicator(threshold=0.75)
+
+        logger.info("✅ Researcher 初始化完成 (原生异步模式 + 优化)")
 
     async def research_async(
-        self, niche: str, days: int = 7, sources: str = "x,reddit,youtube,web,tiktok,hackernews"
+        self,
+        niche: str,
+        days: int = 7,
+        sources: str = "x,reddit,youtube,web,tiktok,hackernews",
+        timeout_secs: float = 30.0,
     ) -> Dict:
-        """异步研究方法 - 并行获取多平台数据
+        """异步研究方法 - 并行获取多平台数据（带超时保护）
 
         Args:
             niche: 研究领域/话题
             days: 回溯天数 (1-30)
             sources: 数据源，逗号分隔
+            timeout_secs: 总超时时间（秒），默认30秒
 
         Returns:
             Dict: 研究结果
         """
-        logger.info(f"开始异步研究: {niche}, days={days}, sources={sources}")
+        logger.info(f"开始异步研究: {niche}, days={days}, sources={sources}, timeout={timeout_secs}s")
 
         source_list = [s.strip().lower() for s in sources.split(",")]
 
-        # 创建并行任务
+        # 创建并行任务（带并发限制）
         tasks = []
         task_sources = []
 
+        async def limited_fetch(platform: str, fetcher, niche: str, days: int) -> tuple:
+            """限制并发的获取函数"""
+            try:
+                # 获取信号量
+                await self.concurrent_limiter.acquire(platform)
+                try:
+                    # 执行获取（带超时）
+                    result = await asyncio.wait_for(
+                        fetcher.fetch(niche, days, timeout=self.rate_limit_config.request_timeout_secs),
+                        timeout=self.rate_limit_config.request_timeout_secs,
+                    )
+                    return platform, result
+                finally:
+                    self.concurrent_limiter.release(platform)
+            except asyncio.TimeoutError:
+                logger.warning(f"[{platform}] 超时（{self.rate_limit_config.request_timeout_secs}s）")
+                return platform, {"error": "timeout", "platform": platform}
+            except Exception as e:
+                logger.warning(f"[{platform}] 错误: {e}")
+                return platform, {"error": str(e), "platform": platform}
+
         if "reddit" in source_list:
-            tasks.append(self.reddit_fetcher.fetch(niche, days))
-            task_sources.append("reddit")
+            tasks.append(limited_fetch("reddit", self.reddit_fetcher, niche, days))
 
         if "hackernews" in source_list or "hn" in source_list:
-            tasks.append(self.hn_fetcher.fetch(niche, days))
-            task_sources.append("hackernews")
+            tasks.append(limited_fetch("hackernews", self.hn_fetcher, niche, days))
 
         if "web" in source_list or "google_trends" in source_list:
-            tasks.append(self.trends_fetcher.fetch(niche, days))
-            task_sources.append("google_trends")
+            tasks.append(limited_fetch("google_trends", self.trends_fetcher, niche, days))
 
         # 模拟平台（X/TikTok/YouTube）
         for platform in ["x", "twitter"]:
             if platform in source_list:
-                tasks.append(self.simulated_fetcher.fetch(niche, days, "x"))
-                task_sources.append("x")
+                tasks.append(limited_fetch("x", self.simulated_fetcher, niche, days))
                 break
 
-        for platform in ["tiktok", "tiktok"]:
+        for platform in ["tiktok"]:
             if platform in source_list:
-                tasks.append(self.simulated_fetcher.fetch(niche, days, "tiktok"))
-                task_sources.append("tiktok")
+                tasks.append(limited_fetch("tiktok", self.simulated_fetcher, niche, days))
                 break
 
         for platform in ["youtube", "yt"]:
             if platform in source_list:
-                tasks.append(self.simulated_fetcher.fetch(niche, days, "youtube"))
-                task_sources.append("youtube")
+                tasks.append(limited_fetch("youtube", self.simulated_fetcher, niche, days))
                 break
 
-        # 并行执行
+        # 并行执行（带总超时保护）
         if not tasks:
             logger.warning("没有有效的数据源")
             return self._empty_result(niche)
 
         try:
-            results = await asyncio.gather(*tasks, return_exceptions=True)
+            results = await gather_with_timeout(tasks, timeout=timeout_secs, return_exceptions=False)
         except Exception as e:
             logger.error(f"并行获取失败: {e}")
             return self._empty_result(niche, str(e))
@@ -430,25 +471,46 @@ class Researcher:
         platform_data = {}
         citations = []
         total_posts = 0
+        platform_sources = []
 
-        for i, result in enumerate(results):
-            source = task_sources[i] if i < len(task_sources) else f"source_{i}"
+        for result in results:
+            if isinstance(result, tuple) and len(result) == 2:
+                source, data = result
+            else:
+                logger.warning(f"意外的结果格式: {result}")
+                continue
 
-            if isinstance(result, Exception):
-                logger.warning(f"{source} 获取异常: {result}")
-                platform_data[source] = {"error": str(result)}
-            elif isinstance(result, dict):
-                platform_data[source] = result
-                posts = result.get("posts", [])
+            if isinstance(data, dict):
+                platform_data[source] = data
+                platform_sources.append(source)
+
+                # 跳过错误数据
+                if "error" in data:
+                    logger.warning(f"{source} 返回错误: {data.get('error')}")
+                    continue
+
+                posts = data.get("posts", [])
                 total_posts += len(posts)
+
+                # 提取citations并去重
                 for post in posts[:3]:
-                    citations.append(
-                        {
-                            "platform": source,
-                            "title": post.get("title", ""),
-                            "url": post.get("url", ""),
-                        }
-                    )
+                    citation = {
+                        "platform": source,
+                        "title": post.get("title", ""),
+                        "url": post.get("url", ""),
+                        "text": post.get("text", post.get("title", "")),
+                    }
+                    citations.append(citation)
+
+        # 【新增】使用去重器清理citations
+        if citations:
+            unique_citations = self.deduplicator.deduplicate_batch(
+                citations, content_key="text", score_key="score"
+            )
+            logger.info(
+                f"去重: {len(citations)} citations → {len(unique_citations)} unique"
+            )
+            citations = unique_citations
 
         # 计算指标
         metrics = self._calculate_metrics(platform_data, total_posts)
@@ -464,6 +526,7 @@ class Researcher:
             "velocity_24h": metrics["velocity"],
             "authority_score": metrics["authority"],
             "platform_count": metrics["platform_count"],
+            "platform_sources": platform_sources,  # 【新增】用于平台多样性计算
             "risk_score": risk_score,
             "total_posts": total_posts,
             "summary": self._generate_summary(platform_data, metrics, risk_score),
@@ -557,7 +620,7 @@ class Researcher:
         - 平台数过少 (+15风险)
         - authority 过低 (+10风险)
 
-        risk_score 越低越安全，< 70 才可自动发布
+        risk_score 越低越安全。所有内容都需要人工审核确认后才能发布
 
         Args:
             metrics: 指标数据
@@ -621,7 +684,7 @@ class Researcher:
         elif risk >= 50:
             summary += " 🟡 存在中等风险，请谨慎发布。"
         else:
-            summary += " ✅ 风险较低，可考虑自动发布。"
+            summary += " ✅ 风险较低。"
 
         return summary
 

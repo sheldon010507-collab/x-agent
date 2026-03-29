@@ -22,22 +22,13 @@ cp .env.example .env
 pip install -r requirements.txt
 ```
 
-### 4. （强烈推荐）安装 last30days CLI
-
-```bash
-pip install last30days
-# 或按官方文档安装: https://github.com/mvanhorn/last30days-skill
-```
-
-> **注意**: last30days CLI 是可选增强模块，不安装也能正常运行（使用传统趋势源）。
-
-### 5. 启动
+### 4. 启动
 
 ```bash
 python main.py
 ```
 
-### 6. 在 Telegram 中测试
+### 5. 在 Telegram 中测试
 
 发送以下命令验证运行：
 
@@ -74,10 +65,6 @@ python main.py
 ```
 https://api.telegram.org/bot<YOUR_TOKEN>/getMe
 ```
-
-### Q: last30days 未安装会怎样？
-
-系统会自动使用 fallback 趋势源，不影响基本功能。安装后可获得更丰富的多平台数据。
 
 ### Q: 数据库连接失败？
 
