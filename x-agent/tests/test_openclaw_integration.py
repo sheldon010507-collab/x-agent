@@ -4,10 +4,12 @@ test_openclaw_integration.py - OpenClaw 集成测试
 测试 X-Agent 与 OpenClaw 的完整工作流程
 """
 
-import pytest
 import asyncio
-from unittest.mock import Mock, AsyncMock, patch
 from datetime import datetime
+from unittest.mock import AsyncMock, Mock, patch
+
+import pytest
+
 from modules.openclaw_bridge import OpenClawBridge
 
 
@@ -72,9 +74,7 @@ class TestOpenClawBridge:
         openclaw.auto_post_enabled = True
 
         result = await openclaw.post_content(
-            content="Test post from X-Agent",
-            niche="general",
-            apply_variant=False
+            content="Test post from X-Agent", niche="general", apply_variant=False
         )
 
         assert result["success"] is True
@@ -97,9 +97,7 @@ class TestOpenClawBridge:
     async def test_comment_on_post_success(self, openclaw):
         """测试成功评论"""
         result = await openclaw.comment_on_post(
-            post_url="https://x.com/user/status/123",
-            comment="Great post!",
-            apply_variant=False
+            post_url="https://x.com/user/status/123", comment="Great post!", apply_variant=False
         )
 
         assert result["success"] is True
@@ -113,8 +111,7 @@ class TestOpenClawBridge:
         openclaw.daily_comment_limit = 15
 
         result = await openclaw.comment_on_post(
-            post_url="https://x.com/user/status/123",
-            comment="Test comment"
+            post_url="https://x.com/user/status/123", comment="Test comment"
         )
 
         assert result["success"] is False
@@ -142,9 +139,7 @@ class TestOpenClawBridge:
         """测试成功转发"""
         openclaw.auto_rt_enabled = True
 
-        result = await openclaw.retweet_post(
-            post_url="https://x.com/user/status/123"
-        )
+        result = await openclaw.retweet_post(post_url="https://x.com/user/status/123")
 
         assert result["success"] is True
         assert openclaw.rt_count == 1
@@ -181,14 +176,12 @@ class TestOpenClawWorkflow:
         content = {
             "type": "A",
             "content": "AI is revolutionizing the world 🚀",
-            "niche": "ai_tools"
+            "niche": "ai_tools",
         }
 
         # 3. 发帖
         result = await openclaw.post_content(
-            content=content["content"],
-            niche=content["niche"],
-            apply_variant=True
+            content=content["content"], niche=content["niche"], apply_variant=True
         )
 
         assert result["success"]
@@ -207,9 +200,7 @@ class TestOpenClawWorkflow:
 
         # 发送评论
         result = await openclaw.comment_on_post(
-            post_url=target_post,
-            comment=comment,
-            apply_variant=True
+            post_url=target_post, comment=comment, apply_variant=True
         )
 
         assert result["success"]
@@ -330,10 +321,7 @@ class TestErrorHandling:
         openclaw.auto_like_enabled = True
 
         # 并发执行多个请求
-        tasks = [
-            openclaw.like_post(f"https://x.com/user/status/{i}")
-            for i in range(5)
-        ]
+        tasks = [openclaw.like_post(f"https://x.com/user/status/{i}") for i in range(5)]
 
         results = await asyncio.gather(*tasks, return_exceptions=False)
 
@@ -354,7 +342,7 @@ class TestIntegrationWithBot:
             "type": "A",
             "content": "Amazing AI breakthrough! 🚀",
             "niche": "ai_tools",
-            "risk_score": 45
+            "risk_score": 45,
         }
 
         # 初始化 OpenClaw
@@ -363,8 +351,7 @@ class TestIntegrationWithBot:
 
         # 用户确认发布
         result = await openclaw.post_content(
-            content=generated_content["content"],
-            niche=generated_content["niche"]
+            content=generated_content["content"], niche=generated_content["niche"]
         )
 
         assert result["success"]

@@ -464,7 +464,11 @@ class XAgentBot:
                 content_type = data.replace("confirm_", "")
                 # 二次确认机制 - 防止误操作
                 keyboard = [
-                    [InlineKeyboardButton("✓ 确认无误，发布", callback_data=f"final_confirm_{content_type}")],
+                    [
+                        InlineKeyboardButton(
+                            "✓ 确认无误，发布", callback_data=f"final_confirm_{content_type}"
+                        )
+                    ],
                     [InlineKeyboardButton("✗ 取消", callback_data="cancel_confirm")],
                 ]
                 reply_markup = InlineKeyboardMarkup(keyboard)

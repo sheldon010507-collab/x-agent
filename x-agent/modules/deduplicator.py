@@ -9,10 +9,10 @@ deduplicator.py - 基于Jaccard相似度的内容去重模块
 """
 
 import logging
-from typing import List, Dict, Set, Tuple
+import re
 from collections import OrderedDict
 from datetime import datetime
-import re
+from typing import Dict, List, Set, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -268,7 +268,9 @@ class ContentDeduplicator:
         }
 
 
-def calculate_shingle_similarity(text1: str, text2: str, k: int = 3, threshold: float = 0.75) -> Tuple[float, bool]:
+def calculate_shingle_similarity(
+    text1: str, text2: str, k: int = 3, threshold: float = 0.75
+) -> Tuple[float, bool]:
     """
     快速计算两个文本的相似度
 

@@ -7,13 +7,14 @@ test_enhanced_features.py - 测试三个增强功能
 3. 多源采集优化 (Research Optimization)
 """
 
-import pytest
 import asyncio
 from datetime import datetime, timedelta
-from modules.deduplicator import ContentDeduplicator, calculate_shingle_similarity
-from modules.scorer import TrendScorer, calculate_trend_score_v2
-from modules.research_optimization import RateLimitConfig, ConcurrentLimiter, exponential_backoff
 
+import pytest
+
+from modules.deduplicator import ContentDeduplicator, calculate_shingle_similarity
+from modules.research_optimization import ConcurrentLimiter, RateLimitConfig, exponential_backoff
+from modules.scorer import TrendScorer, calculate_trend_score_v2
 
 # ============ 测试去重算法 ============
 
@@ -187,9 +188,7 @@ class TestEnhancedScorer:
         bonus_hn_reddit = scorer._calculate_platform_diversity_bonus(
             platform_sources=["hackernews", "reddit"]
         )
-        bonus_normal = scorer._calculate_platform_diversity_bonus(
-            platform_sources=["x", "youtube"]
-        )
+        bonus_normal = scorer._calculate_platform_diversity_bonus(platform_sources=["x", "youtube"])
         assert bonus_hn_reddit > bonus_normal
 
     def test_calculate_score_v2(self):

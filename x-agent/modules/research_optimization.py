@@ -10,9 +10,9 @@ research_optimization.py - 多源采集优化模块
 
 import asyncio
 import logging
-from typing import Callable, Dict, Any, Optional
-from dataclasses import dataclass
 import random
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +83,7 @@ class OptimizedFetcher:
             except asyncio.TimeoutError:
                 if attempt < max_retries:
                     # 计算退避时间
-                    backoff_time = (self.config.backoff_base ** attempt) + random.uniform(
+                    backoff_time = (self.config.backoff_base**attempt) + random.uniform(
                         0, self.config.backoff_jitter
                     )
                     self.logger.warning(
@@ -98,7 +98,7 @@ class OptimizedFetcher:
                 if attempt < max_retries:
                     # 检查是否是可重试的错误
                     if self._is_retryable_error(e):
-                        backoff_time = (self.config.backoff_base ** attempt) + random.uniform(
+                        backoff_time = (self.config.backoff_base**attempt) + random.uniform(
                             0, self.config.backoff_jitter
                         )
                         self.logger.warning(
@@ -106,9 +106,7 @@ class OptimizedFetcher:
                         )
                         await asyncio.sleep(backoff_time)
                     else:
-                        self.logger.error(
-                            f"[{platform_name}] 不可重试错误: {e}，使用mock数据"
-                        )
+                        self.logger.error(f"[{platform_name}] 不可重试错误: {e}，使用mock数据")
                         return self._get_mock_data()
                 else:
                     self.logger.error(
@@ -173,9 +171,7 @@ class ConcurrentLimiter:
         if semaphore:
             semaphore.release()
 
-    async def limit_concurrent(
-        self, platform: str, coro
-    ) -> Any:
+    async def limit_concurrent(self, platform: str, coro) -> Any:
         """在并发限制下执行协程"""
         await self.acquire(platform)
         try:
@@ -224,7 +220,7 @@ def exponential_backoff(attempt: int, base: float = 2.0, jitter: bool = True) ->
     Returns:
         等待时间（秒）
     """
-    wait_time = base ** attempt
+    wait_time = base**attempt
     if jitter:
         wait_time += random.uniform(0, 0.1 * wait_time)
     return wait_time

@@ -243,11 +243,7 @@ class XAgentBotV0Final:
 
         # 步骤 5: Inline 确认按钮 - 强制人工审核，无自动发布选项
         keyboard = [
-            [
-                InlineKeyboardButton(
-                    "✅ 人工确认发布", callback_data=f"confirm_publish_{user_id}"
-                )
-            ],
+            [InlineKeyboardButton("✅ 人工确认发布", callback_data=f"confirm_publish_{user_id}")],
             [
                 InlineKeyboardButton("🔄 重新生成", callback_data=f"regen_{user_id}"),
                 InlineKeyboardButton("❌ 跳过", callback_data=f"skip_{user_id}"),
@@ -301,16 +297,20 @@ class XAgentBotV0Final:
             if sub_action == "publish":
                 # 显示二次确认对话框
                 keyboard = [
-                    [InlineKeyboardButton("✓ 确认无误，发布", callback_data=f"final_confirm_publish_{user_id}")],
+                    [
+                        InlineKeyboardButton(
+                            "✓ 确认无误，发布", callback_data=f"final_confirm_publish_{user_id}"
+                        )
+                    ],
                     [InlineKeyboardButton("✗ 取消", callback_data=f"skip_{user_id}")],
                 ]
                 reply_markup = InlineKeyboardMarkup(keyboard)
                 await query.edit_message_text(
                     "⚠️ **二次确认**\n\n"
-                    "请确认内容无误，再点击"确认无误，发布"。\n"
+                    '请确认内容无误，再点击"确认无误，发布"。\n'
                     "发布后需要你手动复制内容到 X（Twitter）上发送。",
                     reply_markup=reply_markup,
-                    parse_mode="Markdown"
+                    parse_mode="Markdown",
                 )
 
         elif action == "final":
@@ -322,7 +322,7 @@ class XAgentBotV0Final:
                     "✅ **确认完成**\n\n"
                     "请复制上述内容后手动发布到 X（Twitter）。\n"
                     "发布后可使用 `/log post 1` 记录已发布的内容。",
-                    parse_mode="Markdown"
+                    parse_mode="Markdown",
                 )
                 if user_id in self.user_states:
                     del self.user_states[user_id]
