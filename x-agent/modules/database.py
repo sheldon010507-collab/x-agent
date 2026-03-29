@@ -117,7 +117,7 @@ class Database:
 
     @db_operation
     def get_trends_by_risk(self, max_risk: float = 70, limit: int = 20) -> List[Dict]:
-        """获取低风险热点 (V0 Final: risk_score < 70 才可自动发布)"""
+        """获取低风险热点 (V0 Final: risk_score < 70 为低风险，所有内容都需人工审核)"""
         result = (
             self.client.table("trends")
             .select("*")

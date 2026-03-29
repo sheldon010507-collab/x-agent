@@ -620,7 +620,7 @@ class Researcher:
         - 平台数过少 (+15风险)
         - authority 过低 (+10风险)
 
-        risk_score 越低越安全，< 70 才可自动发布
+        risk_score 越低越安全。所有内容都需要人工审核确认后才能发布
 
         Args:
             metrics: 指标数据
@@ -684,7 +684,7 @@ class Researcher:
         elif risk >= 50:
             summary += " 🟡 存在中等风险，请谨慎发布。"
         else:
-            summary += " ✅ 风险较低，可考虑自动发布。"
+            summary += " ✅ 风险较低。"
 
         return summary
 
