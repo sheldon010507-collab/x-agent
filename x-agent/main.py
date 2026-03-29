@@ -75,7 +75,7 @@ class XAgentApp:
         # 2. 初始化 LLM 路由
         try:
             self.llm_router = LLMRouter(config)
-            logger.info(f"✅ LLM Router initialized (Provider: {config.llm_provider})")
+            logger.info(f"✅ LLM Router initialized (Provider: {config.llm.provider})")
         except Exception as e:
             logger.error(f"❌ LLM Router initialization failed: {e}")
             raise

@@ -22,7 +22,7 @@ jobs:
         run: pip install black isort
 
       - name: Check formatting (black)
-        run: black --target-version py311 --check --line-length 100 x-agent/
+        run: black --check --target-version py311 --line-length 100 x-agent/
 
       - name: Check import order (isort)
         run: isort --check-only --profile black x-agent/
