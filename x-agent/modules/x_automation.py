@@ -21,7 +21,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional
 
-from playwright.async_api import async_playwright, Browser, BrowserContext, Page
+from playwright.async_api import Browser, BrowserContext, Page, async_playwright
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,15 @@ X_COOKIES_FILE = X_SESSION_DIR / "x_cookies.json"
 
 # 内容变体池
 EMOJI_VARIANTS = ["🔥", "👀", "💡", "✨", "🚀", "💯", "🎯", "📌", "⚡", "🎉"]
-PHRASE_VARIANTS = ["", " Interesting.", " Thoughts?", " 👀", " Just saying.", " 💭", " What do you think?"]
+PHRASE_VARIANTS = [
+    "",
+    " Interesting.",
+    " Thoughts?",
+    " 👀",
+    " Just saying.",
+    " 💭",
+    " What do you think?",
+]
 
 
 class XAutomation:

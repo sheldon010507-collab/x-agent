@@ -178,7 +178,6 @@ class OpenClawBridge:
             logger.error(f"[发帖] 错误: {e}")
             return {"success": False, "reason": str(e)}
 
-
     # ==================== 点赞/转发 ====================
 
     async def like_post(self, post_url: str) -> Dict:
