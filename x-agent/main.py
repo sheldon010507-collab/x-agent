@@ -11,7 +11,7 @@ main.py - X 智能运营 Agent v3.0 入口文件
 
 v3.0 更新：
 - 完善 logging 系统
-- 支持 last30days 研究模块
+- 原生异步多平台数据采集（Reddit、HN、Google Trends）
 - 防封机制集成
 """
 

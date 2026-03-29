@@ -1,9 +1,10 @@
 """
-bot_v0_final.py - X-Agent v0 Final 半自动流程 Bot 模块
+bot_v0_final.py - X-Agent v0 Final 强制人工审核 Bot 模块
 
 核心变更:
-- 强制半自动：生成内容后必须人工确认才能发布
-- Inline 按钮：【🤖 自动发布】【✅ 人工确认发布】【🔄 重新生成】【❌ 跳过】
+- 强制人工审核：所有内容都需要二步确认才能发布（无自动发布选项）
+- 二步确认流程：第一步确认 → 第二步最终确认，防止误操作
+- Inline 按钮：【✅ 人工确认发布】【🔄 重新生成】【❌ 跳过】
 - risk_score 显示：所有内容都标注风险评分
 - 每日 21:00 自动推送复盘报告
 """
@@ -106,7 +107,7 @@ class XAgentBotV0Final:
         self.application.add_handler(
             CallbackQueryHandler(
                 self.button_callback,
-                pattern=r"^(confirm|auto|regen|skip|publish|manual|research|create|view)_",
+                pattern=r"^(confirm|final|regen|skip|publish|manual|research|create|view)_",
             )
         )
 
@@ -173,15 +174,15 @@ class XAgentBotV0Final:
 
     async def cmd_create(self, update: Update, context: CallbackContext) -> None:
         """
-        /create - 创建内容 (半自动流程核心)
+        /create - 创建内容 (半自动流程核心 - 强制人工审核)
 
         流程:
         1. 调用 research 获取热点
         2. 调用 scorer 评分
         3. 调用 generator 生成 A/B/C 类内容
         4. 显示生成的内容 + risk_score
-        5. Inline 按钮：【🤖 自动发布】【✅ 人工确认发布】【🔄 重新生成】【❌ 跳过】
-        6. 必须用户点击确认后才调用 OpenClaw 发布
+        5. Inline 按钮：【✅ 人工确认发布】【🔄 重新生成】【❌ 跳过】
+        6. 必须用户通过两步确认后才能发布（无自动发布选项）
         """
         user_id = update.effective_user.id if update.effective_user else 0
         logger.info(f"用户 {user_id} 请求创建内容")
@@ -233,41 +234,25 @@ class XAgentBotV0Final:
             f"---\n"
             f"{risk_emoji} **风险评分**: {risk_score}/100\n"
             f"ℹ️ 风险说明:\n"
-            f"- <50: 低风险，可自动发布\n"
-            f"- 50-79: 中风险，建议人工确认\n"
-            f"- ≥80: 高风险，必须人工确认\n\n"
+            f"- <50: 低风险\n"
+            f"- 50-79: 中风险\n"
+            f"- ≥80: 高风险\n\n"
+            f"⚠️ **所有内容都需要人工审核确认后才能发布**\n\n"
             f"请选择操作:"
         )
 
-        # 步骤 5: Inline 确认按钮
-        can_auto_publish = risk_score < 80  # 高风险禁止自动发布
-
-        keyboard = []
-
-        if can_auto_publish:
-            keyboard.append(
-                [
-                    InlineKeyboardButton("🤖 自动发布", callback_data=f"auto_publish_{user_id}"),
-                    InlineKeyboardButton(
-                        "✅ 人工确认发布", callback_data=f"manual_publish_{user_id}"
-                    ),
-                ]
-            )
-        else:
-            keyboard.append(
-                [
-                    InlineKeyboardButton(
-                        "✅ 人工确认发布 (必须)", callback_data=f"manual_publish_{user_id}"
-                    )
-                ]
-            )
-
-        keyboard.append(
+        # 步骤 5: Inline 确认按钮 - 强制人工审核，无自动发布选项
+        keyboard = [
+            [
+                InlineKeyboardButton(
+                    "✅ 人工确认发布", callback_data=f"confirm_publish_{user_id}"
+                )
+            ],
             [
                 InlineKeyboardButton("🔄 重新生成", callback_data=f"regen_{user_id}"),
                 InlineKeyboardButton("❌ 跳过", callback_data=f"skip_{user_id}"),
-            ]
-        )
+            ],
+        ]
 
         reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -285,11 +270,11 @@ class XAgentBotV0Final:
 
     async def button_callback(self, update: Update, context: CallbackContext) -> None:
         """
-        Inline 按钮回调处理
+        Inline 按钮回调处理 - 强制人工审核
 
         处理:
-        - auto_publish: 自动发布 (低风险)
-        - manual_publish: 人工确认发布
+        - confirm_publish: 第一步确认发布
+        - final_confirm_publish: 第二步最终确认
         - regen: 重新生成
         - skip: 跳过
         - set_niche: 设置领域
@@ -309,9 +294,38 @@ class XAgentBotV0Final:
         parts = data.split("_")
         action = parts[0] if parts else ""
 
-        if action == "auto":
-            await query.edit_message_text("🤖 正在自动发布...")
-            await query.edit_message_text("✅ 已自动发布!")
+        if action == "confirm":
+            # 第一步：用户点击"人工确认发布"
+            sub_action = "_".join(parts[1:-1]) if len(parts) > 2 else ""
+
+            if sub_action == "publish":
+                # 显示二次确认对话框
+                keyboard = [
+                    [InlineKeyboardButton("✓ 确认无误，发布", callback_data=f"final_confirm_publish_{user_id}")],
+                    [InlineKeyboardButton("✗ 取消", callback_data=f"skip_{user_id}")],
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                await query.edit_message_text(
+                    "⚠️ **二次确认**\n\n"
+                    "请确认内容无误，再点击"确认无误，发布"。\n"
+                    "发布后需要你手动复制内容到 X（Twitter）上发送。",
+                    reply_markup=reply_markup,
+                    parse_mode="Markdown"
+                )
+
+        elif action == "final":
+            # 第二步：用户点击"确认无误，发布"
+            sub_action = "_".join(parts[1:-1]) if len(parts) > 2 else ""
+
+            if sub_action == "confirm_publish":
+                await query.edit_message_text(
+                    "✅ **确认完成**\n\n"
+                    "请复制上述内容后手动发布到 X（Twitter）。\n"
+                    "发布后可使用 `/log post 1` 记录已发布的内容。",
+                    parse_mode="Markdown"
+                )
+                if user_id in self.user_states:
+                    del self.user_states[user_id]
 
         elif action == "manual":
             await query.edit_message_text("✅ 请复制内容后手动发布到 X/Twitter")
