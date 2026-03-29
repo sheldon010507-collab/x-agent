@@ -110,27 +110,29 @@ class LLMRouter:
         self.provider = self._get_provider()
 
     def _get_provider(self) -> LLMProvider:
-        provider_name = getattr(self.config, "llm_provider", "anthropic").lower()
+        provider_name = self.config.llm.provider.lower()
 
         if provider_name == "anthropic":
-            return AnthropicProvider(self.config.anthropic_api_key)
+            return AnthropicProvider(self.config.llm.anthropic_api_key)
 
         elif provider_name == "openai":
-            return OpenAIProvider(self.config.openai_api_key)
+            return OpenAIProvider(self.config.llm.openai_api_key)
 
         elif provider_name == "groq":
-            return GroqProvider(self.config.groq_api_key)
+            return GroqProvider(self.config.llm.groq_api_key)
 
         elif provider_name == "openrouter":
-            return OpenAIProvider(self.config.openrouter_api_key, "https://openrouter.ai/api/v1")
+            return OpenAIProvider(
+                self.config.llm.openrouter_api_key, self.config.llm.openrouter_base_url
+            )
 
         elif provider_name == "nvidia":
-            return OpenAIProvider(self.config.nvidia_api_key, "https://integrate.api.nvidia.com/v1")
+            return OpenAIProvider(
+                self.config.llm.nvidia_nim_api_key, self.config.llm.nvidia_nim_base_url
+            )
 
         elif provider_name == "ollama":
-            return OpenAIProvider(
-                "ollama", getattr(self.config, "ollama_base_url", "http://localhost:11434/v1")
-            )
+            return OpenAIProvider("ollama", self.config.llm.ollama_base_url + "/v1")
 
         else:
             raise ValueError(f"不支持的 LLM 供应商: {provider_name}")
