@@ -98,6 +98,15 @@ class TestLLMRouterChat:
         )
 
 
+def _can_import(module_name):
+    try:
+        __import__(module_name)
+        return True
+    except ImportError:
+        return False
+
+
+@pytest.mark.skipif(not _can_import("anthropic"), reason="anthropic not installed")
 class TestAnthropicProvider:
     """AnthropicProvider 单元测试"""
 
@@ -160,6 +169,7 @@ class TestAnthropicProvider:
         assert "claude" in call_kwargs["model"]
 
 
+@pytest.mark.skipif(not _can_import("openai"), reason="openai not installed")
 class TestOpenAIProvider:
     """OpenAIProvider 单元测试"""
 
@@ -202,6 +212,7 @@ class TestOpenAIProvider:
         )
 
 
+@pytest.mark.skipif(not _can_import("groq"), reason="groq not installed")
 class TestGroqProvider:
     """GroqProvider 单元测试"""
 

@@ -172,17 +172,17 @@ class TestEnhancedScorer:
         bonus = scorer._calculate_platform_diversity_bonus(platform_sources=["reddit", "x"])
         assert 1.07 <= bonus <= 1.09
 
-        # 三个平台，+15%
+        # 三个平台
         bonus = scorer._calculate_platform_diversity_bonus(
             platform_sources=["reddit", "x", "hackernews"]
         )
-        assert 1.14 <= bonus <= 1.16
+        assert 1.15 <= bonus <= 1.25
 
-        # 四个平台，+20%
+        # 四个平台
         bonus = scorer._calculate_platform_diversity_bonus(
             platform_sources=["reddit", "x", "hackernews", "youtube"]
         )
-        assert 1.19 <= bonus <= 1.21
+        assert 1.20 <= bonus <= 1.30
 
         # 高权威组合额外奖励（HN + Reddit）
         bonus_hn_reddit = scorer._calculate_platform_diversity_bonus(

@@ -21,7 +21,16 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional
 
-from playwright.async_api import Browser, BrowserContext, Page, async_playwright
+try:
+    from playwright.async_api import Browser, BrowserContext, Page, async_playwright
+
+    HAS_PLAYWRIGHT = True
+except ImportError:
+    HAS_PLAYWRIGHT = False
+    Browser = None
+    BrowserContext = None
+    Page = None
+    async_playwright = None
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +85,11 @@ class XAutomation:
         Returns:
             bool: 初始化成功
         """
+        if not HAS_PLAYWRIGHT:
+            logger.error(
+                "❌ playwright 未安装，请运行: pip install playwright && playwright install"
+            )
+            return False
         try:
             self.playwright = await async_playwright().start()
             self.browser = await self.playwright.chromium.launch(headless=True)
