@@ -88,9 +88,7 @@ class OpenClawAgent:
                 self.db.update_post_status(post_id, "published", result)
                 logger.info(f"✅ 发布成功: {post_id}")
             else:
-                logger.warning(
-                    f"⚠️ 发布失败 (ID: {post_id}): {result.get('reason')}"
-                )
+                logger.warning(f"⚠️ 发布失败 (ID: {post_id}): {result.get('reason')}")
                 self.db.update_post_status(post_id, "failed", result)
 
         except Exception as e:

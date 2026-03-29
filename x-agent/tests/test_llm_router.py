@@ -24,13 +24,16 @@ from modules.llm_router import (
 def make_config(**kwargs):
     """创建带默认值的 mock config"""
     config = MagicMock()
-    config.llm_provider = kwargs.get("llm_provider", "anthropic")
-    config.anthropic_api_key = kwargs.get("anthropic_api_key", "sk-test-anthropic")
-    config.openai_api_key = kwargs.get("openai_api_key", "sk-test-openai")
-    config.groq_api_key = kwargs.get("groq_api_key", "gsk-test-groq")
-    config.openrouter_api_key = kwargs.get("openrouter_api_key", "or-test")
-    config.nvidia_api_key = kwargs.get("nvidia_api_key", "nvapi-test")
-    config.ollama_base_url = kwargs.get("ollama_base_url", "http://localhost:11434/v1")
+    # LLM 配置通过 config.llm 子对象访问
+    config.llm.provider = kwargs.get("llm_provider", "anthropic")
+    config.llm.anthropic_api_key = kwargs.get("anthropic_api_key", "sk-test-anthropic")
+    config.llm.openai_api_key = kwargs.get("openai_api_key", "sk-test-openai")
+    config.llm.groq_api_key = kwargs.get("groq_api_key", "gsk-test-groq")
+    config.llm.openrouter_api_key = kwargs.get("openrouter_api_key", "or-test")
+    config.llm.openrouter_base_url = "https://openrouter.ai/api/v1"
+    config.llm.nvidia_nim_api_key = kwargs.get("nvidia_api_key", "nvapi-test")
+    config.llm.nvidia_nim_base_url = "https://integrate.api.nvidia.com/v1"
+    config.llm.ollama_base_url = kwargs.get("ollama_base_url", "http://localhost:11434")
     return config
 
 
