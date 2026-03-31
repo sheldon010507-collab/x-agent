@@ -90,13 +90,26 @@ def make_app_state(app):
 @pytest.fixture
 def client():
     """返回已初始化的 TestClient（绕过 lifespan）"""
+    from contextlib import asynccontextmanager
+
     import api as api_module
 
-    # 注入 Mock 状态，跳过真实 lifespan 初始化
+    # 用空 lifespan 替换真实的，避免触发 Config() 校验
+    @asynccontextmanager
+    async def noop_lifespan(app):
+        yield
+
+    original_lifespan = api_module.app.router.lifespan_context
+    api_module.app.router.lifespan_context = noop_lifespan
+
+    # 注入 Mock 状态
     make_app_state(api_module.app)
 
     with TestClient(api_module.app, raise_server_exceptions=True) as c:
         yield c
+
+    # 恢复原始 lifespan
+    api_module.app.router.lifespan_context = original_lifespan
 
 
 # ============ 测试用例 ============
