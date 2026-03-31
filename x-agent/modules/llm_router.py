@@ -11,7 +11,9 @@ llm_router.py - LLM路由模块
 """
 
 import asyncio
+import json
 import logging
+import re
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional
 
@@ -140,6 +142,19 @@ class LLMRouter:
     async def chat(self, messages: List[Dict], **kwargs) -> str:
         """发送聊天请求"""
         return await self.provider.chat(messages, **kwargs)
+
+    async def generate_json(self, prompt: str, system: str = "", **kwargs) -> Dict:
+        """调用 LLM 并解析 JSON 响应"""
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+        raw = await self.chat(messages, **kwargs)
+        # 提取 JSON（处理 markdown 代码块包裹的情况）
+        match = re.search(r"\{[\s\S]*\}", raw)
+        if match:
+            return json.loads(match.group())
+        raise ValueError("LLM 响应中未找到有效 JSON")
 
 
 # ============ 便捷函数 ============

@@ -229,9 +229,56 @@ class TestGroqProvider:
         mock_response.choices = [mock_choice]
 
         mock_client = MagicMock()
-        mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+        mock_client.chat.completions.create = AsyncMock(return_value=mock_client)
 
         with patch("groq.AsyncGroq", return_value=mock_client):
+            mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
             result = await provider.chat([{"role": "user", "content": "hi"}])
 
         assert result == "Groq response"
+
+
+class TestGenerateJson:
+    """generate_json 方法测试"""
+
+    @pytest.mark.asyncio
+    async def test_generate_json_parses_plain_json(self):
+        """LLM 直接返回 JSON 字符串时能正确解析"""
+        router = LLMRouter(make_config())
+        router.chat = AsyncMock(return_value='{"key": "value", "num": 42}')
+
+        result = await router.generate_json("give me json")
+
+        assert result == {"key": "value", "num": 42}
+
+    @pytest.mark.asyncio
+    async def test_generate_json_handles_code_block(self):
+        """LLM 返回 ```json 代码块时能正确提取"""
+        router = LLMRouter(make_config())
+        router.chat = AsyncMock(return_value='Here is the result:\n```json\n{"tweets": []}\n```')
+
+        result = await router.generate_json("give me tweets")
+
+        assert result == {"tweets": []}
+
+    @pytest.mark.asyncio
+    async def test_generate_json_with_system_prompt(self):
+        """system 参数应作为 system 消息传入 chat"""
+        router = LLMRouter(make_config())
+        router.chat = AsyncMock(return_value='{"ok": true}')
+
+        await router.generate_json("prompt text", system="you are helpful")
+
+        call_args = router.chat.call_args
+        messages = call_args[0][0]
+        assert messages[0] == {"role": "system", "content": "you are helpful"}
+        assert messages[1] == {"role": "user", "content": "prompt text"}
+
+    @pytest.mark.asyncio
+    async def test_generate_json_raises_on_no_json(self):
+        """LLM 返回非 JSON 内容时应抛出 ValueError"""
+        router = LLMRouter(make_config())
+        router.chat = AsyncMock(return_value="Sorry, I cannot help with that.")
+
+        with pytest.raises(ValueError, match="未找到有效 JSON"):
+            await router.generate_json("prompt")
