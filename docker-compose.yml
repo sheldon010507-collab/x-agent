@@ -13,6 +13,8 @@ services:
     volumes:
       - openclaw_data:/app/data
     restart: unless-stopped
+    networks:
+      - x-agent-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
