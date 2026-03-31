@@ -24,6 +24,7 @@ RUN mkdir -p data/research logs
 # 设置环境变量
 ENV PYTHONUNBUFFERED=1
 ENV TZ=UTC
+ENV APP_ENTRYPOINT=main.py
 
-# 启动应用
-CMD ["python", "main.py"]
+# 启动应用（默认 Telegram Bot；API 服务通过 APP_ENTRYPOINT=api.py 覆盖）
+CMD ["sh", "-c", "python $APP_ENTRYPOINT"]

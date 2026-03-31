@@ -24,13 +24,16 @@ from modules.llm_router import (
 def make_config(**kwargs):
     """创建带默认值的 mock config"""
     config = MagicMock()
-    config.llm_provider = kwargs.get("llm_provider", "anthropic")
-    config.anthropic_api_key = kwargs.get("anthropic_api_key", "sk-test-anthropic")
-    config.openai_api_key = kwargs.get("openai_api_key", "sk-test-openai")
-    config.groq_api_key = kwargs.get("groq_api_key", "gsk-test-groq")
-    config.openrouter_api_key = kwargs.get("openrouter_api_key", "or-test")
-    config.nvidia_api_key = kwargs.get("nvidia_api_key", "nvapi-test")
-    config.ollama_base_url = kwargs.get("ollama_base_url", "http://localhost:11434/v1")
+    # LLM 配置通过 config.llm 子对象访问
+    config.llm.provider = kwargs.get("llm_provider", "anthropic")
+    config.llm.anthropic_api_key = kwargs.get("anthropic_api_key", "sk-test-anthropic")
+    config.llm.openai_api_key = kwargs.get("openai_api_key", "sk-test-openai")
+    config.llm.groq_api_key = kwargs.get("groq_api_key", "gsk-test-groq")
+    config.llm.openrouter_api_key = kwargs.get("openrouter_api_key", "or-test")
+    config.llm.openrouter_base_url = "https://openrouter.ai/api/v1"
+    config.llm.nvidia_nim_api_key = kwargs.get("nvidia_api_key", "nvapi-test")
+    config.llm.nvidia_nim_base_url = "https://integrate.api.nvidia.com/v1"
+    config.llm.ollama_base_url = kwargs.get("ollama_base_url", "http://localhost:11434")
     return config
 
 
@@ -98,6 +101,15 @@ class TestLLMRouterChat:
         )
 
 
+def _can_import(module_name):
+    try:
+        __import__(module_name)
+        return True
+    except ImportError:
+        return False
+
+
+@pytest.mark.skipif(not _can_import("anthropic"), reason="anthropic not installed")
 class TestAnthropicProvider:
     """AnthropicProvider 单元测试"""
 
@@ -160,6 +172,7 @@ class TestAnthropicProvider:
         assert "claude" in call_kwargs["model"]
 
 
+@pytest.mark.skipif(not _can_import("openai"), reason="openai not installed")
 class TestOpenAIProvider:
     """OpenAIProvider 单元测试"""
 
@@ -202,6 +215,7 @@ class TestOpenAIProvider:
         )
 
 
+@pytest.mark.skipif(not _can_import("groq"), reason="groq not installed")
 class TestGroqProvider:
     """GroqProvider 单元测试"""
 
@@ -215,9 +229,56 @@ class TestGroqProvider:
         mock_response.choices = [mock_choice]
 
         mock_client = MagicMock()
-        mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+        mock_client.chat.completions.create = AsyncMock(return_value=mock_client)
 
         with patch("groq.AsyncGroq", return_value=mock_client):
+            mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
             result = await provider.chat([{"role": "user", "content": "hi"}])
 
         assert result == "Groq response"
+
+
+class TestGenerateJson:
+    """generate_json 方法测试"""
+
+    @pytest.mark.asyncio
+    async def test_generate_json_parses_plain_json(self):
+        """LLM 直接返回 JSON 字符串时能正确解析"""
+        router = LLMRouter(make_config())
+        router.chat = AsyncMock(return_value='{"key": "value", "num": 42}')
+
+        result = await router.generate_json("give me json")
+
+        assert result == {"key": "value", "num": 42}
+
+    @pytest.mark.asyncio
+    async def test_generate_json_handles_code_block(self):
+        """LLM 返回 ```json 代码块时能正确提取"""
+        router = LLMRouter(make_config())
+        router.chat = AsyncMock(return_value='Here is the result:\n```json\n{"tweets": []}\n```')
+
+        result = await router.generate_json("give me tweets")
+
+        assert result == {"tweets": []}
+
+    @pytest.mark.asyncio
+    async def test_generate_json_with_system_prompt(self):
+        """system 参数应作为 system 消息传入 chat"""
+        router = LLMRouter(make_config())
+        router.chat = AsyncMock(return_value='{"ok": true}')
+
+        await router.generate_json("prompt text", system="you are helpful")
+
+        call_args = router.chat.call_args
+        messages = call_args[0][0]
+        assert messages[0] == {"role": "system", "content": "you are helpful"}
+        assert messages[1] == {"role": "user", "content": "prompt text"}
+
+    @pytest.mark.asyncio
+    async def test_generate_json_raises_on_no_json(self):
+        """LLM 返回非 JSON 内容时应抛出 ValueError"""
+        router = LLMRouter(make_config())
+        router.chat = AsyncMock(return_value="Sorry, I cannot help with that.")
+
+        with pytest.raises(ValueError, match="未找到有效 JSON"):
+            await router.generate_json("prompt")
