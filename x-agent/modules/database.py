@@ -55,6 +55,10 @@ class Database:
 
     def __init__(self, supabase_url: str, supabase_key: str):
         """初始化数据库连接"""
+        if not SUPABASE_AVAILABLE:
+            raise ImportError(
+                "Supabase SDK not installed. Install with: pip install supabase"
+            )
         self.client: Client = create_client(supabase_url, supabase_key)
 
     # ========== Trends 表操作 ==========
