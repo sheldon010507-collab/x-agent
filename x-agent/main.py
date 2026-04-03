@@ -115,6 +115,8 @@ class XAgentApp:
                 llm_router=self.llm_router,
                 generator=self.generator,
             )
+            # 关键：必须调用 initialize() 来初始化 bot.application
+            await self.bot.initialize()
             logger.info("✅ Telegram Bot initialized")
         except Exception as e:
             logger.error(f"❌ Telegram Bot initialization failed: {e}")
