@@ -96,8 +96,8 @@ class XAgentBotV0Final:
         # 注册命令处理器
         self.application.add_handler(CommandHandler("start", self.cmd_start))
         self.application.add_handler(CommandHandler("set_niche", self.cmd_set_niche))
-        self.application.add_handler(CommandHandler("research", self.cmd_research))
-        self.application.add_handler(CommandHandler("trends", self.cmd_trends))
+        # self.application.add_handler(CommandHandler("research", self.cmd_research))  # 已删除，使用 API 替代
+        # self.application.add_handler(CommandHandler("trends", self.cmd_trends))  # 已删除，使用 API 替代
         self.application.add_handler(CommandHandler("create", self.cmd_create))
         self.application.add_handler(CommandHandler("report", self.cmd_report))
         self.application.add_handler(CommandHandler("settings", self.cmd_settings))
