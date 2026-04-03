@@ -31,6 +31,9 @@ from modules.generator import ContentGenerator
 from modules.llm_router import LLMRouter
 from modules.openclaw_bridge import create_openclaw_bridge
 from modules.scheduler import create_scheduler
+from modules.api_client import XAgentAPIClient
+from modules.bot_api_commands import BotAPICommands
+from telegram.ext import CommandHandler, CallbackQueryHandler
 
 log_dir = Path(__file__).parent / "data"
 log_dir.mkdir(exist_ok=True)
@@ -58,6 +61,8 @@ class XAgentApp:
         self.bot = None
         self.scheduler = None
         self.openclaw_bridge = None
+        self.api_client = None
+        self.api_commands = None
         self.running = False
 
     async def initialize(self):
@@ -115,6 +120,33 @@ class XAgentApp:
             logger.error(f"❌ Telegram Bot initialization failed: {e}")
             raise
 
+        # 5.5 初始化 API 客户端和注册命令处理器
+        try:
+            self.api_client = XAgentAPIClient("http://localhost:8000")
+            self.api_commands = BotAPICommands(self.api_client)
+
+            # 注册 API 命令处理器
+            if self.bot and self.bot.application:
+                self.bot.application.add_handler(
+                    CommandHandler("api_status", self.api_commands.cmd_api_status)
+                )
+                self.bot.application.add_handler(
+                    CommandHandler("trends", self.api_commands.cmd_api_trends)
+                )
+                self.bot.application.add_handler(
+                    CommandHandler("generate", self.api_commands.cmd_api_generate)
+                )
+                self.bot.application.add_handler(
+                    CommandHandler("report", self.api_commands.cmd_api_report)
+                )
+                self.bot.application.add_handler(
+                    CallbackQueryHandler(self.api_commands.handle_api_callback)
+                )
+                logger.info("✅ API commands registered (status, trends, generate, report)")
+        except Exception as e:
+            logger.warning(f"⚠️  API commands initialization failed: {e}")
+            # 不中断启动，只记录警告
+
         # 6. 初始化调度器
         try:
             self.scheduler = create_scheduler(
@@ -171,6 +203,11 @@ class XAgentApp:
         if self.bot and self.bot.application:
             await self.bot.application.stop()
             logger.info("✅ Bot stopped")
+
+        # 关闭 API 客户端
+        if self.api_client:
+            await self.api_client.close()
+            logger.info("✅ API client closed")
 
         logger.info("👋 X Agent v3.0 stopped")
 
