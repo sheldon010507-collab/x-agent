@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # OpenClaw 服务器
   openclaw:
