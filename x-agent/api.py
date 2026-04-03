@@ -103,7 +103,6 @@ class StatusResponse(BaseModel):
 async def lifespan(app: FastAPI):
     """初始化所有组件"""
     from config import Config
-    from modules.database import init_database
     from modules.deduplicator import ContentDeduplicator
     from modules.generator import ContentGenerator
     from modules.llm_router import LLMRouter
@@ -117,12 +116,13 @@ async def lifespan(app: FastAPI):
         app.state.config = config
 
         # Try to init DB, but don't fail if it fails
+        app.state.db = None
         try:
+            from modules.database import init_database
             app.state.db = init_database(config.supabase_url, config.supabase_key)
             logger.info("✅ Database initialized")
         except Exception as db_err:
             logger.warning(f"⚠️  Database init failed (running without DB): {db_err}")
-            app.state.db = None
 
         app.state.llm_router = LLMRouter(config)
         logger.info(f"✅ LLM Router initialized (Provider: {config.llm.provider})")

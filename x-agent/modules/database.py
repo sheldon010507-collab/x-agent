@@ -17,7 +17,13 @@ import uuid
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
-from supabase import Client, create_client
+try:
+    from supabase import Client, create_client
+    SUPABASE_AVAILABLE = True
+except ImportError:
+    SUPABASE_AVAILABLE = False
+    Client = None
+    create_client = None
 
 logger = logging.getLogger(__name__)
 
