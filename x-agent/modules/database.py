@@ -114,10 +114,13 @@ class Database:
         citations_str = json.dumps(citations) if citations else None
 
         cursor = self.conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO trends (id, niche, topic, source, score, summary, citations, url)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (trend_id, niche, topic, source, score, summary, citations_str, url))
+        """,
+            (trend_id, niche, topic, source, score, summary, citations_str, url),
+        )
 
         self.conn.commit()
 
@@ -137,12 +140,15 @@ class Database:
     def get_trends_by_score(self, min_score: float = 60, limit: int = 20) -> List[Dict]:
         """获取高于指定分数的热点（按分数降序）"""
         cursor = self.conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT * FROM trends
             WHERE score >= ? AND status = 'new'
             ORDER BY score DESC
             LIMIT ?
-        """, (min_score, limit))
+        """,
+            (min_score, limit),
+        )
 
         rows = cursor.fetchall()
         return [dict(row) for row in rows]
@@ -185,12 +191,15 @@ class Database:
     def get_trends_by_risk(self, max_risk: float = 70, limit: int = 20) -> List[Dict]:
         """获取低风险热点"""
         cursor = self.conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT * FROM trends
             WHERE risk_score < ? AND status = 'new'
             ORDER BY score DESC
             LIMIT ?
-        """, (max_risk, limit))
+        """,
+            (max_risk, limit),
+        )
 
         rows = cursor.fetchall()
         return [dict(row) for row in rows]
@@ -201,11 +210,14 @@ class Database:
     ) -> List[Dict]:
         """获取中等分数热点（60-79 分）"""
         cursor = self.conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT * FROM trends
             WHERE score >= ? AND score <= ? AND status = 'new'
             ORDER BY score DESC
-        """, (min_score, max_score))
+        """,
+            (min_score, max_score),
+        )
 
         rows = cursor.fetchall()
         return [dict(row) for row in rows]
@@ -213,19 +225,26 @@ class Database:
     # ========== Content 表操作 ==========
 
     @db_operation
-    def create_content(
-        self, trend_id: str, type: str, content: str, status: str = "draft"
-    ) -> Dict:
+    def create_content(self, trend_id: str, type: str, content: str, status: str = "draft") -> Dict:
         """创建内容"""
         content_id = str(uuid.uuid4())
         cursor = self.conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO content (id, trend_id, type, content, status)
             VALUES (?, ?, ?, ?, ?)
-        """, (content_id, trend_id, type, content, status))
+        """,
+            (content_id, trend_id, type, content, status),
+        )
 
         self.conn.commit()
-        return {"id": content_id, "trend_id": trend_id, "type": type, "content": content, "status": status}
+        return {
+            "id": content_id,
+            "trend_id": trend_id,
+            "type": type,
+            "content": content,
+            "status": status,
+        }
 
     @db_operation
     def get_content_by_id(self, content_id: str) -> Optional[Dict]:
@@ -263,13 +282,16 @@ class Database:
             date_filter = "WHERE created_at >= ?"
             params.append(start_date.isoformat())
 
-        cursor.execute(f"""
+        cursor.execute(
+            f"""
             SELECT
                 COUNT(*) as content_generated,
                 (SELECT COUNT(*) FROM trends {date_filter}) as trends_found,
                 (SELECT COUNT(*) FROM trends WHERE score >= 80 {date_filter}) as high_score_trends
             FROM content {date_filter}
-        """, params if start_date else [])
+        """,
+            params if start_date else [],
+        )
 
         row = cursor.fetchone()
         return {
@@ -294,7 +316,8 @@ class Database:
         cursor = self.conn.cursor()
         date_str = target_date.isoformat()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT
                 COUNT(*) as posts_count,
                 0 as comments_count,
@@ -303,7 +326,9 @@ class Database:
                 0 as top_engagement
             FROM content
             WHERE DATE(created_at) = ?
-        """, (date_str,))
+        """,
+            (date_str,),
+        )
 
         row = cursor.fetchone()
         if row:
