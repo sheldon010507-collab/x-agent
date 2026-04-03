@@ -235,15 +235,8 @@ class Config:
 
     def _validate(self) -> None:
         """验证必要配置是否存在"""
-        required = {
-            "TELEGRAM_BOT_TOKEN": self.telegram_bot_token,
-            "SUPABASE_URL": self.supabase_url,
-            "SUPABASE_KEY": self.supabase_key,
-        }
-
-        missing = [key for key, value in required.items() if not value]
-        if missing:
-            raise ValueError(f"缺少必要配置：{', '.join(missing)}")
+        # TELEGRAM_BOT_TOKEN 为可选（API 服务可跳过）
+        # SUPABASE_* 为可选（使用本地 SQLite）
 
         # 验证至少有一个 LLM 供应商配置
         if not self.llm.get_available_providers():
