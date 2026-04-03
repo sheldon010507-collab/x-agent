@@ -13,6 +13,8 @@ api.py - X-Agent FastAPI HTTP 服务
     POST /approve/{id}    确认内容发布
     GET  /report          每日日报
     GET  /status          系统状态
+
+Fixed: Supabase httpx compatibility (v2.5.0, httpx<0.25.0)
 """
 
 import logging
