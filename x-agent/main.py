@@ -121,12 +121,16 @@ class XAgentApp:
             raise
 
         # 5.5 初始化 API 客户端和注册命令处理器
+        logger.info(f"[DEBUG] Starting API commands initialization... bot={self.bot}, bot.application={getattr(self.bot, 'application', 'N/A') if self.bot else 'N/A'}")
         try:
             self.api_client = XAgentAPIClient("http://localhost:8000")
+            logger.info("[DEBUG] XAgentAPIClient created successfully")
             self.api_commands = BotAPICommands(self.api_client)
+            logger.info("[DEBUG] BotAPICommands created successfully")
 
             # 注册 API 命令处理器
             if self.bot and self.bot.application:
+                logger.info("[DEBUG] Bot and application exist, registering handlers...")
                 self.bot.application.add_handler(
                     CommandHandler("api_status", self.api_commands.cmd_api_status)
                 )
@@ -143,8 +147,12 @@ class XAgentApp:
                     CallbackQueryHandler(self.api_commands.handle_api_callback)
                 )
                 logger.info("✅ API commands registered (status, trends, generate, report)")
+            else:
+                logger.warning(f"[DEBUG] Skipped API handler registration: bot={bool(self.bot)}, bot.application={bool(getattr(self.bot, 'application', None)) if self.bot else False}")
         except Exception as e:
             logger.warning(f"⚠️  API commands initialization failed: {e}")
+            import traceback
+            logger.warning(traceback.format_exc())
             # 不中断启动，只记录警告
 
         # 6. 初始化调度器
