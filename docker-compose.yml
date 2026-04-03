@@ -1,6 +1,6 @@
 services:
   openclaw:
-    image: openclaw/openclaw:latest
+    image: openclaw:local
     container_name: x-agent-openclaw
     ports:
       - "18789:18789"
@@ -35,8 +35,7 @@ services:
       - ./x-agent/data:/app/data
       - ./x-agent/logs:/app/logs
     depends_on:
-      openclaw:
-        condition: service_healthy
+      - openclaw
     restart: unless-stopped
 
   x-agent-api:
@@ -58,8 +57,7 @@ services:
       - ./x-agent/data:/app/data
       - ./x-agent/logs:/app/logs
     depends_on:
-      openclaw:
-        condition: service_healthy
+      - openclaw
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
