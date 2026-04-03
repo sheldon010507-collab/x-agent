@@ -116,25 +116,31 @@ async def lifespan(app: FastAPI):
         config = Config()
         app.state.config = config
 
-        app.state.db = init_database(config.supabase_url, config.supabase_key)
-        logger.info("✅ Database initialized")
+        # Try to init DB, but don't fail if it fails
+        try:
+            app.state.db = init_database(config.supabase_url, config.supabase_key)
+            logger.info("✅ Database initialized")
+        except Exception as db_err:
+            logger.warning(f"⚠️  Database init failed (running without DB): {db_err}")
+            app.state.db = None
 
         app.state.llm_router = LLMRouter(config)
         logger.info(f"✅ LLM Router initialized (Provider: {config.llm.provider})")
 
         niche = "general"
-        try:
-            niche = await run_in_threadpool(app.state.db.get_current_niche) or "general"
-        except Exception:
-            pass
+        if app.state.db:
+            try:
+                niche = await run_in_threadpool(app.state.db.get_current_niche) or "general"
+            except Exception:
+                pass
         app.state.niche = niche
 
         app.state.generator = ContentGenerator(app.state.llm_router, niche)
         app.state.researcher = Researcher(config)
-        app.state.scorer = TrendScorer(app.state.db)
+        app.state.scorer = TrendScorer(app.state.db) if app.state.db else None
         app.state.deduplicator = ContentDeduplicator()
 
-        logger.info("🎉 X-Agent API 全部组件初始化完成")
+        logger.info("🎉 X-Agent API 初始化完成")
     except Exception as e:
         logger.error(f"❌ 初始化失败: {e}")
         raise
