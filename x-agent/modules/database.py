@@ -25,6 +25,9 @@ logger = logging.getLogger(__name__)
 DB_PATH = Path(__file__).parent.parent / "data" / "x_agent.db"
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
+# 全局数据库实例
+db = None
+
 
 class DatabaseError(Exception):
     """数据库操作异常"""
