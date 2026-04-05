@@ -33,6 +33,8 @@ from modules.openclaw_bridge import create_openclaw_bridge
 from modules.scheduler import create_scheduler
 from modules.api_client import XAgentAPIClient
 from modules.bot_api_commands import BotAPICommands
+from modules.research import Researcher
+from modules.scorer import TrendScorer
 from telegram.ext import CommandHandler, CallbackQueryHandler
 
 log_dir = Path(__file__).parent / "data"
@@ -58,6 +60,8 @@ class XAgentApp:
         self.db = None
         self.llm_router = None
         self.generator = None
+        self.researcher = None
+        self.scorer = None
         self.bot = None
         self.scheduler = None
         self.openclaw_bridge = None
@@ -107,6 +111,16 @@ class XAgentApp:
             logger.error(f"❌ OpenClaw Bridge initialization failed: {e}")
             raise
 
+        # 4.5 初始化研究员和评分器
+        try:
+            self.researcher = Researcher(config=config)
+            logger.info("✅ Researcher initialized")
+            self.scorer = TrendScorer(db=self.db)
+            logger.info("✅ TrendScorer initialized")
+        except Exception as e:
+            logger.error(f"❌ Researcher/Scorer initialization failed: {e}")
+            raise
+
         # 5. 初始化 Bot
         try:
             self.bot = create_bot(
@@ -114,6 +128,9 @@ class XAgentApp:
                 db=self.db,
                 llm_router=self.llm_router,
                 generator=self.generator,
+                config=config,
+                researcher=self.researcher,
+                scorer=self.scorer,
             )
             # 关键：必须调用 initialize() 来初始化 bot.application
             await self.bot.initialize()
