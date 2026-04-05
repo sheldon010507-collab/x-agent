@@ -216,10 +216,12 @@ class XAgentBotV0Final:
 
         generated = {"type": "A", "content": "示例内容"}
         if self.generator:
-            generated = self.generator.generate(
+            # 从研究结果中提取话题
+            topic = research_result.get("title", "通用话题") if research_result else "通用话题"
+            generated = await self.generator.generate(
+                topic=topic,
                 niche=getattr(self.config, "current_niche", "general") if self.config else "general",
-                research=research_result,
-                score={"risk_score": risk_score},
+                content_type="a"
             )
 
         # 步骤 4: 显示内容 + risk_score
