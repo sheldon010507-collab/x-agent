@@ -23,6 +23,8 @@ from telegram.ext import (
     CallbackContext,
     CallbackQueryHandler,
     CommandHandler,
+    MessageHandler,
+    filters,
 )
 
 logger = logging.getLogger(__name__)
@@ -109,6 +111,11 @@ class XAgentBotV0Final:
                 self.button_callback,
                 pattern=r"^(confirm|final|regen|skip|publish|manual|research|create|view)_",
             )
+        )
+
+        # 普通文字消息处理器（必须放在最后）
+        self.application.add_handler(
+            MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message)
         )
 
         logger.info("✅ X-Agent v0 Final Bot 初始化完成 (半自动模式)")
@@ -704,7 +711,48 @@ class XAgentBotV0Final:
             "/create - 创建内容 (半自动)\n"
             "/report - 复盘报告\n"
             "/set_niche - 切换 Niche\n"
+            "/api_status - API 状态\n"
+            "/trends - 热点趋势\n"
+            "/generate A <话题> - 生成推文\n"
+            "/generate B <话题> - 生成视频脚本\n"
             "/help - 帮助"
         )
         if update.message:
             await update.message.reply_text(help_text, parse_mode="Markdown")
+
+    async def handle_message(self, update: Update, context: CallbackContext) -> None:
+        """处理普通文字消息"""
+        if not update.message or not update.message.text:
+            return
+
+        user_text = update.message.text
+        user_id = update.effective_user.id if update.effective_user else 0
+        logger.info(f"用户 {user_id} 发送消息: {user_text[:50]}")
+
+        # 如果有 LLM，用 AI 回复
+        if self.llm_router:
+            try:
+                await update.message.reply_text("💭 思考中...")
+                reply = await self.llm_router.chat(
+                    messages=[
+                        {"role": "system", "content": "你是 X-Agent，一个帮助用户在 X (Twitter) 上运营账号的 AI 助手。请简洁地用中文回答。"},
+                        {"role": "user", "content": user_text}
+                    ]
+                )
+                await update.message.reply_text(reply)
+            except Exception as e:
+                logger.error(f"LLM 回复失败: {e}")
+                await update.message.reply_text(
+                    "❓ 我不太明白您的意思。\n\n"
+                    "可以用以下命令：\n"
+                    "/create - 创建内容\n"
+                    "/trends - 查看热点\n"
+                    "/help - 查看所有命令"
+                )
+        else:
+            await update.message.reply_text(
+                "❓ 请使用命令与我交互：\n\n"
+                "/create - 创建内容\n"
+                "/trends - 查看热点\n"
+                "/help - 查看所有命令"
+            )
