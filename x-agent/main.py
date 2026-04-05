@@ -19,8 +19,6 @@ import asyncio
 import logging
 import signal
 import sys
-import threading
-import time
 from pathlib import Path
 
 # 添加项目路径
@@ -66,7 +64,6 @@ class XAgentApp:
         self.api_client = None
         self.api_commands = None
         self.running = False
-        self.polling_thread = None
 
     async def initialize(self):
         """初始化所有组件"""
@@ -189,22 +186,13 @@ class XAgentApp:
             await self.scheduler.start()
             logger.info("✅ Scheduler started")
 
-        # 启动 Bot - 在后台线程中运行轮询
+        # 启动 Bot 轮询（使用低级 API，不创建新的事件循环）
         if self.bot and self.bot.application:
-            def run_polling_thread():
-                """在单独的线程中运行 Telegram Bot 轮询"""
-                try:
-                    asyncio.run(
-                        self.bot.application.run_polling(allowed_updates=[])
-                    )
-                except Exception as e:
-                    logger.error(f"❌ Polling error: {e}")
-
-            self.polling_thread = threading.Thread(
-                target=run_polling_thread, daemon=False
-            )
-            self.polling_thread.start()
-            logger.info("✅ Bot started (polling in background thread)")
+            app = self.bot.application
+            await app.initialize()
+            await app.start()
+            await app.updater.start_polling(allowed_updates=[])
+            logger.info("✅ Bot started (polling)")
 
         logger.info("🎉 X Agent v3.0 is now running!")
 
@@ -225,18 +213,18 @@ class XAgentApp:
             await self.scheduler.stop()
             logger.info("✅ Scheduler stopped")
 
-        # 停止 Bot（这会通知轮询线程停止）
+        # 停止 Bot
         if self.bot and self.bot.application:
-            await self.bot.application.stop()
-            logger.info("✅ Bot stop signal sent")
-
-        # 等待轮询线程结束（最多等 5 秒）
-        if self.polling_thread and self.polling_thread.is_alive():
-            self.polling_thread.join(timeout=5)
-            if self.polling_thread.is_alive():
-                logger.warning("⚠️ Polling thread did not stop within timeout")
-            else:
-                logger.info("✅ Polling thread stopped")
+            app = self.bot.application
+            try:
+                if app.updater and app.updater.running:
+                    await app.updater.stop()
+                if app.running:
+                    await app.stop()
+                await app.shutdown()
+                logger.info("✅ Bot stopped")
+            except Exception as e:
+                logger.warning(f"⚠️ Bot stop error (ignored): {e}")
 
         # 关闭 API 客户端
         if self.api_client:
