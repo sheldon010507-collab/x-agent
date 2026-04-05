@@ -141,6 +141,9 @@ class LLMRouter:
 
     async def chat(self, messages: List[Dict], **kwargs) -> str:
         """发送聊天请求"""
+        # 自动使用 config 中配置的模型，调用方可覆盖
+        if "model" not in kwargs and hasattr(self.config, "llm") and self.config.llm.model:
+            kwargs["model"] = self.config.llm.model
         return await self.provider.chat(messages, **kwargs)
 
     async def generate_json(self, prompt: str, system: str = "", **kwargs) -> Dict:

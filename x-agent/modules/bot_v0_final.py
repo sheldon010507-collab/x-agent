@@ -939,11 +939,15 @@ class XAgentBotV0Final:
                 logger.info(f"[DEBUG] 正在调用 LLM 回复...")
                 await update.message.reply_text("💭 思考中...", reply_to_message_id=update.message.message_id)
 
+                # 从 config 中获取模型名称
+                model = getattr(self.config.llm, "model", None) if self.config else None
+
                 reply = await self.llm_router.chat(
                     messages=[
                         {"role": "system", "content": "你是 X-Agent，一个帮助用户在 X (Twitter) 上运营账号的 AI 助手。请简洁地用中文回答。"},
                         {"role": "user", "content": user_text}
-                    ]
+                    ],
+                    **({"model": model} if model else {})
                 )
                 logger.info(f"[DEBUG] LLM 回复成功: {reply[:50]}")
                 await update.message.reply_text(reply, reply_to_message_id=update.message.message_id)
