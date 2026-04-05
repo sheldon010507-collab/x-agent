@@ -101,6 +101,7 @@ class XAgentBotV0Final:
         # self.application.add_handler(CommandHandler("research", self.cmd_research))  # 已删除，使用 API 替代
         # self.application.add_handler(CommandHandler("trends", self.cmd_trends))  # 已删除，使用 API 替代
         self.application.add_handler(CommandHandler("create", self.cmd_create))
+        self.application.add_handler(CommandHandler("search", self.cmd_search))
         self.application.add_handler(CommandHandler("report", self.cmd_report))
         self.application.add_handler(CommandHandler("settings", self.cmd_settings))
         self.application.add_handler(CommandHandler("help", self.cmd_help))
@@ -267,6 +268,98 @@ class XAgentBotV0Final:
             "action": "waiting_niche_selection",
         }
 
+    async def cmd_search(self, update: Update, context: CallbackContext) -> None:
+        """
+        /search <关键词> - 根据关键词搜索趋势和热点
+
+        用法:
+        /search AI开源项目
+        /search 加密货币市场
+        /search 产品发布
+        """
+        user_id = update.effective_user.id if update.effective_user else 0
+
+        if not update.message or not context.args:
+            await update.message.reply_text(
+                "用法：/search <关键词>\n\n"
+                "例如：\n"
+                "/search AI开源项目\n"
+                "/search 加密货币\n"
+                "/search 产品发布",
+                parse_mode="Markdown"
+            )
+            return
+
+        keyword = " ".join(context.args)
+        logger.info(f"用户 {user_id} 搜索关键词: {keyword}")
+
+        # 开始搜索
+        await update.message.reply_text(f"🔍 正在搜索「{keyword}」的趋势热点...")
+
+        research_result = {}
+        if self.researcher:
+            # 使用 researcher 根据关键词搜索
+            research_result = self.researcher.research_topic(
+                niche=keyword, days=7
+            )
+        else:
+            research_result = {"error": "Researcher 未初始化"}
+
+        if "error" in research_result:
+            await update.message.reply_text(f"❌ 搜索失败：{research_result['error']}")
+            return
+
+        # 显示搜索结果
+        platform_data = research_result.get("platform_data", {})
+        real_topics = []
+        for platform, data in platform_data.items():
+            if isinstance(data, dict) and "posts" in data:
+                posts = data.get("posts", [])
+                for post in posts[:2]:
+                    title = post.get("title", "").strip()
+                    if title and len(title) > 5:
+                        real_topics.append(f"[{platform.upper()}] {title}")
+
+        unique_topics = list(set(real_topics))[:10]
+        if unique_topics:
+            hot_topics_text = "\n".join([f"• {t}" for t in unique_topics])
+            await update.message.reply_text(
+                f"🔥 **「{keyword}」的热点** (前10个):\n{hot_topics_text}",
+                parse_mode="Markdown"
+            )
+        else:
+            summary = research_result.get("summary", "暂无相关信息")
+            await update.message.reply_text(
+                f"📊 **搜索结果摘要**:\n{summary}",
+                parse_mode="Markdown"
+            )
+
+        # 显示行业选项，用户可以基于这个搜索结果生成内容
+        await update.message.reply_text("🎯 **选择行业生成内容**（可选）：")
+
+        niche_options = {
+            "general": "通用",
+            "ai_tools": "AI 工具",
+            "crypto": "加密货币",
+            "beauty": "美妆",
+            "fitness": "健身",
+            "humor": "搞笑",
+        }
+
+        keyboard = []
+        for niche_id, niche_name in niche_options.items():
+            keyboard.append([InlineKeyboardButton(niche_name, callback_data=f"search_niche_{niche_id}_{user_id}")])
+
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text("请选择（或直接用 /create 生成）：", reply_markup=reply_markup)
+
+        # 保存搜索结果到用户状态
+        self.user_states[user_id] = {
+            "research_result": research_result,
+            "search_keyword": keyword,
+            "action": "waiting_niche_selection",
+        }
+
     async def button_callback(self, update: Update, context: CallbackContext) -> None:
         """
         Inline 按钮回调处理 - 强制人工审核
@@ -295,6 +388,11 @@ class XAgentBotV0Final:
 
         if action == "create" and len(parts) >= 4 and parts[1] == "niche":
             # 处理 create_niche_<niche>_<user_id> 回调
+            niche = parts[2]
+            await self._handle_create_with_niche(query, context, niche)
+
+        elif action == "search" and len(parts) >= 4 and parts[1] == "niche":
+            # 处理 search_niche_<niche>_<user_id> 回调
             niche = parts[2]
             await self._handle_create_with_niche(query, context, niche)
             # 第一步：用户点击"人工确认发布"
@@ -792,14 +890,17 @@ class XAgentBotV0Final:
         """帮助"""
         help_text = (
             "📚 **X-Agent v0 Final 帮助**\n\n"
-            "/start - 欢迎信息\n"
-            "/create - 创建内容 (半自动)\n"
-            "/report - 复盘报告\n"
-            "/set_niche - 切换 Niche\n"
+            "**内容生成:**\n"
+            "/search <关键词> - 搜索趋势热点\n"
+            "/create - 创建内容 (根据 niche)\n"
+            "\n**查询命令:**\n"
             "/api_status - API 状态\n"
             "/trends - 热点趋势\n"
-            "/generate A <话题> - 生成推文\n"
-            "/generate B <话题> - 生成视频脚本\n"
+            "/report - 复盘报告\n"
+            "\n**设置:**\n"
+            "/set_niche - 切换 Niche\n"
+            "/settings - 更多设置\n"
+            "\n**其他:**\n"
             "/help - 帮助"
         )
         if update.message:
