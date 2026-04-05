@@ -19,6 +19,8 @@ import asyncio
 import logging
 import signal
 import sys
+import threading
+import time
 from pathlib import Path
 
 # 添加项目路径
@@ -64,7 +66,7 @@ class XAgentApp:
         self.api_client = None
         self.api_commands = None
         self.running = False
-        self.polling_task = None
+        self.polling_thread = None
 
     async def initialize(self):
         """初始化所有组件"""
@@ -187,13 +189,22 @@ class XAgentApp:
             await self.scheduler.start()
             logger.info("✅ Scheduler started")
 
-        # 启动 Bot - 在后台任务中运行轮询
+        # 启动 Bot - 在后台线程中运行轮询
         if self.bot and self.bot.application:
-            # 在后台启动轮询任务，这样不会阻塞其他任务（如调度器）
-            self.polling_task = asyncio.create_task(
-                self.bot.application.run_polling(allowed_updates=[])
+            def run_polling_thread():
+                """在单独的线程中运行 Telegram Bot 轮询"""
+                try:
+                    asyncio.run(
+                        self.bot.application.run_polling(allowed_updates=[])
+                    )
+                except Exception as e:
+                    logger.error(f"❌ Polling error: {e}")
+
+            self.polling_thread = threading.Thread(
+                target=run_polling_thread, daemon=False
             )
-            logger.info("✅ Bot started (polling)")
+            self.polling_thread.start()
+            logger.info("✅ Bot started (polling in background thread)")
 
         logger.info("🎉 X Agent v3.0 is now running!")
 
@@ -209,23 +220,23 @@ class XAgentApp:
         logger.info("🛑 Stopping X Agent v3.0...")
         self.running = False
 
-        # 停止轮询任务
-        if self.polling_task and not self.polling_task.done():
-            self.polling_task.cancel()
-            try:
-                await self.polling_task
-            except asyncio.CancelledError:
-                logger.info("✅ Polling task cancelled")
-
         # 停止调度器
         if self.scheduler:
             await self.scheduler.stop()
             logger.info("✅ Scheduler stopped")
 
-        # 停止 Bot
+        # 停止 Bot（这会通知轮询线程停止）
         if self.bot and self.bot.application:
             await self.bot.application.stop()
-            logger.info("✅ Bot stopped")
+            logger.info("✅ Bot stop signal sent")
+
+        # 等待轮询线程结束（最多等 5 秒）
+        if self.polling_thread and self.polling_thread.is_alive():
+            self.polling_thread.join(timeout=5)
+            if self.polling_thread.is_alive():
+                logger.warning("⚠️ Polling thread did not stop within timeout")
+            else:
+                logger.info("✅ Polling thread stopped")
 
         # 关闭 API 客户端
         if self.api_client:

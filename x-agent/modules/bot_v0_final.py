@@ -93,9 +93,6 @@ class XAgentBotV0Final:
 
         self.application = ApplicationBuilder().token(self.token).build()
 
-        # 必须调用 initialize() 来初始化 Application
-        await self.application.initialize()
-
         # 注册命令处理器
         self.application.add_handler(CommandHandler("start", self.cmd_start))
         self.application.add_handler(CommandHandler("set_niche", self.cmd_set_niche))
