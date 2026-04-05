@@ -187,7 +187,8 @@ class XAgentApp:
             logger.info("✅ Scheduler started")
 
         # 启动 Bot
-        if self.bot:
+        if self.bot and self.bot.application:
+            await self.bot.application.start_polling(allowed_updates=[])
             logger.info("✅ Bot started (polling)")
 
         logger.info("🎉 X Agent v3.0 is now running!")
