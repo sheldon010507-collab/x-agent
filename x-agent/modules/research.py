@@ -4,7 +4,7 @@ research.py - 原生异步多平台数据采集模块
 【V0 Final 重构版】移除外部 CLI 依赖，实现原生异步采集
 
 功能：
-- 原生异步多平台数据采集（Reddit、Hacker News、模拟 X/TikTok/YouTube）
+- 原生异步多平台数据采集（Reddit、Hacker News、X/TikTok/YouTube 爬虫）
 - 不依赖外部 CLI，使用 Python 原生实现
 - 支持 aiohttp 异步 HTTP 请求
 - 本地缓存机制
@@ -15,10 +15,11 @@ research.py - 原生异步多平台数据采集模块
 - Reddit (通过 PRAW 或直接 API)
 - Hacker News (官方 API)
 - Google Trends (pytrends)
-- X/Twitter (模拟数据，需要 API 密钥)
-- TikTok/YouTube (模拟数据，需要爬虫)
+- X/Twitter (爬取 trends24.in)
+- TikTok (爬取 tokboard.com)
+- YouTube (爬取 YouTube trending 页面)
 
-版本：V0 Final 增强版（含研究优化）
+版本：V0 Final 增强版（含研究优化 + 真实爬虫）
 """
 
 import asyncio
@@ -328,29 +329,365 @@ class GoogleTrendsFetcher(PlatformFetcher):
         }
 
 
-class SimulatedPlatformFetcher(PlatformFetcher):
-    """模拟平台数据获取器（X/TikTok/YouTube）"""
+class XTrendsFetcher(PlatformFetcher):
+    """X/Twitter 趋势爬虫 - 通过 trends24.in 获取真实热词"""
 
-    async def fetch(self, niche: str, days: int = 7, platform: str = "x") -> Dict:
-        """生成模拟数据"""
-        mock_posts = [
-            {
-                "title": f"[Mock {platform.upper()}] {niche} 领域热门内容 #{i}",
-                "engagement": random.randint(100, 10000),
-                "url": f"https://{platform}.com/mock_{i}",
-                "author": f"@{niche}_creator_{i}",
-                "created_at": datetime.now().isoformat(),
-                "tags": [niche, "trending", "viral"],
+    HEADERS = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0.0.0 Safari/537.36"
+        ),
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+    }
+
+    async def fetch(self, niche: str, days: int = 7) -> Dict:
+        """爬取 trends24.in 获取 X/Twitter 趋势"""
+        if not HAS_AIOHTTP:
+            return self._fallback(niche)
+        try:
+            from bs4 import BeautifulSoup
+        except ImportError:
+            logger.warning("beautifulsoup4 未安装，X 趋势爬虫不可用")
+            return self._fallback(niche)
+
+        try:
+            async with aiohttp.ClientSession(headers=self.HEADERS) as session:
+                # trends24.in 提供全球 Twitter 趋势（不需要登录）
+                url = "https://trends24.in/"
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                    if resp.status != 200:
+                        logger.warning(f"trends24.in 返回 {resp.status}")
+                        return self._fallback(niche)
+                    html = await resp.text()
+
+            soup = BeautifulSoup(html, "lxml")
+            posts = []
+
+            # trends24.in 结构：每个时间段的趋势列表
+            trend_cards = soup.select(".trend-card__list ol li a")
+            for i, tag in enumerate(trend_cards[:30]):
+                trend_name = tag.get_text(strip=True)
+                if not trend_name:
+                    continue
+                posts.append({
+                    "title": trend_name,
+                    "engagement": max(1000 - i * 30, 100),
+                    "url": f"https://x.com/search?q={trend_name.replace('#', '%23')}&src=trend_click",
+                    "author": "trending",
+                    "created_at": datetime.now().isoformat(),
+                    "tags": [trend_name.lstrip("#"), "trending", "x"],
+                    "platform": "x",
+                })
+
+            if not posts:
+                logger.warning("trends24.in 未解析到数据，尝试备用选择器")
+                # 备用：直接找所有列表项
+                items = soup.select("ol li a[href*='/trends/']")
+                for i, tag in enumerate(items[:20]):
+                    name = tag.get_text(strip=True)
+                    if name:
+                        posts.append({
+                            "title": name,
+                            "engagement": 500 - i * 20,
+                            "url": f"https://x.com/search?q={name.replace('#', '%23')}&src=trend_click",
+                            "author": "trending",
+                            "created_at": datetime.now().isoformat(),
+                            "tags": [name.lstrip("#"), "trending"],
+                            "platform": "x",
+                        })
+
+            logger.info(f"X 趋势爬取成功，共 {len(posts)} 条")
+            return {
+                "platform": "x",
+                "niche": niche,
+                "posts": posts[:20],
+                "fetched_at": datetime.now().isoformat(),
+                "mock": False,
             }
-            for i in range(5)
-        ]
+        except Exception as e:
+            logger.error(f"X 趋势爬取失败: {e}")
+            return self._fallback(niche)
 
+    def _fallback(self, niche: str) -> Dict:
         return {
-            "platform": platform,
+            "platform": "x",
             "niche": niche,
-            "posts": mock_posts,
+            "posts": [],
             "fetched_at": datetime.now().isoformat(),
-            "mock": True,
+            "error": "爬虫不可用",
+        }
+
+
+class TikTokFetcher(PlatformFetcher):
+    """TikTok 趋势爬虫 - 通过 tokboard.com 获取热门标签"""
+
+    HEADERS = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0.0.0 Safari/537.36"
+        ),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    }
+
+    async def fetch(self, niche: str, days: int = 7) -> Dict:
+        """爬取 TikTok 热门话题"""
+        if not HAS_AIOHTTP:
+            return self._fallback(niche)
+        try:
+            from bs4 import BeautifulSoup
+        except ImportError:
+            logger.warning("beautifulsoup4 未安装，TikTok 爬虫不可用")
+            return self._fallback(niche)
+
+        try:
+            async with aiohttp.ClientSession(headers=self.HEADERS) as session:
+                # tokboard.com 追踪 TikTok 热门标签（公开无需登录）
+                url = "https://tokboard.com/"
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                    if resp.status != 200:
+                        logger.warning(f"tokboard.com 返回 {resp.status}，尝试备用")
+                        return await self._scrape_tiktok_tag(session, niche)
+                    html = await resp.text()
+
+            soup = BeautifulSoup(html, "lxml")
+            posts = []
+
+            # tokboard.com 结构：热门 hashtag 表格
+            rows = soup.select("table tbody tr")
+            for i, row in enumerate(rows[:25]):
+                cols = row.select("td")
+                if len(cols) >= 2:
+                    tag_el = cols[0].select_one("a")
+                    tag_name = tag_el.get_text(strip=True) if tag_el else cols[0].get_text(strip=True)
+                    if tag_name.startswith("#"):
+                        tag_name = tag_name
+                    else:
+                        tag_name = f"#{tag_name}"
+
+                    posts.append({
+                        "title": tag_name,
+                        "engagement": max(5000 - i * 200, 100),
+                        "url": f"https://www.tiktok.com/tag/{tag_name.lstrip('#')}",
+                        "author": "trending",
+                        "created_at": datetime.now().isoformat(),
+                        "tags": [tag_name.lstrip("#"), "tiktok", "trending"],
+                        "platform": "tiktok",
+                    })
+
+            if not posts:
+                # 备用：直接搜索关键词相关标签
+                return await self._scrape_tiktok_tag(None, niche)
+
+            logger.info(f"TikTok 趋势爬取成功，共 {len(posts)} 条")
+            return {
+                "platform": "tiktok",
+                "niche": niche,
+                "posts": posts,
+                "fetched_at": datetime.now().isoformat(),
+                "mock": False,
+            }
+        except Exception as e:
+            logger.error(f"TikTok 爬取失败: {e}")
+            return self._fallback(niche)
+
+    async def _scrape_tiktok_tag(self, session, niche: str) -> Dict:
+        """爬取 TikTok 特定话题页面"""
+        try:
+            from bs4 import BeautifulSoup
+            headers = {**self.HEADERS, "Accept-Language": "zh-CN,zh;q=0.9"}
+            async with aiohttp.ClientSession(headers=headers) as s:
+                url = f"https://www.tiktok.com/tag/{niche.replace(' ', '')}"
+                async with s.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                    html = await resp.text()
+
+            soup = BeautifulSoup(html, "lxml")
+            # TikTok 页面中的视频标题
+            posts = []
+            for i, el in enumerate(soup.select('[data-e2e="challenge-item"] h3, .tiktok-1s6cowx')[:15]):
+                title = el.get_text(strip=True)
+                if title:
+                    posts.append({
+                        "title": title,
+                        "engagement": 1000 - i * 50,
+                        "url": f"https://www.tiktok.com/tag/{niche}",
+                        "author": "tiktok_trending",
+                        "created_at": datetime.now().isoformat(),
+                        "tags": [niche, "tiktok"],
+                        "platform": "tiktok",
+                    })
+            return {
+                "platform": "tiktok",
+                "niche": niche,
+                "posts": posts,
+                "fetched_at": datetime.now().isoformat(),
+                "mock": len(posts) == 0,
+            }
+        except Exception as e:
+            logger.warning(f"TikTok 标签页爬取失败: {e}")
+            return self._fallback(niche)
+
+    def _fallback(self, niche: str) -> Dict:
+        return {
+            "platform": "tiktok",
+            "niche": niche,
+            "posts": [],
+            "fetched_at": datetime.now().isoformat(),
+            "error": "爬虫不可用",
+        }
+
+
+class YouTubeFetcher(PlatformFetcher):
+    """YouTube 热门视频爬虫 - 爬取 YouTube trending 页面"""
+
+    HEADERS = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0.0.0 Safari/537.36"
+        ),
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+    }
+
+    async def fetch(self, niche: str, days: int = 7) -> Dict:
+        """爬取 YouTube 热门或搜索结果"""
+        if not HAS_AIOHTTP:
+            return self._fallback(niche)
+        try:
+            from bs4 import BeautifulSoup
+        except ImportError:
+            logger.warning("beautifulsoup4 未安装，YouTube 爬虫不可用")
+            return self._fallback(niche)
+
+        posts = []
+        try:
+            async with aiohttp.ClientSession(headers=self.HEADERS) as session:
+                # 先尝试搜索 niche 相关的热门视频
+                search_url = f"https://www.youtube.com/results?search_query={niche}&sp=CAMSAhAB"
+                async with session.get(search_url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                    html = await resp.text()
+
+            # YouTube 把视频数据嵌在页面的 JSON 中
+            import re
+            import json as _json
+            # 提取 ytInitialData
+            match = re.search(r"var ytInitialData = ({.*?});", html, re.DOTALL)
+            if match:
+                data = _json.loads(match.group(1))
+                # 从 JSON 中提取视频标题和链接
+                contents = (
+                    data.get("contents", {})
+                    .get("twoColumnSearchResultsRenderer", {})
+                    .get("primaryContents", {})
+                    .get("sectionListRenderer", {})
+                    .get("contents", [])
+                )
+                for section in contents:
+                    items = (
+                        section.get("itemSectionRenderer", {})
+                        .get("contents", [])
+                    )
+                    for item in items:
+                        video = item.get("videoRenderer", {})
+                        title_runs = video.get("title", {}).get("runs", [])
+                        video_id = video.get("videoId", "")
+                        view_text = (
+                            video.get("viewCountText", {})
+                            .get("simpleText", "0 views")
+                        )
+                        if title_runs and video_id:
+                            title = "".join(r.get("text", "") for r in title_runs)
+                            posts.append({
+                                "title": title,
+                                "engagement": 1000,
+                                "url": f"https://www.youtube.com/watch?v={video_id}",
+                                "author": video.get("ownerText", {}).get("runs", [{}])[0].get("text", ""),
+                                "created_at": datetime.now().isoformat(),
+                                "tags": [niche, "youtube", "trending"],
+                                "views": view_text,
+                                "platform": "youtube",
+                            })
+                            if len(posts) >= 15:
+                                break
+                    if len(posts) >= 15:
+                        break
+
+            if not posts:
+                # 备用：爬取 YouTube trending 页面
+                posts = await self._scrape_trending()
+
+            logger.info(f"YouTube 爬取成功，共 {len(posts)} 条")
+            return {
+                "platform": "youtube",
+                "niche": niche,
+                "posts": posts[:15],
+                "fetched_at": datetime.now().isoformat(),
+                "mock": False,
+            }
+        except Exception as e:
+            logger.error(f"YouTube 爬取失败: {e}")
+            return self._fallback(niche)
+
+    async def _scrape_trending(self) -> list:
+        """爬取 YouTube 全球趋势页面"""
+        try:
+            import re
+            import json as _json
+            async with aiohttp.ClientSession(headers=self.HEADERS) as session:
+                url = "https://www.youtube.com/feed/trending"
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                    html = await resp.text()
+
+            match = re.search(r"var ytInitialData = ({.*?});", html, re.DOTALL)
+            if not match:
+                return []
+            data = _json.loads(match.group(1))
+            # 从 trending 页面提取视频
+            tabs = (
+                data.get("contents", {})
+                .get("twoColumnBrowseResultsRenderer", {})
+                .get("tabs", [])
+            )
+            posts = []
+            for tab in tabs:
+                items = (
+                    tab.get("tabRenderer", {})
+                    .get("content", {})
+                    .get("sectionListRenderer", {})
+                    .get("contents", [])
+                )
+                for section in items:
+                    for shelf in section.get("itemSectionRenderer", {}).get("contents", []):
+                        for video in shelf.get("shelfRenderer", {}).get("content", {}).get("expandedShelfContentsRenderer", {}).get("items", []):
+                            v = video.get("videoRenderer", {})
+                            title_runs = v.get("title", {}).get("runs", [])
+                            vid_id = v.get("videoId", "")
+                            if title_runs and vid_id:
+                                title = "".join(r.get("text", "") for r in title_runs)
+                                posts.append({
+                                    "title": title,
+                                    "engagement": 5000,
+                                    "url": f"https://www.youtube.com/watch?v={vid_id}",
+                                    "author": "",
+                                    "created_at": datetime.now().isoformat(),
+                                    "tags": ["trending", "youtube"],
+                                    "platform": "youtube",
+                                })
+                                if len(posts) >= 15:
+                                    return posts
+            return posts
+        except Exception as e:
+            logger.warning(f"YouTube trending 爬取失败: {e}")
+            return []
+
+    def _fallback(self, niche: str) -> Dict:
+        return {
+            "platform": "youtube",
+            "niche": niche,
+            "posts": [],
+            "fetched_at": datetime.now().isoformat(),
+            "error": "爬虫不可用",
         }
 
 
@@ -375,14 +712,16 @@ class Researcher:
         self.reddit_fetcher = RedditFetcher(config)
         self.hn_fetcher = HackerNewsFetcher(config)
         self.trends_fetcher = GoogleTrendsFetcher(config)
-        self.simulated_fetcher = SimulatedPlatformFetcher(config)
+        self.x_fetcher = XTrendsFetcher(config)
+        self.tiktok_fetcher = TikTokFetcher(config)
+        self.youtube_fetcher = YouTubeFetcher(config)
 
         # 初始化优化模块
         self.rate_limit_config = rate_limit_config or RateLimitConfig()
         self.concurrent_limiter = ConcurrentLimiter(self.rate_limit_config)
         self.deduplicator = ContentDeduplicator(threshold=0.75)
 
-        logger.info("✅ Researcher 初始化完成 (原生异步模式 + 优化)")
+        logger.info("✅ Researcher 初始化完成 (原生异步模式 + 真实爬虫)")
 
     async def research_async(
         self,
@@ -444,20 +783,20 @@ class Researcher:
         if "web" in source_list or "google_trends" in source_list:
             tasks.append(limited_fetch("google_trends", self.trends_fetcher, niche, days))
 
-        # 模拟平台（X/TikTok/YouTube）
+        # 真实爬虫平台（X/TikTok/YouTube）
         for platform in ["x", "twitter"]:
             if platform in source_list:
-                tasks.append(limited_fetch("x", self.simulated_fetcher, niche, days))
+                tasks.append(limited_fetch("x", self.x_fetcher, niche, days))
                 break
 
         for platform in ["tiktok"]:
             if platform in source_list:
-                tasks.append(limited_fetch("tiktok", self.simulated_fetcher, niche, days))
+                tasks.append(limited_fetch("tiktok", self.tiktok_fetcher, niche, days))
                 break
 
         for platform in ["youtube", "yt"]:
             if platform in source_list:
-                tasks.append(limited_fetch("youtube", self.simulated_fetcher, niche, days))
+                tasks.append(limited_fetch("youtube", self.youtube_fetcher, niche, days))
                 break
 
         # 并行执行（带总超时保护）
