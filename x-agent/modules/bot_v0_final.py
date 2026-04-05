@@ -830,20 +830,24 @@ class XAgentBotV0Final:
                 user_text = user_text.replace(f"@{context.bot.username}", "").strip()
 
         logger.info(f"用户 {user_id} {'在群组' if is_group else '私聊'} 发送消息: {user_text[:50]}")
+        logger.info(f"[DEBUG] llm_router = {self.llm_router}, type = {type(self.llm_router)}")
 
         # 如果有 LLM，用 AI 回复
         if self.llm_router:
             try:
+                logger.info(f"[DEBUG] 正在调用 LLM 回复...")
                 await update.message.reply_text("💭 思考中...", reply_to_message_id=update.message.message_id)
+
                 reply = await self.llm_router.chat(
                     messages=[
                         {"role": "system", "content": "你是 X-Agent，一个帮助用户在 X (Twitter) 上运营账号的 AI 助手。请简洁地用中文回答。"},
                         {"role": "user", "content": user_text}
                     ]
                 )
+                logger.info(f"[DEBUG] LLM 回复成功: {reply[:50]}")
                 await update.message.reply_text(reply, reply_to_message_id=update.message.message_id)
             except Exception as e:
-                logger.error(f"LLM 回复失败: {e}")
+                logger.error(f"LLM 回复失败: {e}", exc_info=True)
                 await update.message.reply_text(
                     "❓ 我不太明白您的意思。\n\n"
                     "可以用以下命令：\n"
@@ -853,6 +857,7 @@ class XAgentBotV0Final:
                     reply_to_message_id=update.message.message_id
                 )
         else:
+            logger.warning(f"[DEBUG] llm_router 为 None，无法回复消息")
             await update.message.reply_text(
                 "❓ 请使用命令与我交互：\n\n"
                 "/create - 创建内容\n"
