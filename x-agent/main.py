@@ -188,6 +188,7 @@ class XAgentApp:
 
         # 启动 Bot
         if self.bot and self.bot.application:
+            await self.bot.application.start()
             await self.bot.application.start_polling(allowed_updates=[])
             logger.info("✅ Bot started (polling)")
 
