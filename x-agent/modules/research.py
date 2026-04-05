@@ -420,9 +420,7 @@ class Researcher:
                 try:
                     # 执行获取（带超时）
                     result = await asyncio.wait_for(
-                        fetcher.fetch(
-                            niche, days, timeout=self.rate_limit_config.request_timeout_secs
-                        ),
+                        fetcher.fetch(niche, days),
                         timeout=self.rate_limit_config.request_timeout_secs,
                     )
                     return platform, result
