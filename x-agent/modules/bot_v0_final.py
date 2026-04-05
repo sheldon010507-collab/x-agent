@@ -212,22 +212,23 @@ class XAgentBotV0Final:
             await update.message.reply_text(f"❌ 研究失败：{research_result['error']}")
             return
 
-        # 从研究结果中自动选择最热的话题
-        selected_topic = research_result
-        if isinstance(research_result, list) and len(research_result) > 0:
-            # 按热度排序，选择最热的
-            selected_topic = max(research_result, key=lambda x: x.get("velocity_24h", 0))
-        elif isinstance(research_result, dict) and "title" not in research_result:
-            # 如果是列表格式但不是单个话题，取第一个
-            if isinstance(research_result, list):
-                selected_topic = research_result[0] if research_result else {"title": "通用话题"}
+        # 从研究结果的 citations 中自动选择一个话题
+        citations = research_result.get("citations", [])
+        if citations:
+            # 随机选择一个热点话题（或选择第一个最热的）
+            import random
+            selected_citation = random.choice(citations)
+            selected_topic_title = selected_citation.get("title", "")
+        else:
+            selected_topic_title = research_result.get("summary", "通用话题")
 
-        logger.info(f"自动选择热点：{selected_topic.get('title', 'N/A')}")
+        logger.info(f"自动选择热点：{selected_topic_title}")
 
         # 步骤 2: 评分
         risk_score = 50
         if self.scorer:
-            score_result = self.scorer.score_with_details(selected_topic)
+            # 用研究结果的数据进行评分
+            score_result = self.scorer.score_with_details(research_result)
             risk_score = score_result.get("score", 50)
 
         # 步骤 3: 生成内容
@@ -235,10 +236,9 @@ class XAgentBotV0Final:
 
         generated = {"type": "A", "content": "示例内容"}
         if self.generator:
-            # 使用自动选择的热点话题
-            topic = selected_topic.get("title", "通用话题") if selected_topic else "通用话题"
+            # 使用自动选择的热点话题生成内容
             generated = await self.generator.generate(
-                topic=topic,
+                topic=selected_topic_title,
                 niche=getattr(self.config, "current_niche", "general") if self.config else "general",
                 content_type="a"
             )
