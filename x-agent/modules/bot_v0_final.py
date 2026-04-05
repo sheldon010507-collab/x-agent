@@ -214,15 +214,31 @@ class XAgentBotV0Final:
 
         # 显示采集到的热点
         citations = research_result.get("citations", [])
+        platform_data = research_result.get("platform_data", {})
         summary = research_result.get("summary", "暂无摘要")
         risk_score_research = research_result.get("risk_score", 50)
 
-        if citations:
-            hot_topics = "\n".join([f"• {c.get('title', '未知')}" for c in citations[:5]])
+        # 从 platform_data 中提取真实的话题
+        real_topics = []
+        for platform, data in platform_data.items():
+            if isinstance(data, dict) and "posts" in data:
+                posts = data.get("posts", [])
+                for post in posts[:2]:  # 每个平台取前2个
+                    title = post.get("title", "").strip()
+                    if title and len(title) > 5:  # 过滤掉太短或空的标题
+                        real_topics.append(f"[{platform.upper()}] {title}")
+
+        # 显示热点列表（去重）
+        unique_topics = list(set(real_topics))[:10]
+        if unique_topics:
+            hot_topics_text = "\n".join([f"• {t}" for t in unique_topics])
             await update.message.reply_text(
-                f"🔥 **采集到的热点** (前5个):\n{hot_topics}\n\n"
-                f"📊 **摘要**: {summary}\n"
-                f"⚠️ **整体风险评分**: {risk_score_research}/100",
+                f"🔥 **采集到的热点话题** (前10个):\n{hot_topics_text}",
+                parse_mode="Markdown"
+            )
+        else:
+            await update.message.reply_text(
+                f"📊 **研究摘要**:\n{summary}",
                 parse_mode="Markdown"
             )
 
@@ -542,14 +558,23 @@ class XAgentBotV0Final:
 
         await query.edit_message_text(f"⏳ 正在为 {niche} 行业生成内容...")
 
-        # 从研究结果的 citations 中随机选择一个话题
-        citations = research_result.get("citations", [])
-        if citations:
+        # 从 platform_data 中提取真实的话题
+        platform_data = research_result.get("platform_data", {})
+        real_topics = []
+        for platform, data in platform_data.items():
+            if isinstance(data, dict) and "posts" in data:
+                posts = data.get("posts", [])
+                for post in posts[:2]:
+                    title = post.get("title", "").strip()
+                    if title and len(title) > 5:
+                        real_topics.append(title)
+
+        # 从真实话题中随机选择一个
+        if real_topics:
             import random
-            selected_citation = random.choice(citations)
-            selected_topic_title = selected_citation.get("title", "通用话题")
+            selected_topic_title = random.choice(real_topics)
         else:
-            selected_topic_title = "通用话题"
+            selected_topic_title = research_result.get("summary", "通用话题")[:100]
 
         # 评分
         risk_score = 50
@@ -572,16 +597,13 @@ class XAgentBotV0Final:
         risk_emoji = "🟢" if risk_score < 50 else "🟡" if risk_score < 80 else "🔴"
 
         message_text = (
-            f"📝 **{niche} 行业 - {content_type} 类内容**\n\n"
+            f"📝 **{niche} 行业**\n\n"
             f"🔥 **话题**: {selected_topic_title}\n\n"
             f"{content_text}\n\n"
             f"---\n"
             f"{risk_emoji} **风险评分**: {risk_score}/100\n"
-            f"ℹ️ 风险说明:\n"
-            f"- <50: 低风险\n"
-            f"- 50-79: 中风险\n"
-            f"- ≥80: 高风险\n\n"
-            f"⚠️ **所有内容都需要人工审核确认后才能发布**\n\n"
+            f"ℹ️ 风险说明: <50 低风险 | 50-79 中风险 | ≥80 高风险\n\n"
+            f"⚠️ **需要人工审核确认后才能发布**\n\n"
             f"请选择操作:"
         )
 
@@ -602,6 +624,7 @@ class XAgentBotV0Final:
             "risk_score": risk_score,
             "niche": niche,
             "topic": selected_topic_title,
+            "research_result": research_result,
             "action": "waiting_confirmation",
         }
 
