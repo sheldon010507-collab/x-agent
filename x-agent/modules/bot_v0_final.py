@@ -208,8 +208,8 @@ class XAgentBotV0Final:
         # 步骤 2: 评分
         risk_score = 50
         if self.scorer:
-            score_result = self.scorer.score(research_result)
-            risk_score = score_result.get("risk_score", 50)
+            score_result = self.scorer.score_with_details(research_result)
+            risk_score = score_result.get("score", 50)
 
         # 步骤 3: 生成内容
         await update.message.reply_text("✍️ 正在生成内容...")
