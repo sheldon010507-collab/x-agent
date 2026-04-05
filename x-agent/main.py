@@ -125,7 +125,7 @@ class XAgentApp:
         # 5.5 初始化 API 客户端和注册命令处理器
         logger.info(f"[DEBUG] Starting API commands initialization... bot={self.bot}, bot.application={getattr(self.bot, 'application', 'N/A') if self.bot else 'N/A'}")
         try:
-            self.api_client = XAgentAPIClient("http://localhost:8000")
+            self.api_client = XAgentAPIClient("http://x-agent-api:8000")
             logger.info("[DEBUG] XAgentAPIClient created successfully")
             self.api_commands = BotAPICommands(self.api_client)
             logger.info("[DEBUG] BotAPICommands created successfully")

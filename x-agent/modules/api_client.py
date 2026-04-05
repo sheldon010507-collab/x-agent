@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class XAgentAPIClient:
     """X-Agent API 客户端"""
 
-    def __init__(self, api_url: str = "http://localhost:8000"):
+    def __init__(self, api_url: str = "http://x-agent-api:8000"):
         """
         初始化 API 客户端
 
