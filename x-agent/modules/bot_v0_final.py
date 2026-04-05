@@ -212,10 +212,22 @@ class XAgentBotV0Final:
             await update.message.reply_text(f"❌ 研究失败：{research_result['error']}")
             return
 
+        # 从研究结果中自动选择最热的话题
+        selected_topic = research_result
+        if isinstance(research_result, list) and len(research_result) > 0:
+            # 按热度排序，选择最热的
+            selected_topic = max(research_result, key=lambda x: x.get("velocity_24h", 0))
+        elif isinstance(research_result, dict) and "title" not in research_result:
+            # 如果是列表格式但不是单个话题，取第一个
+            if isinstance(research_result, list):
+                selected_topic = research_result[0] if research_result else {"title": "通用话题"}
+
+        logger.info(f"自动选择热点：{selected_topic.get('title', 'N/A')}")
+
         # 步骤 2: 评分
         risk_score = 50
         if self.scorer:
-            score_result = self.scorer.score_with_details(research_result)
+            score_result = self.scorer.score_with_details(selected_topic)
             risk_score = score_result.get("score", 50)
 
         # 步骤 3: 生成内容
@@ -223,8 +235,8 @@ class XAgentBotV0Final:
 
         generated = {"type": "A", "content": "示例内容"}
         if self.generator:
-            # 从研究结果中提取话题
-            topic = research_result.get("title", "通用话题") if research_result else "通用话题"
+            # 使用自动选择的热点话题
+            topic = selected_topic.get("title", "通用话题") if selected_topic else "通用话题"
             generated = await self.generator.generate(
                 topic=topic,
                 niche=getattr(self.config, "current_niche", "general") if self.config else "general",
@@ -721,25 +733,42 @@ class XAgentBotV0Final:
             await update.message.reply_text(help_text, parse_mode="Markdown")
 
     async def handle_message(self, update: Update, context: CallbackContext) -> None:
-        """处理普通文字消息"""
+        """处理普通文字消息（私聊和群组 @Bot）"""
         if not update.message or not update.message.text:
             return
 
         user_text = update.message.text
         user_id = update.effective_user.id if update.effective_user else 0
-        logger.info(f"用户 {user_id} 发送消息: {user_text[:50]}")
+        chat_id = update.message.chat_id
+        is_group = update.message.chat.type in ["group", "supergroup"]
+
+        # 群组消息需要检查是否 @Bot
+        if is_group:
+            # 检查消息是否提及此 Bot
+            if update.message.reply_to_message:
+                # 如果是回复此 Bot 的消息
+                if update.message.reply_to_message.from_user.id != context.bot.id:
+                    return
+            elif not update.message.text.startswith("@"):
+                # 如果不是 @Bot 开头，忽略
+                return
+            else:
+                # 移除 @Bot 前缀
+                user_text = user_text.replace(f"@{context.bot.username}", "").strip()
+
+        logger.info(f"用户 {user_id} {'在群组' if is_group else '私聊'} 发送消息: {user_text[:50]}")
 
         # 如果有 LLM，用 AI 回复
         if self.llm_router:
             try:
-                await update.message.reply_text("💭 思考中...")
+                await update.message.reply_text("💭 思考中...", reply_to_message_id=update.message.message_id)
                 reply = await self.llm_router.chat(
                     messages=[
                         {"role": "system", "content": "你是 X-Agent，一个帮助用户在 X (Twitter) 上运营账号的 AI 助手。请简洁地用中文回答。"},
                         {"role": "user", "content": user_text}
                     ]
                 )
-                await update.message.reply_text(reply)
+                await update.message.reply_text(reply, reply_to_message_id=update.message.message_id)
             except Exception as e:
                 logger.error(f"LLM 回复失败: {e}")
                 await update.message.reply_text(
@@ -747,12 +776,14 @@ class XAgentBotV0Final:
                     "可以用以下命令：\n"
                     "/create - 创建内容\n"
                     "/trends - 查看热点\n"
-                    "/help - 查看所有命令"
+                    "/help - 查看所有命令",
+                    reply_to_message_id=update.message.message_id
                 )
         else:
             await update.message.reply_text(
                 "❓ 请使用命令与我交互：\n\n"
                 "/create - 创建内容\n"
                 "/trends - 查看热点\n"
-                "/help - 查看所有命令"
+                "/help - 查看所有命令",
+                reply_to_message_id=update.message.message_id
             )
