@@ -939,26 +939,28 @@ class XAgentBotV0Final:
                 logger.info(f"[DEBUG] 正在调用 LLM 回复...")
                 await update.message.reply_text("💭 思考中...", reply_to_message_id=update.message.message_id)
 
-                # 从 config 中获取模型名称
-                model = getattr(self.config.llm, "model", None) if self.config else None
-
                 reply = await self.llm_router.chat(
                     messages=[
-                        {"role": "system", "content": "你是 X-Agent，一个帮助用户在 X (Twitter) 上运营账号的 AI 助手。请简洁地用中文回答。"},
+                        {"role": "system", "content": (
+                            "你是一个智能 AI 助手，可以回答任何问题。你同时也具备帮助用户在 X (Twitter) 上运营账号的能力。\n"
+                            "请用中文回答，简洁、有用、友好。如果用户问的是通用问题，正常回答即可。"
+                        )},
                         {"role": "user", "content": user_text}
-                    ],
-                    **({"model": model} if model else {})
+                    ]
                 )
-                logger.info(f"[DEBUG] LLM 回复成功: {reply[:50]}")
-                await update.message.reply_text(reply, reply_to_message_id=update.message.message_id)
+                logger.info(f"[DEBUG] LLM 回复成功: {reply[:50] if reply else 'empty'}")
+
+                # Telegram 消息最大 4096 字符
+                if len(reply) > 4000:
+                    for i in range(0, len(reply), 4000):
+                        await update.message.reply_text(reply[i:i+4000], reply_to_message_id=update.message.message_id)
+                else:
+                    await update.message.reply_text(reply, reply_to_message_id=update.message.message_id)
             except Exception as e:
                 logger.error(f"LLM 回复失败: {e}", exc_info=True)
                 await update.message.reply_text(
-                    "❓ 我不太明白您的意思。\n\n"
-                    "可以用以下命令：\n"
-                    "/create - 创建内容\n"
-                    "/trends - 查看热点\n"
-                    "/help - 查看所有命令",
+                    f"❌ AI 回复失败: {str(e)[:200]}\n\n"
+                    "可能是 API 连接问题，请稍后再试。",
                     reply_to_message_id=update.message.message_id
                 )
         else:
