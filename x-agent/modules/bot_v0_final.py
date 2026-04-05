@@ -212,78 +212,44 @@ class XAgentBotV0Final:
             await update.message.reply_text(f"❌ 研究失败：{research_result['error']}")
             return
 
-        # 从研究结果的 citations 中自动选择一个话题
+        # 显示采集到的热点
         citations = research_result.get("citations", [])
+        summary = research_result.get("summary", "暂无摘要")
+        risk_score_research = research_result.get("risk_score", 50)
+
         if citations:
-            # 随机选择一个热点话题（或选择第一个最热的）
-            import random
-            selected_citation = random.choice(citations)
-            selected_topic_title = selected_citation.get("title", "")
-        else:
-            selected_topic_title = research_result.get("summary", "通用话题")
-
-        logger.info(f"自动选择热点：{selected_topic_title}")
-
-        # 步骤 2: 评分
-        risk_score = 50
-        if self.scorer:
-            # 用研究结果的数据进行评分
-            score_result = self.scorer.score_with_details(research_result)
-            risk_score = score_result.get("score", 50)
-
-        # 步骤 3: 生成内容
-        await update.message.reply_text("✍️ 正在生成内容...")
-
-        generated = {"type": "A", "content": "示例内容"}
-        if self.generator:
-            # 使用自动选择的热点话题生成内容
-            generated = await self.generator.generate(
-                topic=selected_topic_title,
-                niche=getattr(self.config, "current_niche", "general") if self.config else "general",
-                content_type="a"
+            hot_topics = "\n".join([f"• {c.get('title', '未知')}" for c in citations[:5]])
+            await update.message.reply_text(
+                f"🔥 **采集到的热点** (前5个):\n{hot_topics}\n\n"
+                f"📊 **摘要**: {summary}\n"
+                f"⚠️ **整体风险评分**: {risk_score_research}/100",
+                parse_mode="Markdown"
             )
 
-        # 步骤 4: 显示内容 + risk_score
-        content_type = generated.get("type", "A")
-        content_text = generated.get("content", "无内容")
+        # 让用户选择行业
+        await update.message.reply_text("🎯 **选择内容行业**，我将为你生成相应的内容：")
 
-        risk_emoji = "🟢" if risk_score < 50 else "🟡" if risk_score < 80 else "🔴"
-
-        message_text = (
-            f"📝 **已生成 {content_type} 类内容**\n\n"
-            f"{content_text}\n\n"
-            f"---\n"
-            f"{risk_emoji} **风险评分**: {risk_score}/100\n"
-            f"ℹ️ 风险说明:\n"
-            f"- <50: 低风险\n"
-            f"- 50-79: 中风险\n"
-            f"- ≥80: 高风险\n\n"
-            f"⚠️ **所有内容都需要人工审核确认后才能发布**\n\n"
-            f"请选择操作:"
-        )
-
-        # 步骤 5: Inline 确认按钮 - 强制人工审核，无自动发布选项
-        keyboard = [
-            [InlineKeyboardButton("✅ 人工确认发布", callback_data=f"confirm_publish_{user_id}")],
-            [
-                InlineKeyboardButton("🔄 重新生成", callback_data=f"regen_{user_id}"),
-                InlineKeyboardButton("❌ 跳过", callback_data=f"skip_{user_id}"),
-            ],
-        ]
-
-        reply_markup = InlineKeyboardMarkup(keyboard)
-
-        # 保存生成内容到用户状态，等待确认
-        self.user_states[user_id] = {
-            "generated": generated,
-            "risk_score": risk_score,
-            "action": "waiting_confirmation",
+        niche_options = {
+            "general": "通用",
+            "ai_tools": "AI 工具",
+            "crypto": "加密货币",
+            "beauty": "美妆",
+            "fitness": "健身",
+            "humor": "搞笑",
         }
 
-        if update.message:
-            await update.message.reply_text(
-                message_text, reply_markup=reply_markup, parse_mode="Markdown"
-            )
+        keyboard = []
+        for niche_id, niche_name in niche_options.items():
+            keyboard.append([InlineKeyboardButton(niche_name, callback_data=f"create_niche_{niche_id}_{user_id}")])
+
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text("请选择：", reply_markup=reply_markup)
+
+        # 保存研究结果到用户状态，等待选择行业
+        self.user_states[user_id] = {
+            "research_result": research_result,
+            "action": "waiting_niche_selection",
+        }
 
     async def button_callback(self, update: Update, context: CallbackContext) -> None:
         """
@@ -311,7 +277,10 @@ class XAgentBotV0Final:
         parts = data.split("_")
         action = parts[0] if parts else ""
 
-        if action == "confirm":
+        if action == "create" and len(parts) >= 4 and parts[1] == "niche":
+            # 处理 create_niche_<niche>_<user_id> 回调
+            niche = parts[2]
+            await self._handle_create_with_niche(query, context, niche)
             # 第一步：用户点击"人工确认发布"
             sub_action = "_".join(parts[1:-1]) if len(parts) > 2 else ""
 
@@ -557,6 +526,87 @@ class XAgentBotV0Final:
             "❤️ 最高互动：0\n\n"
             "💡 建议：继续优化内容质量",
             parse_mode="Markdown",
+        )
+
+    async def _handle_create_with_niche(self, query, context, niche: str) -> None:
+        """处理用户选择行业后生成内容"""
+        user_id = query.from_user.id
+
+        # 获取之前保存的研究结果
+        user_state = self.user_states.get(user_id, {})
+        research_result = user_state.get("research_result", {})
+
+        if not research_result:
+            await query.edit_message_text("❌ 研究数据已过期，请重新 /create")
+            return
+
+        await query.edit_message_text(f"⏳ 正在为 {niche} 行业生成内容...")
+
+        # 从研究结果的 citations 中随机选择一个话题
+        citations = research_result.get("citations", [])
+        if citations:
+            import random
+            selected_citation = random.choice(citations)
+            selected_topic_title = selected_citation.get("title", "通用话题")
+        else:
+            selected_topic_title = "通用话题"
+
+        # 评分
+        risk_score = 50
+        if self.scorer:
+            score_result = self.scorer.score_with_details(research_result)
+            risk_score = score_result.get("score", 50)
+
+        # 生成内容
+        generated = {"type": "A", "content": "示例内容"}
+        if self.generator:
+            generated = await self.generator.generate(
+                topic=selected_topic_title,
+                niche=niche,
+                content_type="a"
+            )
+
+        # 显示内容 + risk_score
+        content_type = generated.get("type", "A").upper()
+        content_text = generated.get("content", "无内容")
+        risk_emoji = "🟢" if risk_score < 50 else "🟡" if risk_score < 80 else "🔴"
+
+        message_text = (
+            f"📝 **{niche} 行业 - {content_type} 类内容**\n\n"
+            f"🔥 **话题**: {selected_topic_title}\n\n"
+            f"{content_text}\n\n"
+            f"---\n"
+            f"{risk_emoji} **风险评分**: {risk_score}/100\n"
+            f"ℹ️ 风险说明:\n"
+            f"- <50: 低风险\n"
+            f"- 50-79: 中风险\n"
+            f"- ≥80: 高风险\n\n"
+            f"⚠️ **所有内容都需要人工审核确认后才能发布**\n\n"
+            f"请选择操作:"
+        )
+
+        # 确认按钮
+        keyboard = [
+            [InlineKeyboardButton("✅ 人工确认发布", callback_data=f"confirm_publish_{user_id}")],
+            [
+                InlineKeyboardButton("🔄 重新生成", callback_data=f"regen_{user_id}"),
+                InlineKeyboardButton("❌ 跳过", callback_data=f"skip_{user_id}"),
+            ],
+        ]
+
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        # 保存生成内容到用户状态
+        self.user_states[user_id] = {
+            "generated": generated,
+            "risk_score": risk_score,
+            "niche": niche,
+            "topic": selected_topic_title,
+            "action": "waiting_confirmation",
+        }
+
+        await query.edit_message_text(
+            message_text, reply_markup=reply_markup, parse_mode="Markdown"
         )
 
     async def cmd_report(self, update: Update, context: CallbackContext) -> None:
