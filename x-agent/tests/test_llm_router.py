@@ -34,6 +34,7 @@ def make_config(**kwargs):
     config.llm.nvidia_nim_api_key = kwargs.get("nvidia_api_key", "nvapi-test")
     config.llm.nvidia_nim_base_url = "https://integrate.api.nvidia.com/v1"
     config.llm.ollama_base_url = kwargs.get("ollama_base_url", "http://localhost:11434")
+    config.llm.model = kwargs.get("model", "claude-3-5-sonnet-20241022")
     return config
 
 
@@ -84,7 +85,8 @@ class TestLLMRouterChat:
         messages = [{"role": "user", "content": "hello"}]
         result = await router.chat(messages)
 
-        router.provider.chat.assert_called_once_with(messages)
+        # The chat method auto-injects model from config.llm.model
+        router.provider.chat.assert_called_once_with(messages, model="claude-3-5-sonnet-20241022")
         assert result == "mocked response"
 
     @pytest.mark.asyncio
