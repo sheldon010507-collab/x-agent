@@ -196,7 +196,7 @@ class XAgentBotV0Final:
         research_result = {}
         if self.researcher:
             research_result = self.researcher.research_topic(
-                niche=self.config.get("niche", "general") if self.config else "general", days=7
+                niche=getattr(self.config, "current_niche", "general") if self.config else "general", days=7
             )
         else:
             research_result = {"error": "Researcher 未初始化"}
@@ -217,7 +217,7 @@ class XAgentBotV0Final:
         generated = {"type": "A", "content": "示例内容"}
         if self.generator:
             generated = self.generator.generate(
-                niche=self.config.get("niche", "general") if self.config else "general",
+                niche=getattr(self.config, "current_niche", "general") if self.config else "general",
                 research=research_result,
                 score={"risk_score": risk_score},
             )
