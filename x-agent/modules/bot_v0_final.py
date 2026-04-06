@@ -335,9 +335,11 @@ class XAgentBotV0Final:
 
                 platform_text = f"🔥 **{platform.upper()} 热点排行**\n\n"
                 for idx, post in enumerate(posts, 1):
+                    # 转义 Markdown 特殊字符，防止解析错误
                     title = post.get("title", "无标题")[:80]
+                    title = title.replace("*", "\\*").replace("_", "\\_").replace("[", "\\[").replace("]", "\\]")
                     engagement = post.get("engagement", 0)
-                    platform_text += f"{idx}. **{title}**\n   📊 热度: {engagement}\n"
+                    platform_text += f"{idx}. {title}\n   📊 热度: {engagement}\n"
 
                     if idx % 5 == 0:
                         platform_text += "\n"
@@ -400,17 +402,6 @@ class XAgentBotV0Final:
         except Exception as e:
             logger.error(f"搜索命令出错: {e}")
             await update.message.reply_text(f"❌ 搜索出现错误：{str(e)}")
-            keyboard.append([InlineKeyboardButton(niche_name, callback_data=f"search_niche_{niche_id}_{user_id}")])
-
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.message.reply_text("请选择（或直接用 /create 生成）：", reply_markup=reply_markup)
-
-        # 保存搜索结果到用户状态
-        self.user_states[user_id] = {
-            "research_result": research_result,
-            "search_keyword": keyword,
-            "action": "waiting_niche_selection",
-        }
 
     async def button_callback(self, update: Update, context: CallbackContext) -> None:
         """
