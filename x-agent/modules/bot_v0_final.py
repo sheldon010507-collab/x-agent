@@ -184,13 +184,7 @@ class XAgentBotV0Final:
         """
         /create - 创建内容 (半自动流程核心 - 强制人工审核)
 
-        流程:
-        1. 调用 research 获取热点
-        2. 调用 scorer 评分
-        3. 调用 generator 生成 A/B/C 类内容
-        4. 显示生成的内容 + risk_score
-        5. Inline 按钮：【✅ 人工确认发布】【🔄 重新生成】【❌ 跳过】
-        6. 必须用户通过两步确认后才能发布（无自动发布选项）
+        优先使用之前搜索的结果，如果没有则重新研究热点
         """
         user_id = update.effective_user.id if update.effective_user else 0
         logger.info(f"用户 {user_id} 请求创建内容")
@@ -198,20 +192,32 @@ class XAgentBotV0Final:
         if not update.message:
             return
 
-        # 步骤 1: 研究热点
-        await update.message.reply_text("🔍 正在研究热点...")
+        # 检查是否有之前的搜索结果
+        user_state = self.user_states.get(user_id, {})
+        research_result = user_state.get("research_result")
+        search_keyword = user_state.get("search_keyword")
 
-        research_result = {}
-        if self.researcher:
-            research_result = self.researcher.research_topic(
-                niche=getattr(self.config, "current_niche", "general") if self.config else "general", days=7
+        if research_result and search_keyword:
+            # 使用之前的搜索结果
+            await update.message.reply_text(
+                f"✅ 使用之前搜索的「{search_keyword}」的数据来生成内容...",
+                parse_mode="Markdown"
             )
         else:
-            research_result = {"error": "Researcher 未初始化"}
+            # 重新研究热点
+            await update.message.reply_text("🔍 正在研究热点...")
 
-        if "error" in research_result:
-            await update.message.reply_text(f"❌ 研究失败：{research_result['error']}")
-            return
+            if self.researcher:
+                research_result = self.researcher.research_topic(
+                    niche=getattr(self.config, "current_niche", "general") if self.config else "general",
+                    days=7
+                )
+            else:
+                research_result = {"error": "Researcher 未初始化"}
+
+            if "error" in research_result:
+                await update.message.reply_text(f"❌ 研究失败：{research_result['error']}")
+                return
 
         # 显示采集到的热点
         citations = research_result.get("citations", [])
