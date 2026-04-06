@@ -270,12 +270,7 @@ class XAgentBotV0Final:
 
     async def cmd_search(self, update: Update, context: CallbackContext) -> None:
         """
-        /search <关键词> - 根据关键词搜索趋势和热点
-
-        用法:
-        /search AI开源项目
-        /search 加密货币市场
-        /search 产品发布
+        /search <关键词> - 根据关键词搜索趋势和热点，显示完整数据+LLM总结
         """
         user_id = update.effective_user.id if update.effective_user else 0
 
@@ -294,60 +289,111 @@ class XAgentBotV0Final:
         logger.info(f"用户 {user_id} 搜索关键词: {keyword}")
 
         # 开始搜索
-        await update.message.reply_text(f"🔍 正在搜索「{keyword}」的趋势热点...")
+        await update.message.reply_text(f"🔍 正在搜索「{keyword}」的完整趋势数据...\n⏳ 这可能需要 10-30 秒")
 
-        research_result = {}
-        if self.researcher:
-            # 使用 researcher 根据关键词搜索
-            research_result = self.researcher.research_topic(
-                niche=keyword, days=7
-            )
-        else:
-            research_result = {"error": "Researcher 未初始化"}
+        try:
+            research_result = {}
+            if self.researcher:
+                research_result = self.researcher.research_topic(niche=keyword, days=7)
 
-        if "error" in research_result:
-            await update.message.reply_text(f"❌ 搜索失败：{research_result['error']}")
-            return
+            if not research_result or "error" in research_result:
+                await update.message.reply_text(f"❌ 搜索失败：{research_result.get('error', '未知错误')}")
+                return
 
-        # 显示搜索结果
-        platform_data = research_result.get("platform_data", {})
-        real_topics = []
-        for platform, data in platform_data.items():
-            if isinstance(data, dict) and "posts" in data:
-                posts = data.get("posts", [])
-                for post in posts[:2]:
-                    title = post.get("title", "").strip()
-                    if title and len(title) > 5:
-                        real_topics.append(f"[{platform.upper()}] {title}")
+            # 提取每个平台的数据
+            platform_data = research_result.get("platform_data", {})
+            all_posts = {}
 
-        unique_topics = list(set(real_topics))[:10]
-        if unique_topics:
-            hot_topics_text = "\n".join([f"• {t}" for t in unique_topics])
+            for platform, data in platform_data.items():
+                if isinstance(data, dict) and "posts" in data:
+                    posts = data.get("posts", [])
+                    all_posts[platform] = posts[:15]  # 每个平台最多 15 条
+
+            if not all_posts:
+                await update.message.reply_text("❌ 未能获取任何趋势数据")
+                return
+
+            # ========== 发送完整数据 ==========
+
+            # 1. 发送汇总统计
+            summary_text = f"📊 **「{keyword}」趋势搜索结果汇总**\n\n"
+            for platform, posts in all_posts.items():
+                summary_text += f"✅ **{platform.upper()}**: {len(posts)} 条热点\n"
+
+            await update.message.reply_text(summary_text, parse_mode="Markdown")
+
+            # 2. 为每个平台发送详细数据
+            for platform, posts in all_posts.items():
+                if not posts:
+                    continue
+
+                platform_text = f"🔥 **{platform.upper()} 热点排行**\n\n"
+                for idx, post in enumerate(posts, 1):
+                    title = post.get("title", "无标题")[:80]
+                    engagement = post.get("engagement", 0)
+                    platform_text += f"{idx}. **{title}**\n   📊 热度: {engagement}\n"
+
+                    if idx % 5 == 0:
+                        platform_text += "\n"
+
+                # Telegram 有消息长度限制，如果太长则分块发送
+                if len(platform_text) > 3000:
+                    chunks = [platform_text[i:i+3000] for i in range(0, len(platform_text), 3000)]
+                    for chunk in chunks:
+                        await update.message.reply_text(chunk, parse_mode="Markdown")
+                else:
+                    await update.message.reply_text(platform_text, parse_mode="Markdown")
+
+            # 3. 用 LLM 生成趋势总结
+            if self.llm_router:
+                try:
+                    # 构造 LLM 输入
+                    trends_text = "\n".join([
+                        f"{platform}: " + ", ".join([p.get("title", "")[:50] for p in posts[:5]])
+                        for platform, posts in all_posts.items()
+                    ])
+
+                    prompt = f"""基于以下多平台的热点数据，用中文生成 2-3 句的趋势总结：
+
+平台热点：
+{trends_text}
+
+搜索关键词：{keyword}
+
+请总结出主要趋势和关键特征："""
+
+                    summary = await self.llm_router.chat([
+                        {"role": "user", "content": prompt}
+                    ])
+
+                    await update.message.reply_text(
+                        f"🤖 **AI 趋势总结**\n\n{summary}",
+                        parse_mode="Markdown"
+                    )
+                except Exception as e:
+                    logger.warning(f"LLM 趋势总结失败: {e}")
+
+            # 4. 保存搜索结果到用户状态
+            self.user_states[user_id] = {
+                "research_result": research_result,
+                "search_keyword": keyword,
+                "action": "search_complete",
+                "all_posts": all_posts,
+            }
+
+            # 5. 提供后续操作选项
             await update.message.reply_text(
-                f"🔥 **「{keyword}」的热点** (前10个):\n{hot_topics_text}",
+                "✨ 搜索完成！\n\n"
+                "💡 接下来可以：\n"
+                "• /create - 基于这个关键词生成内容\n"
+                "• /search <新关键词> - 搜索其他关键词\n"
+                "• 直接聊天 - 我可以讨论这些趋势",
                 parse_mode="Markdown"
             )
-        else:
-            summary = research_result.get("summary", "暂无相关信息")
-            await update.message.reply_text(
-                f"📊 **搜索结果摘要**:\n{summary}",
-                parse_mode="Markdown"
-            )
 
-        # 显示行业选项，用户可以基于这个搜索结果生成内容
-        await update.message.reply_text("🎯 **选择行业生成内容**（可选）：")
-
-        niche_options = {
-            "general": "通用",
-            "ai_tools": "AI 工具",
-            "crypto": "加密货币",
-            "beauty": "美妆",
-            "fitness": "健身",
-            "humor": "搞笑",
-        }
-
-        keyboard = []
-        for niche_id, niche_name in niche_options.items():
+        except Exception as e:
+            logger.error(f"搜索命令出错: {e}")
+            await update.message.reply_text(f"❌ 搜索出现错误：{str(e)}")
             keyboard.append([InlineKeyboardButton(niche_name, callback_data=f"search_niche_{niche_id}_{user_id}")])
 
         reply_markup = InlineKeyboardMarkup(keyboard)
