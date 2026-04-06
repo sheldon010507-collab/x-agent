@@ -294,8 +294,39 @@ class XAgentBotV0Final:
         keyword = " ".join(context.args)
         logger.info(f"用户 {user_id} 搜索关键词: {keyword}")
 
+        # 显示搜索深度选择菜单
+        keyboard = [
+            [InlineKeyboardButton("⚡ 快速 (10条/平台)", callback_data=f"search_depth_quick_{keyword}_{user_id}")],
+            [InlineKeyboardButton("⚙️ 标准 (20条/平台)", callback_data=f"search_depth_standard_{keyword}_{user_id}")],
+            [InlineKeyboardButton("🔥 深度 (50条/平台)", callback_data=f"search_depth_deep_{keyword}_{user_id}")],
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        # 保存待搜索状态
+        self.user_states[user_id] = {
+            "pending_search_keyword": keyword,
+        }
+
+        await update.message.reply_text(
+            f"📊 搜索关键词：**{keyword}**\n\n"
+            "🎯 请选择搜索深度：",
+            reply_markup=reply_markup,
+            parse_mode="Markdown"
+        )
+        return
+
+    async def _execute_search(self, update: Update, context: CallbackContext, keyword: str, depth: str) -> None:
+        """执行实际搜索"""
+        user_id = update.effective_user.id if update.effective_user else 0
+        max_results = {"quick": 10, "standard": 20, "deep": 50}.get(depth, 20)
+
+        logger.info(f"用户 {user_id} 搜索关键词: {keyword} (深度: {depth})")
+
         # 开始搜索
-        await update.message.reply_text(f"🔍 正在搜索「{keyword}」的完整趋势数据...\n⏳ 这可能需要 10-30 秒")
+        await update.callback_query.answer()
+        await update.callback_query.edit_message_text(
+            f"🔍 正在搜索「{keyword}」的完整趋势数据...\n⏳ 这可能需要 10-30 秒"
+        )
 
         try:
             research_result = {}
@@ -313,7 +344,7 @@ class XAgentBotV0Final:
             for platform, data in platform_data.items():
                 if isinstance(data, dict) and "posts" in data:
                     posts = data.get("posts", [])
-                    all_posts[platform] = posts[:15]  # 每个平台最多 15 条
+                    all_posts[platform] = posts[:max_results]  # 根据深度限制条数
 
             if not all_posts:
                 await update.message.reply_text("❌ 未能获取任何趋势数据")
@@ -389,13 +420,17 @@ class XAgentBotV0Final:
                 "all_posts": all_posts,
             }
 
-            # 5. 提供后续操作选项
+            # 5. 提供后续操作选项 + 分析报告按钮
+            keyboard = [
+                [InlineKeyboardButton("📊 生成趋势分析报告", callback_data=f"analyze_report_{user_id}")],
+                [InlineKeyboardButton("✍️ 基于结果生成内容", callback_data=f"create_from_search_{user_id}")],
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+
             await update.message.reply_text(
                 "✨ 搜索完成！\n\n"
-                "💡 接下来可以：\n"
-                "• /create - 基于这个关键词生成内容\n"
-                "• /search <新关键词> - 搜索其他关键词\n"
-                "• 直接聊天 - 我可以讨论这些趋势",
+                "💡 接下来可以：",
+                reply_markup=reply_markup,
                 parse_mode="Markdown"
             )
 
@@ -426,8 +461,35 @@ class XAgentBotV0Final:
 
         await query.answer()
 
-        parts = data.split("_")
+        parts = data.split("_", 3)  # 最多分 4 段，以保留关键词中可能的下划线
         action = parts[0] if parts else ""
+
+        # 处理搜索深度选择
+        if action == "search" and len(parts) >= 3 and parts[1] == "depth":
+            # search_depth_quick_<keyword>_<user_id> 或 search_depth_standard_<keyword>_<user_id> 等
+            depth = parts[2]
+            # 重新分割以获取关键词（可能包含空格和特殊字符）
+            full_parts = data.split("_")
+            # 格式: search_depth_<deep>_...<keyword>..._<user_id>
+            # 找到最后一个下划线之前的部分作为关键词
+            remaining = "_".join(full_parts[3:-1])  # 关键词可能包含下划线
+            keyword = remaining.replace("_", " ")  # 恢复空格
+
+            await query.answer()
+            await self._execute_search(update, context, keyword, depth)
+            return
+
+        # 处理分析报告生成
+        if action == "analyze" and len(parts) >= 3 and parts[1] == "report":
+            await query.answer()
+            await self._handle_trend_analysis(query, context)
+            return
+
+        # 处理基于搜索结果生成内容
+        if action == "create" and len(parts) >= 3 and parts[1] == "from" and parts[2] == "search":
+            await query.answer()
+            await self._handle_create_from_search(query, context)
+            return
 
         if action == "create" and len(parts) >= 4 and parts[1] == "niche":
             # 处理 create_niche_<niche>_<user_id> 回调
@@ -771,6 +833,81 @@ class XAgentBotV0Final:
 
         await query.edit_message_text(
             message_text, reply_markup=reply_markup, parse_mode="Markdown"
+        )
+
+    async def _handle_trend_analysis(self, query, context) -> None:
+        """处理趋势分析报告生成"""
+        user_id = query.from_user.id
+
+        # 获取之前保存的研究结果
+        user_state = self.user_states.get(user_id, {})
+        research_result = user_state.get("research_result", {})
+
+        if not research_result:
+            await query.edit_message_text("❌ 研究数据已过期，请重新 /search")
+            return
+
+        await query.edit_message_text("⏳ 正在生成专业趋势分析报告...")
+
+        try:
+            # 调用 generator 生成分析报告
+            if self.generator:
+                report = await self.generator.generate_trend_analysis(research_result)
+            else:
+                report = "❌ 生成器不可用"
+
+            # 分块发送（Telegram 有消息长度限制）
+            if len(report) > 4000:
+                chunks = [report[i:i+4000] for i in range(0, len(report), 4000)]
+                await query.edit_message_text("📊 趋势分析报告（分段）：")
+                for i, chunk in enumerate(chunks):
+                    await query.message.reply_text(chunk, parse_mode="Markdown")
+            else:
+                await query.edit_message_text(report, parse_mode="Markdown")
+
+            # 提供导出选项
+            keyboard = [
+                [InlineKeyboardButton("💾 保存为文件", callback_data=f"save_analysis_{user_id}")],
+                [InlineKeyboardButton("🔄 生成新分析", callback_data=f"analyze_report_{user_id}")],
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await query.message.reply_text("📋 分析报告已生成", reply_markup=reply_markup)
+
+            # 保存报告到用户状态
+            self.user_states[user_id]["trend_analysis"] = report
+
+        except Exception as e:
+            logger.error(f"生成趋势分析失败: {e}")
+            await query.edit_message_text(f"❌ 分析报告生成失败：{str(e)}")
+
+    async def _handle_create_from_search(self, query, context) -> None:
+        """基于搜索结果生成内容"""
+        user_id = query.from_user.id
+
+        # 获取之前保存的研究结果
+        user_state = self.user_states.get(user_id, {})
+        research_result = user_state.get("research_result", {})
+
+        if not research_result:
+            await query.edit_message_text("❌ 研究数据已过期，请重新 /search")
+            return
+
+        # 显示 niche 选择菜单
+        niches = ["general", "ai_tools", "crypto", "beauty", "fitness", "humor", "adult"]
+        keyboard = [
+            [InlineKeyboardButton(niche_name, callback_data=f"create_niche_{niche}_{user_id}")]
+            for niche_name, niche in zip(
+                ["通用", "AI工具", "加密货币", "美妆", "健身", "搞笑", "成人用品"],
+                niches
+            )
+        ]
+        # 分成两列显示
+        keyboard = [keyboard[i:i+2] for i in range(0, len(keyboard), 2)]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        await query.edit_message_text(
+            "🎯 请选择内容领域：",
+            reply_markup=reply_markup
         )
 
     async def cmd_report(self, update: Update, context: CallbackContext) -> None:

@@ -429,6 +429,86 @@ class ContentGenerator:
         comments = result.get("comments", [])
         return "\n\n".join([f"{i+1}. {c.get('content', c)}" for i, c in enumerate(comments[:3])])
 
+    async def generate_trend_analysis(self, research_result: Dict, date: str = None) -> str:
+        """
+        生成趋势分析 Markdown 报告
+
+        Args:
+            research_result: 研究结果（包含 platform_data、summary、risk_score 等）
+            date: 报告日期（可选）
+
+        Returns:
+            str: Markdown 格式的趋势分析报告
+        """
+        from datetime import datetime
+
+        if not date:
+            date = datetime.now().strftime("%Y-%m-%d")
+
+        # 提取关键数据
+        platform_data = research_result.get("platform_data", {})
+        summary = research_result.get("summary", "")
+
+        # 构建分析提示
+        trends_info = []
+        total_posts = 0
+        for platform, data in platform_data.items():
+            if isinstance(data, dict) and isinstance(data.get("posts"), list):
+                posts = data["posts"][:5]  # 取前 5 条
+                total_posts += len(posts)
+                platform_trends = [p.get("title", "")[:60] for p in posts]
+                trends_info.append(f"**{platform.upper()}**:\n" + "\n".join(f"- {t}" for t in platform_trends))
+
+        trends_text = "\n\n".join(trends_info)
+
+        prompt = f"""请根据以下多平台的实时趋势数据，生成一份专业的 Markdown 格式趋势分析报告。
+
+【数据总览】
+- 报告日期：{date}
+- 总话题数：{total_posts}
+- 数据来源：{', '.join(platform_data.keys())}
+
+【平台热点数据】
+{trends_text}
+
+【LLM 初步总结】
+{summary}
+
+请按以下结构生成 Markdown 报告：
+1. 趋势概览（一句话总结当日热点特征）
+2. 热度排行 TOP 5（列出热度最高的5个话题，包含热度指标）
+3. 平台汇聚性分析（分析话题在多个平台的流行程度）
+4. 投资机会（基于趋势的潜在商机或运营机会）
+5. 相关话题推荐（基于趋势的衍生话题建议）
+
+报告要求：
+- 语言简洁专业
+- 使用数据支持观点
+- 突出关键洞察
+- Markdown 格式规范"""
+
+        try:
+            report = await self.llm_router.chat([
+                {"role": "system", "content": "你是专业的数据分析师和趋势研究员。生成高质量的 Markdown 分析报告。"},
+                {"role": "user", "content": prompt}
+            ])
+            return report
+        except Exception as e:
+            # 返回备用报告格式
+            return f"""# 📊 趋势分析报告 [{date}]
+
+## 🔥 趋势概览
+- 总话题数：{total_posts}
+- 数据来源：{', '.join(platform_data.keys())}
+- AI 总结：{summary[:100]}...
+
+## 📈 平台热点分布
+{trends_text}
+
+## ⚠️ 报告生成失败
+由于 LLM 服务不可用，以上为基础数据展示。错误：{str(e)}
+"""
+
 
 async def generate_content(
     content_type: str, topic: str, summary: str = "", niche: str = "general"

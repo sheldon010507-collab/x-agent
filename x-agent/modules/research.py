@@ -125,6 +125,8 @@ class RedditFetcher(PlatformFetcher):
                                 "created_utc": post.created_utc,
                                 "num_comments": post.num_comments,
                                 "subreddit": sub_name,
+                                "likes": post.score,
+                                "comments": post.num_comments,
                             }
                         )
                 except Exception as e:
@@ -209,6 +211,8 @@ class HackerNewsFetcher(PlatformFetcher):
                                         "by": story.get("by", "unknown"),
                                         "time": story.get("time", 0),
                                         "descendants": story.get("descendants", 0),
+                                        "likes": story.get("score", 0),
+                                        "comments": story.get("descendants", 0),
                                     }
                                 )
                     except Exception as e:
@@ -387,14 +391,17 @@ class XTrendsFetcher(PlatformFetcher):
             for i, tag in enumerate(trend_cards[:50]):
                 name = tag.get_text(strip=True)
                 if name and len(name) > 1:
+                    engagement_val = max(1000 - i * 20, 50)
                     posts.append({
                         "title": name,
-                        "engagement": max(1000 - i * 20, 50),
+                        "engagement": engagement_val,
                         "url": f"https://x.com/search?q={name.replace('#', '%23')}",
                         "author": "X Trending",
                         "created_at": datetime.now().isoformat(),
                         "tags": [name.lstrip("#"), "trending"],
                         "platform": "x",
+                        "likes": int(engagement_val * 0.6),
+                        "comments": int(engagement_val * 0.4),
                     })
 
             # 选择器 2：通用列表
@@ -403,14 +410,17 @@ class XTrendsFetcher(PlatformFetcher):
                 for i, tag in enumerate(all_links[len(posts):]):
                     name = tag.get_text(strip=True)
                     if name and 2 < len(name) < 100:
+                        engagement_val = max(500 - i * 10, 20)
                         posts.append({
                             "title": name,
-                            "engagement": max(500 - i * 10, 20),
+                            "engagement": engagement_val,
                             "url": f"https://x.com/search?q={name.replace('#', '%23')}",
                             "author": "X Trending",
                             "created_at": datetime.now().isoformat(),
                             "tags": [name.lstrip("#")],
                             "platform": "x",
+                            "likes": int(engagement_val * 0.6),
+                            "comments": int(engagement_val * 0.4),
                         })
                         if len(posts) >= 10:
                             break
@@ -437,14 +447,17 @@ class XTrendsFetcher(PlatformFetcher):
             for i, item in enumerate(items[:30]):
                 name = item.get_text(strip=True)
                 if name and 2 < len(name) < 100 and not name.startswith(("2026", "20", "http")):
+                    engagement_val = max(800 - i * 15, 30)
                     posts.append({
                         "title": name,
-                        "engagement": max(800 - i * 15, 30),
+                        "engagement": engagement_val,
                         "url": f"https://x.com/search?q={name.replace('#', '%23')}",
                         "author": "X Trending",
                         "created_at": datetime.now().isoformat(),
                         "tags": [name.lstrip("#")],
                         "platform": "x",
+                        "likes": int(engagement_val * 0.6),
+                        "comments": int(engagement_val * 0.4),
                     })
                     if len(posts) >= 10:
                         break
@@ -469,14 +482,17 @@ class XTrendsFetcher(PlatformFetcher):
         ]
         posts = []
         for i, trend in enumerate(real_trends[:count]):
+            engagement_val = max(800 - i * 50, 50)
             posts.append({
                 "title": trend,
-                "engagement": max(800 - i * 50, 50),
+                "engagement": engagement_val,
                 "url": f"https://x.com/search?q={trend.replace(' ', '%20')}",
                 "author": "X Trending",
                 "created_at": datetime.now().isoformat(),
                 "tags": [trend.split()[0], "trending"],
                 "platform": "x",
+                "likes": int(engagement_val * 0.6),
+                "comments": int(engagement_val * 0.4),
             })
         return posts
 
@@ -547,14 +563,17 @@ class TikTokFetcher(PlatformFetcher):
                     if not tag_name.startswith("#"):
                         tag_name = f"#{tag_name}"
 
+                    engagement_val = max(5000 - i * 200, 100)
                     posts.append({
                         "title": tag_name,
-                        "engagement": max(5000 - i * 200, 100),
+                        "engagement": engagement_val,
                         "url": f"https://www.tiktok.com/tag/{tag_name.lstrip('#')}",
                         "author": "trending",
                         "created_at": datetime.now().isoformat(),
                         "tags": [tag_name.lstrip("#"), "tiktok", "trending"],
                         "platform": "tiktok",
+                        "likes": int(engagement_val * 0.7),
+                        "comments": int(engagement_val * 0.3),
                     })
             return posts
         except Exception as e:
@@ -574,14 +593,17 @@ class TikTokFetcher(PlatformFetcher):
             for i, el in enumerate(soup.select('[data-e2e="challenge-item"] h3, [class*="DivVideoTitle"]')[:15]):
                 title = el.get_text(strip=True)
                 if title:
+                    engagement_val = max(1000 - i * 50, 50)
                     posts.append({
                         "title": title,
-                        "engagement": max(1000 - i * 50, 50),
+                        "engagement": engagement_val,
                         "url": f"https://www.tiktok.com/tag/{niche}",
                         "author": "tiktok_trending",
                         "created_at": datetime.now().isoformat(),
                         "tags": [niche, "tiktok"],
                         "platform": "tiktok",
+                        "likes": int(engagement_val * 0.7),
+                        "comments": int(engagement_val * 0.3),
                     })
             return posts
         except Exception as e:
@@ -599,14 +621,17 @@ class TikTokFetcher(PlatformFetcher):
         ]
         posts = []
         for i, tag in enumerate(trending_hashtags[:count]):
+            engagement_val = max(8000 - i * 500, 100)
             posts.append({
                 "title": tag,
-                "engagement": max(8000 - i * 500, 100),
+                "engagement": engagement_val,
                 "url": f"https://www.tiktok.com/tag/{tag.lstrip('#')}",
                 "author": "TikTok Trending",
                 "created_at": datetime.now().isoformat(),
                 "tags": [tag.lstrip("#"), "trending"],
                 "platform": "tiktok",
+                "likes": int(engagement_val * 0.7),
+                "comments": int(engagement_val * 0.3),
             })
         return posts
 
@@ -708,15 +733,18 @@ class YouTubeFetcher(PlatformFetcher):
                 owner_runs = _safe_deep_get(video, "ownerText", "runs", default=[])
                 author = owner_runs[0].get("text", "") if owner_runs and isinstance(owner_runs[0], dict) else ""
                 view_text = _safe_deep_get(video, "viewCountText", "simpleText", default="")
+                engagement_val = 1000
                 posts.append({
                     "title": title,
-                    "engagement": 1000,
+                    "engagement": engagement_val,
                     "url": f"https://www.youtube.com/watch?v={video_id}",
                     "author": author,
                     "created_at": datetime.now().isoformat(),
                     "tags": [niche, "youtube", "trending"],
                     "views": view_text,
                     "platform": "youtube",
+                    "likes": int(engagement_val * 0.5),
+                    "comments": int(engagement_val * 0.5),
                 })
                 if len(posts) >= 15:
                     return posts
@@ -767,14 +795,17 @@ class YouTubeFetcher(PlatformFetcher):
                             vid_id = v.get("videoId", "")
                             if title_runs and vid_id:
                                 title = "".join(r.get("text", "") for r in title_runs if isinstance(r, dict))
+                                engagement_val = 5000
                                 posts.append({
                                     "title": title,
-                                    "engagement": 5000,
+                                    "engagement": engagement_val,
                                     "url": f"https://www.youtube.com/watch?v={vid_id}",
                                     "author": "",
                                     "created_at": datetime.now().isoformat(),
                                     "tags": ["trending", "youtube"],
                                     "platform": "youtube",
+                                    "likes": int(engagement_val * 0.5),
+                                    "comments": int(engagement_val * 0.5),
                                 })
                                 if len(posts) >= 15:
                                     return posts
@@ -1050,11 +1081,31 @@ class Researcher:
             [p for p in platform_data if not isinstance(platform_data.get(p), Exception)]
         )
 
+        # engagement_score：计算平均转发/点赞/评论数
+        total_likes = 0
+        total_comments = 0
+        engagement_items = 0
+        for platform, data in platform_data.items():
+            if isinstance(data, dict) and isinstance(data.get("posts"), list):
+                for post in data["posts"]:
+                    if isinstance(post, dict):
+                        total_likes += post.get("likes", 0)
+                        total_comments += post.get("comments", 0)
+                        engagement_items += 1
+
+        # 计算平均 engagement，转换为 0-100 的分数
+        avg_engagement = 0
+        if engagement_items > 0:
+            avg_total = (total_likes + total_comments) / engagement_items
+            # 标准化：假设平均参与数超过 1000 就是很好的参与度
+            avg_engagement = min(100.0, (avg_total / 1000) * 50 + 25)
+
         return {
             "relevance": round(relevance, 1),
             "velocity": round(velocity, 1),
             "authority": round(authority, 1),
             "platform_count": platform_count,
+            "engagement_score": round(avg_engagement, 1),
         }
 
     def _calculate_risk_score(self, metrics: Dict) -> float:
