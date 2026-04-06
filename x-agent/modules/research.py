@@ -42,6 +42,13 @@ except ImportError:
     HAS_AIOHTTP = False
 
 try:
+    from bs4 import BeautifulSoup
+
+    HAS_BS4 = True
+except ImportError:
+    HAS_BS4 = False
+
+try:
     import praw
 
     HAS_PRAW = True
@@ -343,17 +350,12 @@ class XTrendsFetcher(PlatformFetcher):
 
     async def fetch(self, niche: str, days: int = 7) -> Dict:
         """爬取 trends24.in 获取 X/Twitter 趋势"""
-        if not HAS_AIOHTTP:
-            return self._fallback(niche)
-        try:
-            from bs4 import BeautifulSoup
-        except ImportError:
-            logger.warning("beautifulsoup4 未安装，X 趋势爬虫不可用")
+        if not HAS_AIOHTTP or not HAS_BS4:
+            logger.warning("aiohttp 或 beautifulsoup4 未安装，X 趋势爬虫不可用")
             return self._fallback(niche)
 
         try:
             async with aiohttp.ClientSession(headers=self.HEADERS) as session:
-                # trends24.in 提供全球 Twitter 趋势（不需要登录）
                 url = "https://trends24.in/"
                 async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
                     if resp.status != 200:
@@ -382,14 +384,13 @@ class XTrendsFetcher(PlatformFetcher):
 
             if not posts:
                 logger.warning("trends24.in 未解析到数据，尝试备用选择器")
-                # 备用：直接找所有列表项
                 items = soup.select("ol li a[href*='/trends/']")
                 for i, tag in enumerate(items[:20]):
                     name = tag.get_text(strip=True)
                     if name:
                         posts.append({
                             "title": name,
-                            "engagement": 500 - i * 20,
+                            "engagement": max(500 - i * 20, 50),
                             "url": f"https://x.com/search?q={name.replace('#', '%23')}&src=trend_click",
                             "author": "trending",
                             "created_at": datetime.now().isoformat(),
@@ -429,41 +430,56 @@ class TikTokFetcher(PlatformFetcher):
             "Chrome/124.0.0.0 Safari/537.36"
         ),
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
     }
 
     async def fetch(self, niche: str, days: int = 7) -> Dict:
         """爬取 TikTok 热门话题"""
-        if not HAS_AIOHTTP:
-            return self._fallback(niche)
-        try:
-            from bs4 import BeautifulSoup
-        except ImportError:
-            logger.warning("beautifulsoup4 未安装，TikTok 爬虫不可用")
+        if not HAS_AIOHTTP or not HAS_BS4:
+            logger.warning("aiohttp 或 beautifulsoup4 未安装，TikTok 爬虫不可用")
             return self._fallback(niche)
 
         try:
+            # 第一步：尝试 tokboard.com
+            posts = await self._scrape_tokboard()
+
+            # 第二步：tokboard 失败则尝试 TikTok 标签页
+            if not posts:
+                posts = await self._scrape_tiktok_tag(niche)
+
+            logger.info(f"TikTok 趋势爬取成功，共 {len(posts)} 条")
+            return {
+                "platform": "tiktok",
+                "niche": niche,
+                "posts": posts[:20],
+                "fetched_at": datetime.now().isoformat(),
+                "mock": len(posts) == 0,
+            }
+        except Exception as e:
+            logger.error(f"TikTok 爬取失败: {e}")
+            return self._fallback(niche)
+
+    async def _scrape_tokboard(self) -> list:
+        """爬取 tokboard.com 获取 TikTok 热门标签"""
+        try:
             async with aiohttp.ClientSession(headers=self.HEADERS) as session:
-                # tokboard.com 追踪 TikTok 热门标签（公开无需登录）
                 url = "https://tokboard.com/"
                 async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
                     if resp.status != 200:
-                        logger.warning(f"tokboard.com 返回 {resp.status}，尝试备用")
-                        return await self._scrape_tiktok_tag(session, niche)
+                        logger.warning(f"tokboard.com 返回 {resp.status}")
+                        return []
                     html = await resp.text()
 
             soup = BeautifulSoup(html, "lxml")
             posts = []
 
-            # tokboard.com 结构：热门 hashtag 表格
             rows = soup.select("table tbody tr")
             for i, row in enumerate(rows[:25]):
                 cols = row.select("td")
                 if len(cols) >= 2:
                     tag_el = cols[0].select_one("a")
                     tag_name = tag_el.get_text(strip=True) if tag_el else cols[0].get_text(strip=True)
-                    if tag_name.startswith("#"):
-                        tag_name = tag_name
-                    else:
+                    if not tag_name.startswith("#"):
                         tag_name = f"#{tag_name}"
 
                     posts.append({
@@ -475,58 +491,37 @@ class TikTokFetcher(PlatformFetcher):
                         "tags": [tag_name.lstrip("#"), "tiktok", "trending"],
                         "platform": "tiktok",
                     })
-
-            if not posts:
-                # 备用：直接搜索关键词相关标签
-                return await self._scrape_tiktok_tag(None, niche)
-
-            logger.info(f"TikTok 趋势爬取成功，共 {len(posts)} 条")
-            return {
-                "platform": "tiktok",
-                "niche": niche,
-                "posts": posts,
-                "fetched_at": datetime.now().isoformat(),
-                "mock": False,
-            }
+            return posts
         except Exception as e:
-            logger.error(f"TikTok 爬取失败: {e}")
-            return self._fallback(niche)
+            logger.warning(f"tokboard.com 爬取失败: {e}")
+            return []
 
-    async def _scrape_tiktok_tag(self, session, niche: str) -> Dict:
-        """爬取 TikTok 特定话题页面"""
+    async def _scrape_tiktok_tag(self, niche: str) -> list:
+        """爬取 TikTok 特定话题标签页"""
         try:
-            from bs4 import BeautifulSoup
-            headers = {**self.HEADERS, "Accept-Language": "zh-CN,zh;q=0.9"}
-            async with aiohttp.ClientSession(headers=headers) as s:
+            async with aiohttp.ClientSession(headers=self.HEADERS) as session:
                 url = f"https://www.tiktok.com/tag/{niche.replace(' ', '')}"
-                async with s.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
                     html = await resp.text()
 
             soup = BeautifulSoup(html, "lxml")
-            # TikTok 页面中的视频标题
             posts = []
-            for i, el in enumerate(soup.select('[data-e2e="challenge-item"] h3, .tiktok-1s6cowx')[:15]):
+            for i, el in enumerate(soup.select('[data-e2e="challenge-item"] h3, [class*="DivVideoTitle"]')[:15]):
                 title = el.get_text(strip=True)
                 if title:
                     posts.append({
                         "title": title,
-                        "engagement": 1000 - i * 50,
+                        "engagement": max(1000 - i * 50, 50),
                         "url": f"https://www.tiktok.com/tag/{niche}",
                         "author": "tiktok_trending",
                         "created_at": datetime.now().isoformat(),
                         "tags": [niche, "tiktok"],
                         "platform": "tiktok",
                     })
-            return {
-                "platform": "tiktok",
-                "niche": niche,
-                "posts": posts,
-                "fetched_at": datetime.now().isoformat(),
-                "mock": len(posts) == 0,
-            }
+            return posts
         except Exception as e:
             logger.warning(f"TikTok 标签页爬取失败: {e}")
-            return self._fallback(niche)
+            return []
 
     def _fallback(self, niche: str) -> Dict:
         return {
@@ -536,6 +531,16 @@ class TikTokFetcher(PlatformFetcher):
             "fetched_at": datetime.now().isoformat(),
             "error": "爬虫不可用",
         }
+
+
+def _safe_deep_get(data: dict, *keys, default=None):
+    """安全地从嵌套字典中取值，任何一层不是 dict 就返回 default"""
+    current = data
+    for key in keys:
+        if not isinstance(current, dict):
+            return default
+        current = current.get(key, default)
+    return current
 
 
 class YouTubeFetcher(PlatformFetcher):
@@ -554,67 +559,17 @@ class YouTubeFetcher(PlatformFetcher):
         """爬取 YouTube 热门或搜索结果"""
         if not HAS_AIOHTTP:
             return self._fallback(niche)
-        try:
-            from bs4 import BeautifulSoup
-        except ImportError:
-            logger.warning("beautifulsoup4 未安装，YouTube 爬虫不可用")
-            return self._fallback(niche)
 
         posts = []
         try:
             async with aiohttp.ClientSession(headers=self.HEADERS) as session:
-                # 先尝试搜索 niche 相关的热门视频
                 search_url = f"https://www.youtube.com/results?search_query={niche}&sp=CAMSAhAB"
                 async with session.get(search_url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
                     html = await resp.text()
 
-            # YouTube 把视频数据嵌在页面的 JSON 中
-            import re
-            import json as _json
-            # 提取 ytInitialData
-            match = re.search(r"var ytInitialData = ({.*?});", html, re.DOTALL)
-            if match:
-                data = _json.loads(match.group(1))
-                # 从 JSON 中提取视频标题和链接
-                contents = (
-                    data.get("contents", {})
-                    .get("twoColumnSearchResultsRenderer", {})
-                    .get("primaryContents", {})
-                    .get("sectionListRenderer", {})
-                    .get("contents", [])
-                )
-                for section in contents:
-                    items = (
-                        section.get("itemSectionRenderer", {})
-                        .get("contents", [])
-                    )
-                    for item in items:
-                        video = item.get("videoRenderer", {})
-                        title_runs = video.get("title", {}).get("runs", [])
-                        video_id = video.get("videoId", "")
-                        view_text = (
-                            video.get("viewCountText", {})
-                            .get("simpleText", "0 views")
-                        )
-                        if title_runs and video_id:
-                            title = "".join(r.get("text", "") for r in title_runs)
-                            posts.append({
-                                "title": title,
-                                "engagement": 1000,
-                                "url": f"https://www.youtube.com/watch?v={video_id}",
-                                "author": video.get("ownerText", {}).get("runs", [{}])[0].get("text", ""),
-                                "created_at": datetime.now().isoformat(),
-                                "tags": [niche, "youtube", "trending"],
-                                "views": view_text,
-                                "platform": "youtube",
-                            })
-                            if len(posts) >= 15:
-                                break
-                    if len(posts) >= 15:
-                        break
+            posts = self._parse_yt_search(html, niche)
 
             if not posts:
-                # 备用：爬取 YouTube trending 页面
                 posts = await self._scrape_trending()
 
             logger.info(f"YouTube 爬取成功，共 {len(posts)} 条")
@@ -629,6 +584,57 @@ class YouTubeFetcher(PlatformFetcher):
             logger.error(f"YouTube 爬取失败: {e}")
             return self._fallback(niche)
 
+    def _parse_yt_search(self, html: str, niche: str) -> list:
+        """从 YouTube 搜索页面 HTML 提取视频数据"""
+        import re
+        import json as _json
+
+        posts = []
+        match = re.search(r"var ytInitialData\s*=\s*({.*?});\s*</script>", html, re.DOTALL)
+        if not match:
+            return posts
+
+        try:
+            data = _json.loads(match.group(1))
+        except (ValueError, _json.JSONDecodeError):
+            logger.warning("YouTube ytInitialData JSON 解析失败")
+            return posts
+
+        contents = _safe_deep_get(
+            data,
+            "contents", "twoColumnSearchResultsRenderer",
+            "primaryContents", "sectionListRenderer", "contents",
+            default=[],
+        )
+        for section in contents:
+            items = _safe_deep_get(section, "itemSectionRenderer", "contents", default=[])
+            for item in items:
+                video = item.get("videoRenderer")
+                if not isinstance(video, dict):
+                    continue
+                title_runs = _safe_deep_get(video, "title", "runs", default=[])
+                video_id = video.get("videoId", "")
+                if not title_runs or not video_id:
+                    continue
+                title = "".join(r.get("text", "") for r in title_runs if isinstance(r, dict))
+                # 安全提取 author
+                owner_runs = _safe_deep_get(video, "ownerText", "runs", default=[])
+                author = owner_runs[0].get("text", "") if owner_runs and isinstance(owner_runs[0], dict) else ""
+                view_text = _safe_deep_get(video, "viewCountText", "simpleText", default="")
+                posts.append({
+                    "title": title,
+                    "engagement": 1000,
+                    "url": f"https://www.youtube.com/watch?v={video_id}",
+                    "author": author,
+                    "created_at": datetime.now().isoformat(),
+                    "tags": [niche, "youtube", "trending"],
+                    "views": view_text,
+                    "platform": "youtube",
+                })
+                if len(posts) >= 15:
+                    return posts
+        return posts
+
     async def _scrape_trending(self) -> list:
         """爬取 YouTube 全球趋势页面"""
         try:
@@ -639,32 +645,41 @@ class YouTubeFetcher(PlatformFetcher):
                 async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
                     html = await resp.text()
 
-            match = re.search(r"var ytInitialData = ({.*?});", html, re.DOTALL)
+            match = re.search(r"var ytInitialData\s*=\s*({.*?});\s*</script>", html, re.DOTALL)
             if not match:
                 return []
-            data = _json.loads(match.group(1))
-            # 从 trending 页面提取视频
-            tabs = (
-                data.get("contents", {})
-                .get("twoColumnBrowseResultsRenderer", {})
-                .get("tabs", [])
+            try:
+                data = _json.loads(match.group(1))
+            except (ValueError, _json.JSONDecodeError):
+                logger.warning("YouTube trending ytInitialData JSON 解析失败")
+                return []
+
+            tabs = _safe_deep_get(
+                data, "contents", "twoColumnBrowseResultsRenderer", "tabs", default=[]
             )
             posts = []
             for tab in tabs:
-                items = (
-                    tab.get("tabRenderer", {})
-                    .get("content", {})
-                    .get("sectionListRenderer", {})
-                    .get("contents", [])
+                sections = _safe_deep_get(
+                    tab, "tabRenderer", "content", "sectionListRenderer", "contents", default=[]
                 )
-                for section in items:
-                    for shelf in section.get("itemSectionRenderer", {}).get("contents", []):
-                        for video in shelf.get("shelfRenderer", {}).get("content", {}).get("expandedShelfContentsRenderer", {}).get("items", []):
-                            v = video.get("videoRenderer", {})
-                            title_runs = v.get("title", {}).get("runs", [])
+                for section in sections:
+                    shelves = _safe_deep_get(section, "itemSectionRenderer", "contents", default=[])
+                    for shelf in shelves:
+                        items = _safe_deep_get(
+                            shelf, "shelfRenderer", "content",
+                            "expandedShelfContentsRenderer", "items",
+                            default=[],
+                        )
+                        if not isinstance(items, list):
+                            continue
+                        for video in items:
+                            v = video.get("videoRenderer")
+                            if not isinstance(v, dict):
+                                continue
+                            title_runs = _safe_deep_get(v, "title", "runs", default=[])
                             vid_id = v.get("videoId", "")
                             if title_runs and vid_id:
-                                title = "".join(r.get("text", "") for r in title_runs)
+                                title = "".join(r.get("text", "") for r in title_runs if isinstance(r, dict))
                                 posts.append({
                                     "title": title,
                                     "engagement": 5000,
