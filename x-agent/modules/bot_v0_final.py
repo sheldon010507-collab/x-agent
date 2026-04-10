@@ -918,12 +918,12 @@ class XAgentBotV0Final:
         logger.info(f"[趋势分析] 用户 {user_id} 开始生成报告")
 
         try:
-            # 调用 generator 生成分析报告，加 30 秒超时
+            # 调用 generator 生成分析报告，加 60 秒超时（增加至 60s）
             if self.generator:
                 try:
                     report = await asyncio.wait_for(
                         self.generator.generate_trend_analysis(research_result),
-                        timeout=30.0
+                        timeout=60.0
                     )
                     logger.info(f"[趋势分析] 报告生成成功，长度 {len(report)} 字符")
                 except asyncio.TimeoutError:

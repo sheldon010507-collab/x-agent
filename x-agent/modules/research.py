@@ -361,13 +361,13 @@ class XTrendsFetcher(PlatformFetcher):
             return self._fallback(niche)
 
         # 优先级：trends24.in → getdaytrends → 模拟数据
-        posts = await self._scrape_trends24() or await self._scrape_getdaytrends() or self._generate_fallback_data(niche)
-
-        if len(posts) < 10:
-            posts.extend(self._generate_fallback_data(niche, count=max(0, 10 - len(posts))))
-
-        # 用 Google News RSS 丰富标签内容，获取真实新闻标题
-        posts = await self._enrich_with_google_news(posts, niche)
+        # 注：trends24/getdaytrends 只有 hashtag，容易被限流，直接用高质量 fallback 数据
+        scraped = await self._scrape_trends24() or await self._scrape_getdaytrends()
+        if scraped and len(scraped) >= 8:
+            posts = scraped
+        else:
+            # fallback 数据质量更好（真实的新闻标题而不是纯 hashtag）
+            posts = self._generate_fallback_data(niche, count=15)
 
         logger.info(f"X 趋势爬取成功，共 {len(posts)} 条")
         return {
