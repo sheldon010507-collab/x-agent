@@ -14,6 +14,13 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, Optional
 
+
+def _md_escape(text: str) -> str:
+    """转义 Telegram Markdown V1 特殊字符，防止 parse entities 错误"""
+    for ch in ("_", "*", "[", "]", "`"):
+        text = text.replace(ch, f"\\{ch}")
+    return text
+
 from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
@@ -353,7 +360,7 @@ class XAgentBotV0Final:
             # 1. 发送汇总统计
             summary_text = f"📊 **「{keyword}」搜索结果汇总**\n\n"
             for platform, posts in all_posts.items():
-                summary_text += f"✅ **{platform.upper()}**: {len(posts)} 条热点\n"
+                summary_text += f"✅ {_md_escape(platform.upper())}: {len(posts)} 条热点\n"
 
             await query.message.reply_text(summary_text, parse_mode="Markdown")
 
@@ -362,7 +369,7 @@ class XAgentBotV0Final:
                 if not posts:
                     continue
 
-                platform_text = f"🔥 **{platform.upper()} 热点排行**\n\n"
+                platform_text = f"🔥 {_md_escape(platform.upper())} 热点排行\n\n"
                 for idx, post in enumerate(posts, 1):
                     # 转义 Markdown 特殊字符，防止解析错误
                     title = post.get("title", "无标题")[:80]
@@ -442,13 +449,12 @@ class XAgentBotV0Final:
 
             await query.message.reply_text(
                 f"✨ 搜索完成！\n\n"
-                f"📍 当前搜索路径: `{search_path_display}`\n\n"
+                f"📍 当前搜索路径: {search_path_display}\n\n"
                 f"💡 接下来可以：\n"
                 f"• 点击按钮继续搜索下一层\n"
                 f"• 或在聊天框输入下一层关键词自动继续搜\n"
                 f"• 生成分析报告或内容",
                 reply_markup=reply_markup,
-                parse_mode="Markdown"
             )
 
         except Exception as e:
@@ -518,7 +524,7 @@ class XAgentBotV0Final:
             reply_markup = InlineKeyboardMarkup(keyboard)
             await query.edit_message_text(
                 f"✅ 搜索完成！\n\n"
-                f"📍 搜索路径：`{' → '.join(search_path)}`\n\n"
+                f"📍 搜索路径：{' → '.join(search_path)}\n\n"
                 f"📊 已合并 {len(search_path)} 层搜索结果\n\n"
                 f"接下来可以：",
                 reply_markup=reply_markup,
@@ -922,19 +928,21 @@ class XAgentBotV0Final:
                     logger.info(f"[趋势分析] 报告生成成功，长度 {len(report)} 字符")
                 except asyncio.TimeoutError:
                     logger.warning(f"[趋势分析] LLM 生成超时（30秒）")
-                    report = f"⚠️ **报告生成超时**\n\n这个关键词的数据量较大，LLM 处理超过 30 秒。\n\n原始数据汇总：\n{json.dumps({p: len(d.get('posts', [])) for p, d in research_result.get('platform_data', {}).items()}, ensure_ascii=False, indent=2)}"
+                    platforms_summary = {p: len(d.get('posts', [])) for p, d in research_result.get('platform_data', {}).items()}
+                    summary_text = "\n".join([f"{p.upper()}: {count} 条" for p, count in platforms_summary.items()])
+                    report = f"⚠️ 报告生成超时\n\n这个关键词的数据量较大，LLM 处理超过 30 秒。\n\n原始数据汇总：\n{summary_text}"
             else:
                 report = "❌ 生成器不可用"
 
-            # 分块发送（Telegram 有消息长度限制）
+            # 分块发送（Telegram 有消息长度限制，不用 Markdown 避免解析错误）
             if len(report) > 4000:
                 chunks = [report[i:i+4000] for i in range(0, len(report), 4000)]
                 await query.edit_message_text(f"📊 趋势分析报告（分{len(chunks)}段）：")
                 for i, chunk in enumerate(chunks):
-                    await query.message.reply_text(chunk, parse_mode="Markdown")
+                    await query.message.reply_text(chunk)
                     logger.info(f"[趋势分析] 已发送第 {i+1}/{len(chunks)} 段")
             else:
-                await query.edit_message_text(report, parse_mode="Markdown")
+                await query.edit_message_text(report)
                 logger.info(f"[趋势分析] 报告已发送到消息")
 
             # 提供导出选项
@@ -1283,12 +1291,12 @@ class XAgentBotV0Final:
                     self.user_states[user_id]["search_path"].append(next_keyword)
                     search_path = self.user_states[user_id]["search_path"]
 
-                    # 显示结果统计
+                    # 显示结果统计（不用 Markdown，避免动态内容解析错误）
                     summary = f"✅ 第 {len(search_path)} 层搜索完成！\n\n"
-                    summary += f"📍 搜索路径：`{' → '.join(search_path)}`\n\n"
+                    summary += f"📍 搜索路径：{' → '.join(search_path)}\n\n"
                     for platform, data in platform_data.items():
-                        summary += f"• **{platform.upper()}**: {len(data.get('posts', []))} 条\n"
-                    summary += "\n💡 继续搜索下一层还是完成？"
+                        summary += f"• {platform.upper()}: {len(data.get('posts', []))} 条\n"
+                    summary += "\n💡 继续搜索还是生成报告？"
 
                     keyboard = [
                         [InlineKeyboardButton("🔍 继续搜索下一层", callback_data=f"search_next_layer_{user_id}")],
@@ -1297,7 +1305,7 @@ class XAgentBotV0Final:
                     ]
                     reply_markup = InlineKeyboardMarkup(keyboard)
 
-                    await update.message.reply_text(summary, reply_markup=reply_markup, parse_mode="Markdown")
+                    await update.message.reply_text(summary, reply_markup=reply_markup)
                     self.user_states[user_id]["waiting_for_next_keyword"] = False
 
                 except Exception as e:
