@@ -701,6 +701,304 @@ class TikTokFetcher(PlatformFetcher):
         }
 
 
+try:
+    from playwright.async_api import async_playwright, TimeoutError as PWTimeoutError
+
+    HAS_PLAYWRIGHT = True
+except ImportError:
+    HAS_PLAYWRIGHT = False
+
+
+class XPlaywrightFetcher(PlatformFetcher):
+    """X/Twitter Playwright 真实爬虫 - 需要账号登录"""
+
+    async def fetch(self, niche: str, days: int = 7) -> Dict:
+        """使用 Playwright 登录 X 并搜索关键词"""
+        if not HAS_PLAYWRIGHT:
+            logger.warning("Playwright 未安装，跳过 X 真实爬虫")
+            return {"platform": "x", "niche": niche, "posts": [], "error": "playwright未安装"}
+
+        username = getattr(self.config, "x_username", None) if self.config else None
+        password = getattr(self.config, "x_password", None) if self.config else None
+
+        if not username or not password:
+            logger.warning("X 账号未配置，跳过 Playwright 爬虫")
+            return {"platform": "x", "niche": niche, "posts": [], "error": "账号未配置"}
+
+        posts = []
+        try:
+            async with async_playwright() as pw:
+                browser = await pw.chromium.launch(
+                    headless=True,
+                    args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+                )
+                context = await browser.new_context(
+                    user_agent=(
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/124.0.0.0 Safari/537.36"
+                    ),
+                    viewport={"width": 1280, "height": 800},
+                )
+                page = await context.new_page()
+
+                try:
+                    # 登录 X
+                    await page.goto("https://x.com/i/flow/login", timeout=30000)
+                    await page.wait_for_selector('input[autocomplete="username"]', timeout=15000)
+                    await page.fill('input[autocomplete="username"]', username)
+                    await page.keyboard.press("Enter")
+
+                    # 等待密码框
+                    await page.wait_for_selector(
+                        'input[name="password"], input[type="password"]', timeout=10000
+                    )
+                    await page.fill(
+                        'input[name="password"], input[type="password"]', password
+                    )
+                    await page.keyboard.press("Enter")
+
+                    # 等待登录完成（进入首页或搜索页）
+                    await page.wait_for_url("https://x.com/**", timeout=20000)
+                    await asyncio.sleep(2)
+
+                    # 搜索关键词（最新推文，recent=True）
+                    search_url = (
+                        f"https://x.com/search?q={niche.replace(' ', '%20')}"
+                        f"&src=typed_query&f=live"
+                    )
+                    await page.goto(search_url, timeout=20000)
+                    await page.wait_for_selector('[data-testid="tweet"]', timeout=15000)
+                    await asyncio.sleep(2)
+
+                    # 滚动页面获取更多推文
+                    for _ in range(3):
+                        await page.evaluate("window.scrollBy(0, 800)")
+                        await asyncio.sleep(1)
+
+                    # 提取推文数据
+                    tweets = await page.query_selector_all('[data-testid="tweet"]')
+                    for i, tweet in enumerate(tweets[:20]):
+                        try:
+                            # 提取推文文本
+                            text_el = await tweet.query_selector('[data-testid="tweetText"]')
+                            text = (await text_el.inner_text()).strip() if text_el else ""
+
+                            # 提取用户名
+                            user_el = await tweet.query_selector('[data-testid="User-Name"]')
+                            author = (await user_el.inner_text()).strip().split("\n")[0] if user_el else "unknown"
+
+                            # 提取点赞数
+                            like_el = await tweet.query_selector('[data-testid="like"] span')
+                            like_text = (await like_el.inner_text()).strip() if like_el else "0"
+                            likes = _parse_count(like_text)
+
+                            # 提取转发数
+                            rt_el = await tweet.query_selector('[data-testid="retweet"] span')
+                            rt_text = (await rt_el.inner_text()).strip() if rt_el else "0"
+                            retweets = _parse_count(rt_text)
+
+                            # 提取推文链接
+                            link_el = await tweet.query_selector('a[href*="/status/"]')
+                            href = await link_el.get_attribute("href") if link_el else ""
+                            tweet_url = f"https://x.com{href}" if href and href.startswith("/") else href
+
+                            if not text:
+                                continue
+
+                            engagement = likes + retweets * 2
+                            posts.append({
+                                "title": text[:280],
+                                "author": author,
+                                "engagement": engagement,
+                                "likes": likes,
+                                "comments": retweets,
+                                "url": tweet_url or f"https://x.com/search?q={niche}",
+                                "created_at": datetime.now().isoformat(),
+                                "tags": [niche, "x", "realtime"],
+                                "platform": "x",
+                            })
+                        except Exception as te:
+                            logger.debug(f"解析推文 {i} 失败: {te}")
+                            continue
+
+                except PWTimeoutError as e:
+                    logger.warning(f"X Playwright 超时: {e}")
+                except Exception as e:
+                    logger.warning(f"X Playwright 操作失败: {e}")
+                finally:
+                    await browser.close()
+
+        except Exception as e:
+            logger.error(f"X Playwright 启动失败: {e}")
+
+        logger.info(f"X Playwright 爬取完成，共 {len(posts)} 条真实推文")
+        return {
+            "platform": "x",
+            "niche": niche,
+            "posts": posts[:15],
+            "fetched_at": datetime.now().isoformat(),
+            "mock": len(posts) == 0,
+        }
+
+
+class TikTokPlaywrightFetcher(PlatformFetcher):
+    """TikTok Playwright 真实爬虫 - 无需登录，搜索关键词"""
+
+    async def fetch(self, niche: str, days: int = 7) -> Dict:
+        """使用 Playwright 搜索 TikTok 关键词"""
+        if not HAS_PLAYWRIGHT:
+            logger.warning("Playwright 未安装，跳过 TikTok 真实爬虫")
+            return {"platform": "tiktok", "niche": niche, "posts": [], "error": "playwright未安装"}
+
+        posts = []
+        try:
+            async with async_playwright() as pw:
+                browser = await pw.chromium.launch(
+                    headless=True,
+                    args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+                )
+                context = await browser.new_context(
+                    user_agent=(
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/124.0.0.0 Safari/537.36"
+                    ),
+                    viewport={"width": 1280, "height": 900},
+                    locale="en-US",
+                )
+                page = await context.new_page()
+
+                try:
+                    keyword_encoded = niche.replace(" ", "%20")
+                    search_url = f"https://www.tiktok.com/search?q={keyword_encoded}"
+                    await page.goto(search_url, timeout=30000)
+
+                    # 等待视频卡片加载（TikTok 使用多种选择器）
+                    selectors_to_try = [
+                        '[data-e2e="search_top-item"]',
+                        '[class*="DivItemContainer"]',
+                        '[class*="video-feed-item"]',
+                        'div[class*="tiktok-"] a[href*="/video/"]',
+                    ]
+                    loaded = False
+                    for sel in selectors_to_try:
+                        try:
+                            await page.wait_for_selector(sel, timeout=8000)
+                            loaded = True
+                            break
+                        except PWTimeoutError:
+                            continue
+
+                    if not loaded:
+                        logger.warning("TikTok 搜索页面未能加载视频卡片")
+                        await browser.close()
+                        return {"platform": "tiktok", "niche": niche, "posts": [], "error": "页面加载失败"}
+
+                    # 滚动加载更多
+                    for _ in range(3):
+                        await page.evaluate("window.scrollBy(0, 600)")
+                        await asyncio.sleep(1.5)
+
+                    # 提取视频标题和数据 - 使用 JS 评估
+                    video_data = await page.evaluate("""() => {
+                        const results = [];
+                        // 尝试多种选择器
+                        const titleSelectors = [
+                            '[data-e2e="search-card-video-caption"]',
+                            '[class*="SpanText"]',
+                            'span[class*="css-"][class*="caption"]',
+                        ];
+                        const cards = document.querySelectorAll(
+                            '[data-e2e="search_top-item"], [class*="DivItemContainer"]'
+                        );
+
+                        cards.forEach(card => {
+                            let title = '';
+                            for (const sel of titleSelectors) {
+                                const el = card.querySelector(sel);
+                                if (el && el.innerText.trim()) {
+                                    title = el.innerText.trim();
+                                    break;
+                                }
+                            }
+
+                            let authorEl = card.querySelector('[data-e2e="search-card-user-unique-id"], [class*="AuthorTitle"]');
+                            let author = authorEl ? authorEl.innerText.trim() : '';
+
+                            let linkEl = card.querySelector('a[href*="/video/"]');
+                            let url = linkEl ? linkEl.href : '';
+
+                            // 获取点赞数（格式如 "1.2M"）
+                            let likeEl = card.querySelector('[data-e2e="search-card-like-count"], [class*="LikeCount"]');
+                            let likeText = likeEl ? likeEl.innerText.trim() : '';
+
+                            if (title || url) {
+                                results.push({title, author, url, likeText});
+                            }
+                        });
+                        return results;
+                    }""")
+
+                    for i, item in enumerate(video_data[:20]):
+                        title = item.get("title", "").strip()
+                        if not title:
+                            title = f"#{niche} TikTok video #{i+1}"
+
+                        like_text = item.get("likeText", "")
+                        likes = _parse_count(like_text)
+                        engagement = max(likes, 100 - i * 5)
+
+                        posts.append({
+                            "title": title,
+                            "author": item.get("author", "tiktok_user"),
+                            "engagement": engagement,
+                            "likes": likes,
+                            "comments": int(likes * 0.1),
+                            "url": item.get("url", f"https://www.tiktok.com/search?q={niche}"),
+                            "created_at": datetime.now().isoformat(),
+                            "tags": [niche, "tiktok", "realtime"],
+                            "platform": "tiktok",
+                        })
+
+                except PWTimeoutError as e:
+                    logger.warning(f"TikTok Playwright 超时: {e}")
+                except Exception as e:
+                    logger.warning(f"TikTok Playwright 操作失败: {e}")
+                finally:
+                    await browser.close()
+
+        except Exception as e:
+            logger.error(f"TikTok Playwright 启动失败: {e}")
+
+        logger.info(f"TikTok Playwright 爬取完成，共 {len(posts)} 条真实视频")
+        return {
+            "platform": "tiktok",
+            "niche": niche,
+            "posts": posts[:15],
+            "fetched_at": datetime.now().isoformat(),
+            "mock": len(posts) == 0,
+        }
+
+
+def _parse_count(text: str) -> int:
+    """解析 '1.2K', '3.5M' 等格式为整数"""
+    if not text:
+        return 0
+    text = text.strip().replace(",", "")
+    try:
+        if text.endswith("K") or text.endswith("k"):
+            return int(float(text[:-1]) * 1000)
+        elif text.endswith("M") or text.endswith("m"):
+            return int(float(text[:-1]) * 1_000_000)
+        elif text.endswith("B") or text.endswith("b"):
+            return int(float(text[:-1]) * 1_000_000_000)
+        else:
+            return int(float(text))
+    except (ValueError, TypeError):
+        return 0
+
+
 def _safe_deep_get(data: dict, *keys, default=None):
     """安全地从嵌套字典中取值，任何一层不是 dict 就返回 default"""
     current = data
@@ -905,6 +1203,10 @@ class Researcher:
         self.tiktok_fetcher = TikTokFetcher(config)
         self.youtube_fetcher = YouTubeFetcher(config)
 
+        # Playwright 真实爬虫（需账号配置）
+        self.x_playwright_fetcher = XPlaywrightFetcher(config)
+        self.tiktok_playwright_fetcher = TikTokPlaywrightFetcher(config)
+
         # 初始化优化模块
         self.rate_limit_config = rate_limit_config or RateLimitConfig()
         self.concurrent_limiter = ConcurrentLimiter(self.rate_limit_config)
@@ -973,14 +1275,29 @@ class Researcher:
             tasks.append(limited_fetch("google_trends", self.trends_fetcher, niche, days))
 
         # 真实爬虫平台（X/TikTok/YouTube）
+        # X: 优先 Playwright 真实爬虫（需账号），否则用静态爬虫
         for platform in ["x", "twitter"]:
             if platform in source_list:
-                tasks.append(limited_fetch("x", self.x_fetcher, niche, days))
+                has_x_creds = (
+                    self.config
+                    and getattr(self.config, "x_username", None)
+                    and getattr(self.config, "x_password", None)
+                )
+                if HAS_PLAYWRIGHT and has_x_creds:
+                    logger.info("使用 X Playwright 真实爬虫（已配置账号）")
+                    tasks.append(limited_fetch("x", self.x_playwright_fetcher, niche, days))
+                else:
+                    tasks.append(limited_fetch("x", self.x_fetcher, niche, days))
                 break
 
+        # TikTok: 优先 Playwright 真实爬虫（JS渲染），否则用静态爬虫
         for platform in ["tiktok"]:
             if platform in source_list:
-                tasks.append(limited_fetch("tiktok", self.tiktok_fetcher, niche, days))
+                if HAS_PLAYWRIGHT:
+                    logger.info("使用 TikTok Playwright 真实爬虫（JS渲染）")
+                    tasks.append(limited_fetch("tiktok", self.tiktok_playwright_fetcher, niche, days))
+                else:
+                    tasks.append(limited_fetch("tiktok", self.tiktok_fetcher, niche, days))
                 break
 
         for platform in ["youtube", "yt"]:

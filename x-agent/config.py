@@ -222,6 +222,10 @@ class Config:
         self.reddit_client_secret: Optional[str] = os.getenv("REDDIT_CLIENT_SECRET")
         self.reddit_user_agent: str = os.getenv("REDDIT_USER_AGENT", "x-agent/3.0")
 
+        # X (Twitter) Playwright 爬虫配置
+        self.x_username: Optional[str] = os.getenv("X_USERNAME")
+        self.x_password: Optional[str] = os.getenv("X_PASSWORD")
+
         # OpenClaw 配置
         self.openclaw_api_endpoint: str = os.getenv(
             "OPENCLAW_API_ENDPOINT", "http://localhost:8080"
