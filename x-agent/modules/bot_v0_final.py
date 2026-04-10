@@ -315,16 +315,15 @@ class XAgentBotV0Final:
         )
         return
 
-    async def _execute_search(self, update: Update, context: CallbackContext, keyword: str, depth: str) -> None:
-        """执行实际搜索"""
-        user_id = update.effective_user.id if update.effective_user else 0
+    async def _execute_search(self, query, keyword: str, depth: str) -> None:
+        """执行实际搜索（从 button_callback 调用，query 是 CallbackQuery 对象）"""
+        user_id = query.from_user.id
         max_results = {"quick": 10, "standard": 20, "deep": 50}.get(depth, 20)
 
         logger.info(f"用户 {user_id} 搜索关键词: {keyword} (深度: {depth})")
 
-        # 开始搜索
-        await update.callback_query.answer()
-        await update.callback_query.edit_message_text(
+        # 开始搜索 (query.answer() 已在 button_callback 中调用)
+        await query.edit_message_text(
             f"🔍 正在搜索「{keyword}」的完整趋势数据...\n⏳ 这可能需要 10-30 秒"
         )
 
@@ -334,7 +333,7 @@ class XAgentBotV0Final:
                 research_result = self.researcher.research_topic(niche=keyword, days=7)
 
             if not research_result or "error" in research_result:
-                await update.message.reply_text(f"❌ 搜索失败：{research_result.get('error', '未知错误')}")
+                await query.message.reply_text(f"❌ 搜索失败：{research_result.get('error', '未知错误')}")
                 return
 
             # 提取每个平台的数据
@@ -347,7 +346,7 @@ class XAgentBotV0Final:
                     all_posts[platform] = posts[:max_results]  # 根据深度限制条数
 
             if not all_posts:
-                await update.message.reply_text("❌ 未能获取任何趋势数据")
+                await query.message.reply_text("❌ 未能获取任何趋势数据")
                 return
 
             # ========== 发送完整数据 ==========
@@ -357,7 +356,7 @@ class XAgentBotV0Final:
             for platform, posts in all_posts.items():
                 summary_text += f"✅ **{platform.upper()}**: {len(posts)} 条热点\n"
 
-            await update.message.reply_text(summary_text, parse_mode="Markdown")
+            await query.message.reply_text(summary_text, parse_mode="Markdown")
 
             # 2. 为每个平台发送详细数据
             for platform, posts in all_posts.items():
@@ -379,9 +378,9 @@ class XAgentBotV0Final:
                 if len(platform_text) > 3000:
                     chunks = [platform_text[i:i+3000] for i in range(0, len(platform_text), 3000)]
                     for chunk in chunks:
-                        await update.message.reply_text(chunk, parse_mode="Markdown")
+                        await query.message.reply_text(chunk, parse_mode="Markdown")
                 else:
-                    await update.message.reply_text(platform_text, parse_mode="Markdown")
+                    await query.message.reply_text(platform_text, parse_mode="Markdown")
 
             # 3. 用 LLM 生成趋势总结
             if self.llm_router:
@@ -405,7 +404,7 @@ class XAgentBotV0Final:
                         {"role": "user", "content": prompt}
                     ])
 
-                    await update.message.reply_text(
+                    await query.message.reply_text(
                         f"🤖 **AI 趋势总结**\n\n{summary}",
                         parse_mode="Markdown"
                     )
@@ -427,7 +426,7 @@ class XAgentBotV0Final:
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
 
-            await update.message.reply_text(
+            await query.message.reply_text(
                 "✨ 搜索完成！\n\n"
                 "💡 接下来可以：",
                 reply_markup=reply_markup,
@@ -436,7 +435,7 @@ class XAgentBotV0Final:
 
         except Exception as e:
             logger.error(f"搜索命令出错: {e}")
-            await update.message.reply_text(f"❌ 搜索出现错误：{str(e)}")
+            await query.message.reply_text(f"❌ 搜索出现错误：{str(e)}")
 
     async def button_callback(self, update: Update, context: CallbackContext) -> None:
         """
@@ -459,9 +458,7 @@ class XAgentBotV0Final:
 
         logger.info(f"用户 {user_id} 点击按钮：{data}")
 
-        await query.answer()
-
-        parts = data.split("_", 3)  # 最多分 4 段，以保留关键词中可能的下划线
+        parts = data.split("_", 3)  # 最多分 4 段
         action = parts[0] if parts else ""
 
         # 处理搜索深度选择
@@ -477,20 +474,28 @@ class XAgentBotV0Final:
                 return
 
             await query.answer()
-            await self._execute_search(update, context, keyword, depth)
+            await self._execute_search(query, keyword, depth)
             return
 
         # 处理分析报告生成
-        if action == "analyze" and len(parts) >= 3 and parts[1] == "report":
+        if action == "analyze" and len(parts) >= 2 and parts[1] == "report":
             await query.answer()
             await self._handle_trend_analysis(query, context)
             return
 
+        # 处理保存分析报告为文件
+        if action == "save" and len(parts) >= 2 and parts[1] == "analysis":
+            await query.answer()
+            await self._handle_save_analysis(query)
+            return
+
         # 处理基于搜索结果生成内容
-        if action == "create" and len(parts) >= 3 and parts[1] == "from" and parts[2] == "search":
+        if action == "create" and len(parts) >= 2 and parts[1] == "from":
             await query.answer()
             await self._handle_create_from_search(query, context)
             return
+
+        await query.answer()
 
         if action == "create" and len(parts) >= 4 and parts[1] == "niche":
             # 处理 create_niche_<niche>_<user_id> 回调
@@ -501,8 +506,10 @@ class XAgentBotV0Final:
             # 处理 search_niche_<niche>_<user_id> 回调
             niche = parts[2]
             await self._handle_create_with_niche(query, context, niche)
-            # 第一步：用户点击"人工确认发布"
-            sub_action = "_".join(parts[1:-1]) if len(parts) > 2 else ""
+
+        elif action == "confirm":
+            # 第一步：用户点击"人工确认发布" (confirm_publish_{user_id})
+            sub_action = "_".join(parts[1:-1]) if len(parts) > 2 else parts[1] if len(parts) > 1 else ""
 
             if sub_action == "publish":
                 # 显示二次确认对话框
@@ -542,7 +549,7 @@ class XAgentBotV0Final:
 
         elif action == "regen":
             await query.edit_message_text("🔄 正在重新生成...")
-            if update.message and update.message.chat:
+            if query.message and query.message.chat:
                 fake_update = type(
                     "FakeUpdate",
                     (),
@@ -551,11 +558,12 @@ class XAgentBotV0Final:
                             "FakeMessage",
                             (),
                             {
-                                "chat": update.message.chat,
-                                "reply_text": update.message.reply_text,
+                                "chat": query.message.chat,
+                                "reply_text": query.message.reply_text,
                                 "effective_user": query.from_user,
                             },
-                        )()
+                        )(),
+                        "effective_user": query.from_user,
                     },
                 )()
                 await self.cmd_create(fake_update, context)
@@ -880,6 +888,42 @@ class XAgentBotV0Final:
         except Exception as e:
             logger.error(f"生成趋势分析失败: {e}")
             await query.edit_message_text(f"❌ 分析报告生成失败：{str(e)}")
+
+    async def _handle_save_analysis(self, query) -> None:
+        """保存趋势分析报告为 MD 文件并发送"""
+        import os
+        from datetime import datetime
+
+        user_id = query.from_user.id
+        user_state = self.user_states.get(user_id, {})
+        report = user_state.get("trend_analysis", "")
+
+        if not report:
+            await query.edit_message_text("❌ 没有可保存的分析报告，请先生成报告")
+            return
+
+        try:
+            # 保存到文件
+            date_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+            keyword = user_state.get("search_keyword", "trends")
+            filename = f"trend_analysis_{keyword}_{date_str}.md"
+            filepath = os.path.join("data", filename)
+            os.makedirs("data", exist_ok=True)
+
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write(report)
+
+            # 发送文件给用户
+            await query.message.reply_document(
+                document=open(filepath, "rb"),
+                filename=filename,
+                caption=f"📊 趋势分析报告 - {keyword}"
+            )
+            await query.edit_message_text("✅ 报告已保存并发送")
+
+        except Exception as e:
+            logger.error(f"保存分析报告失败: {e}")
+            await query.edit_message_text(f"❌ 保存失败：{str(e)}")
 
     async def _handle_create_from_search(self, query, context) -> None:
         """基于搜索结果生成内容"""
