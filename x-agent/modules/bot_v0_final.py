@@ -97,6 +97,11 @@ class XAgentBotV0Final:
         self.application: Application = None
         self.user_states: Dict[int, Dict] = {}
 
+        # X 私信监控（延迟初始化，initialize() 中创建）
+        self.dm_monitor = None
+        # 记录哪些 user_id 订阅了 DM 通知
+        self._dm_notify_chat_ids: set = set()
+
     async def initialize(self) -> None:
         """初始化 Bot"""
         from telegram.ext import ApplicationBuilder
@@ -106,13 +111,14 @@ class XAgentBotV0Final:
         # 注册命令处理器
         self.application.add_handler(CommandHandler("start", self.cmd_start))
         self.application.add_handler(CommandHandler("set_niche", self.cmd_set_niche))
-        # self.application.add_handler(CommandHandler("research", self.cmd_research))  # 已删除，使用 API 替代
-        # self.application.add_handler(CommandHandler("trends", self.cmd_trends))  # 已删除，使用 API 替代
         self.application.add_handler(CommandHandler("create", self.cmd_create))
         self.application.add_handler(CommandHandler("search", self.cmd_search))
         self.application.add_handler(CommandHandler("report", self.cmd_report))
         self.application.add_handler(CommandHandler("settings", self.cmd_settings))
         self.application.add_handler(CommandHandler("help", self.cmd_help))
+        # 私信监控命令
+        self.application.add_handler(CommandHandler("dms", self.cmd_dms))
+        self.application.add_handler(CommandHandler("monitor_dms", self.cmd_monitor_dms))
 
         # Inline 按钮回调处理器（匹配所有回调）
         self.application.add_handler(
@@ -123,6 +129,17 @@ class XAgentBotV0Final:
         self.application.add_handler(
             MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message)
         )
+
+        # 初始化 X 私信监控
+        try:
+            from .x_dm_monitor import XDMMonitor
+            self.dm_monitor = XDMMonitor(
+                config=self.config,
+                notify_callback=self._on_new_dms,
+            )
+            logger.info("✅ X 私信监控模块已加载")
+        except Exception as e:
+            logger.warning(f"X 私信监控模块加载失败: {e}")
 
         logger.info("✅ X-Agent v0 Final Bot 初始化完成 (半自动模式)")
 
@@ -645,6 +662,50 @@ class XAgentBotV0Final:
 
         elif action == "view" and len(parts) > 1 and parts[1] == "report":
             await self._handle_view_report(query)
+
+        # 私信监控按钮
+        elif action == "dm" and len(parts) >= 2:
+            sub = parts[1]
+            chat_id = query.message.chat_id if query.message else user_id
+            if sub == "monitor" and len(parts) >= 3 and parts[2] == "on":
+                if self.dm_monitor:
+                    self._dm_notify_chat_ids.add(chat_id)
+                    self.dm_monitor.start_monitoring(interval=300)
+                    await query.edit_message_text(
+                        "✅ 私信监控已开启\n每 5 分钟检查一次，有新私信立即通知\n\n停止：/monitor_dms off"
+                    )
+                else:
+                    await query.answer("❌ 监控模块未加载", show_alert=True)
+            elif sub == "monitor" and len(parts) >= 3 and parts[2] == "off":
+                if self.dm_monitor:
+                    self._dm_notify_chat_ids.discard(chat_id)
+                    if not self._dm_notify_chat_ids:
+                        self.dm_monitor.stop_monitoring()
+                    await query.edit_message_text("🛑 私信监控已关闭")
+                else:
+                    await query.answer("❌ 监控模块未加载", show_alert=True)
+            elif sub == "refresh":
+                await query.edit_message_text("🔄 正在刷新私信列表，请稍候...")
+                if self.dm_monitor:
+                    try:
+                        import asyncio as _ai
+                        dms = await _ai.wait_for(self.dm_monitor.fetch_dms(), timeout=90.0)
+                        lines = [f"📨 X 私信（共 {len(dms)} 条会话）\n"]
+                        for i, dm in enumerate(dms[:15], 1):
+                            unread = " 🔴" if dm.get("is_unread") else ""
+                            lines.append(f"{i}.{unread} {dm.get('sender','')}: {dm.get('preview','')[:60]}")
+                        keyboard = [
+                            [
+                                InlineKeyboardButton("🔔 开启通知", callback_data=f"dm_monitor_on_{user_id}"),
+                                InlineKeyboardButton("🔕 关闭通知", callback_data=f"dm_monitor_off_{user_id}"),
+                            ],
+                            [InlineKeyboardButton("🔄 刷新", callback_data=f"dm_refresh_{user_id}")],
+                        ]
+                        await query.edit_message_text(
+                            "\n".join(lines)[:4000], reply_markup=InlineKeyboardMarkup(keyboard)
+                        )
+                    except Exception as e:
+                        await query.edit_message_text(f"❌ 刷新失败：{str(e)[:200]}")
 
     async def _handle_set_niche(self, query, niche: str) -> None:
         """处理设置领域"""
@@ -1183,6 +1244,161 @@ class XAgentBotV0Final:
         self.user_states[update.effective_user.id] = {"action": "logging_data"}
         # TODO: 实现 ConversationHandler 接收下一步输入
 
+    # ─── X 私信监控命令 ────────────────────────────────────────────────────────
+
+    async def _on_new_dms(self, new_dms: list) -> None:
+        """收到新私信时的 Telegram 通知回调"""
+        if not self._dm_notify_chat_ids or not self.application:
+            return
+        for dm in new_dms:
+            sender = dm.get("sender", "unknown")
+            preview = dm.get("preview", "（无预览）")[:100]
+            url = dm.get("url", "https://x.com/messages")
+            is_unread = dm.get("is_unread", False)
+            unread_tag = " 🔴" if is_unread else ""
+            msg = (
+                f"📨 X 私信新回复{unread_tag}\n\n"
+                f"发件人：{sender}\n"
+                f"预览：{preview}\n"
+                f"链接：{url}"
+            )
+            for chat_id in list(self._dm_notify_chat_ids):
+                try:
+                    await self.application.bot.send_message(chat_id=chat_id, text=msg)
+                except Exception as e:
+                    logger.warning(f"发送 DM 通知失败 (chat_id={chat_id}): {e}")
+
+    async def cmd_dms(self, update: Update, context: CallbackContext) -> None:
+        """/dms - 查看当前 X 私信列表"""
+        if not update.message:
+            return
+        user_id = update.effective_user.id if update.effective_user else 0
+
+        if not self.dm_monitor:
+            await update.message.reply_text("❌ 私信监控模块未加载，请检查配置")
+            return
+
+        has_creds = (
+            self.config
+            and getattr(self.config, "x_username", None)
+            and getattr(self.config, "x_password", None)
+        )
+        if not has_creds:
+            await update.message.reply_text(
+                "⚠️ 未配置 X 账号\n\n"
+                "请在 .env 中添加：\n"
+                "X_USERNAME=your_email@example.com\n"
+                "X_PASSWORD=your_password"
+            )
+            return
+
+        await update.message.reply_text("🔍 正在获取私信（需要启动浏览器，约 20-40 秒）...")
+
+        try:
+            import asyncio as _asyncio
+            dms = await _asyncio.wait_for(self.dm_monitor.fetch_dms(), timeout=90.0)
+        except _asyncio.TimeoutError:
+            await update.message.reply_text("⏱️ 获取超时，请稍后重试")
+            return
+        except Exception as e:
+            await update.message.reply_text(f"❌ 获取失败：{str(e)[:200]}")
+            return
+
+        if not dms:
+            await update.message.reply_text("📭 暂无私信，或账号没有私信权限")
+            return
+
+        # 构建私信列表消息
+        lines = [f"📨 X 私信列表（共 {len(dms)} 条会话）\n"]
+        for i, dm in enumerate(dms[:15], 1):
+            sender = dm.get("sender", "unknown")
+            preview = dm.get("preview", "")[:60]
+            is_unread = dm.get("is_unread", False)
+            ts = dm.get("timestamp", "")[:10]
+            unread = " 🔴" if is_unread else ""
+            lines.append(f"{i}.{unread} {sender}")
+            if preview:
+                lines.append(f"   {preview}")
+            if ts:
+                lines.append(f"   {ts}")
+            lines.append("")
+
+        text = "\n".join(lines)
+        # Telegram 单条消息最大 4096 字符
+        if len(text) > 4000:
+            text = text[:4000] + "\n..."
+
+        keyboard = [
+            [
+                InlineKeyboardButton(
+                    "🔔 开启监控通知", callback_data=f"dm_monitor_on_{user_id}"
+                ),
+                InlineKeyboardButton(
+                    "🔕 关闭监控通知", callback_data=f"dm_monitor_off_{user_id}"
+                ),
+            ],
+            [InlineKeyboardButton("🔄 刷新私信", callback_data=f"dm_refresh_{user_id}")],
+        ]
+        await update.message.reply_text(
+            text, reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+    async def cmd_monitor_dms(self, update: Update, context: CallbackContext) -> None:
+        """/monitor_dms [on|off|status] - 控制私信监控"""
+        if not update.message:
+            return
+        user_id = update.effective_user.id if update.effective_user else 0
+        chat_id = update.message.chat_id
+        args = context.args or []
+        action = args[0].lower() if args else "status"
+
+        if not self.dm_monitor:
+            await update.message.reply_text("❌ 私信监控模块未加载")
+            return
+
+        if action == "on":
+            self._dm_notify_chat_ids.add(chat_id)
+            started = self.dm_monitor.start_monitoring(interval=300)
+            if started:
+                await update.message.reply_text(
+                    "✅ 私信监控已开启\n\n"
+                    "每 5 分钟检查一次，有新私信会立即推送通知\n"
+                    "停止：/monitor_dms off"
+                )
+            else:
+                await update.message.reply_text(
+                    "✅ 已订阅私信通知（监控已在后台运行）"
+                )
+        elif action == "off":
+            self._dm_notify_chat_ids.discard(chat_id)
+            if not self._dm_notify_chat_ids:
+                # 没有任何订阅者了，停止监控
+                self.dm_monitor.stop_monitoring()
+                await update.message.reply_text("🛑 私信监控已关闭")
+            else:
+                await update.message.reply_text("🔕 已取消本会话的私信通知")
+        elif action == "reset":
+            self.dm_monitor.reset_seen()
+            await update.message.reply_text("🔄 已重置已读记录，下次检查会推送所有当前私信")
+        elif action == "clear_session":
+            self.dm_monitor.clear_session()
+            await update.message.reply_text("🗑️ 已清除 X 会话，下次将重新登录")
+        else:
+            # status
+            is_running = self.dm_monitor.is_running
+            subscribed = chat_id in self._dm_notify_chat_ids
+            status = (
+                f"📊 私信监控状态\n\n"
+                f"后台监控：{'运行中 ✅' if is_running else '已停止 ⛔'}\n"
+                f"本会话通知：{'已订阅 🔔' if subscribed else '未订阅 🔕'}\n\n"
+                f"命令：\n"
+                f"/monitor_dms on  - 开启监控\n"
+                f"/monitor_dms off - 关闭监控\n"
+                f"/monitor_dms reset - 重置已读记录\n"
+                f"/monitor_dms clear_session - 清除登录 Session"
+            )
+            await update.message.reply_text(status)
+
     async def cmd_help(self, update: Update, context: CallbackContext) -> None:
         """帮助"""
         help_text = (
@@ -1191,9 +1407,10 @@ class XAgentBotV0Final:
             "/search <关键词> - 搜索趋势热点\n"
             "/create - 创建内容 (根据 niche)\n"
             "\n**查询命令:**\n"
-            "/api_status - API 状态\n"
-            "/trends - 热点趋势\n"
             "/report - 复盘报告\n"
+            "\n**私信监控:**\n"
+            "/dms - 查看 X 私信列表\n"
+            "/monitor_dms on/off - 开启/关闭实时通知\n"
             "\n**设置:**\n"
             "/set_niche - 切换 Niche\n"
             "/settings - 更多设置\n"
