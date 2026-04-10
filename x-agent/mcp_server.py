@@ -44,6 +44,8 @@ mcp = FastMCP(
         "X (Twitter) 全自动运营助手 — 多平台热点搜索、AI 内容生成、"
         "自动发布、DM 监控、日报统计。支持 7 种 Niche 语气风格。"
     ),
+    host="0.0.0.0",
+    port=8001,
 )
 
 
@@ -501,6 +503,6 @@ async def get_status() -> str:
 if __name__ == "__main__":
     transport = sys.argv[1] if len(sys.argv) > 1 else "stdio"
     if transport == "sse":
-        mcp.run(transport="sse", port=8001)
+        mcp.run(transport="sse")
     else:
         mcp.run()
