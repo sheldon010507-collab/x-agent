@@ -88,6 +88,46 @@ class ReportResponse(BaseModel):
     notes: Optional[str] = None
 
 
+class CommentRequest(BaseModel):
+    url: str
+    content: str
+    style: str = "conversational"
+
+
+class LikeRequest(BaseModel):
+    url: str
+
+
+class RetweetRequest(BaseModel):
+    url: str
+    comment: Optional[str] = None
+
+
+class PostRequest(BaseModel):
+    content: str
+    variant: bool = True
+
+
+class AnalyzeRequest(BaseModel):
+    keyword: str
+    sources: str = "x,tiktok,reddit"
+
+
+class DMsResponse(BaseModel):
+    dms: List[Dict[str, Any]]
+    total: int
+
+
+class ActionResponse(BaseModel):
+    success: bool
+    reason: Optional[str] = None
+    details: Optional[Dict[str, Any]] = None
+
+
+class AnalyzeResponse(BaseModel):
+    report: str
+
+
 class StatusResponse(BaseModel):
     service: str
     version: str
@@ -357,6 +397,171 @@ async def get_status():
         niche=niche,
         timestamp=datetime.now().isoformat(),
     )
+
+
+# ============ 新增端点：DM / Post / Comment / Like / Retweet / Analyze ============
+
+
+@app.get("/dms", response_model=DMsResponse)
+async def get_dms():
+    """获取 X 私信列表（指纹浏览器）"""
+    try:
+        from modules.x_dm_monitor import XDMMonitor
+    except ImportError:
+        raise HTTPException(status_code=501, detail="x_dm_monitor 模块未安装")
+
+    config = app.state.config
+    if not getattr(config, "x_username", None) or not getattr(config, "x_password", None):
+        raise HTTPException(status_code=400, detail="需要配置 X_USERNAME 和 X_PASSWORD")
+
+    try:
+        monitor = XDMMonitor(config)
+        dms = await monitor.fetch_dms()
+        return DMsResponse(dms=dms, total=len(dms))
+    except Exception as e:
+        logger.error(f"获取私信失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取私信失败: {e}")
+
+
+@app.post("/post", response_model=ActionResponse)
+async def post_tweet(req: PostRequest):
+    """发布推文到 X（Playwright 浏览器自动化）"""
+    try:
+        from modules.openclaw_bridge import OpenClawBridge
+    except ImportError:
+        raise HTTPException(status_code=501, detail="openclaw_bridge 模块未安装")
+
+    try:
+        bridge = OpenClawBridge()
+        bridge.auto_post_enabled = True
+        await bridge.initialize()
+        result = await bridge.post_content(content=req.content, apply_variant=req.variant)
+        return ActionResponse(
+            success=result.get("success", False),
+            reason=result.get("reason"),
+            details=result,
+        )
+    except Exception as e:
+        logger.error(f"发帖失败: {e}")
+        raise HTTPException(status_code=500, detail=f"发帖失败: {e}")
+
+
+@app.post("/comment", response_model=ActionResponse)
+async def comment_tweet(req: CommentRequest):
+    """评论指定推文"""
+    try:
+        from modules.openclaw_bridge import OpenClawBridge
+    except ImportError:
+        raise HTTPException(status_code=501, detail="openclaw_bridge 模块未安装")
+
+    try:
+        bridge = OpenClawBridge()
+        bridge.auto_comment_enabled = True
+        await bridge.initialize()
+        if not bridge.x_automation:
+            raise HTTPException(status_code=500, detail="X 自动化未初始化")
+        result = await bridge.x_automation.comment(req.url, req.content)
+        return ActionResponse(
+            success=result.get("success", False),
+            reason=result.get("reason"),
+            details=result,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"评论失败: {e}")
+        raise HTTPException(status_code=500, detail=f"评论失败: {e}")
+
+
+@app.post("/like", response_model=ActionResponse)
+async def like_tweet(req: LikeRequest):
+    """点赞指定推文"""
+    try:
+        from modules.openclaw_bridge import OpenClawBridge
+    except ImportError:
+        raise HTTPException(status_code=501, detail="openclaw_bridge 模块未安装")
+
+    try:
+        bridge = OpenClawBridge()
+        bridge.auto_like_enabled = True
+        await bridge.initialize()
+        result = await bridge.like_post(req.url)
+        return ActionResponse(
+            success=result.get("success", False),
+            reason=result.get("reason"),
+            details=result,
+        )
+    except Exception as e:
+        logger.error(f"点赞失败: {e}")
+        raise HTTPException(status_code=500, detail=f"点赞失败: {e}")
+
+
+@app.post("/retweet", response_model=ActionResponse)
+async def retweet_tweet(req: RetweetRequest):
+    """转发指定推文"""
+    try:
+        from modules.openclaw_bridge import OpenClawBridge
+    except ImportError:
+        raise HTTPException(status_code=501, detail="openclaw_bridge 模块未安装")
+
+    try:
+        bridge = OpenClawBridge()
+        bridge.auto_rt_enabled = True
+        await bridge.initialize()
+        result = await bridge.retweet_post(req.url, req.comment)
+        return ActionResponse(
+            success=result.get("success", False),
+            reason=result.get("reason"),
+            details=result,
+        )
+    except Exception as e:
+        logger.error(f"转发失败: {e}")
+        raise HTTPException(status_code=500, detail=f"转发失败: {e}")
+
+
+@app.post("/analyze", response_model=AnalyzeResponse)
+async def analyze_trends(req: AnalyzeRequest):
+    """AI 趋势分析 — 搜索 + LLM 生成 Markdown 报告"""
+    researcher = app.state.researcher
+    generator = app.state.generator
+
+    try:
+        raw = await researcher.research_async(niche=req.keyword, sources=req.sources)
+    except Exception as e:
+        logger.error(f"搜索失败: {e}")
+        raise HTTPException(status_code=500, detail=f"数据采集失败: {e}")
+
+    # 汇总各平台数据
+    summary_parts = []
+    for platform, data in raw.items():
+        if isinstance(data, dict) and "posts" in data:
+            for post in data["posts"][:5]:
+                title = post.get("title") or post.get("text", "")[:80]
+                summary_parts.append(f"[{platform}] {title}")
+
+    summary_text = "\n".join(summary_parts) if summary_parts else "暂无搜索数据"
+
+    try:
+        report = await generator.llm_router.chat(
+            messages=[
+                {"role": "system", "content": "你是专业的社交媒体运营分析师，擅长多平台趋势分析。请输出结构清晰的 Markdown 报告。"},
+                {"role": "user", "content": f"""请根据以下多平台搜索数据，为关键词「{req.keyword}」生成一份趋势分析报告（Markdown 格式）。
+
+搜索数据：
+{summary_text}
+
+报告要求：
+1. 趋势概览（总结当前热度）
+2. 热度排行（Top 5 话题）
+3. 平台汇聚性（哪些平台同时关注）
+4. 风险预警（如有敏感内容）
+5. 运营建议（发帖时机、话题切入角度）"""},
+            ],
+        )
+        return AnalyzeResponse(report=report)
+    except Exception as e:
+        logger.error(f"分析报告生成失败: {e}")
+        raise HTTPException(status_code=500, detail=f"分析报告生成失败: {e}")
 
 
 # ============ 启动入口 ============

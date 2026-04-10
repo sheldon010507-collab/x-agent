@@ -51,5 +51,8 @@ ENV PYTHONUNBUFFERED=1
 ENV TZ=UTC
 ENV APP_ENTRYPOINT=main.py
 
-# 启动应用（默认 Telegram Bot；API 服务通过 APP_ENTRYPOINT=api.py 覆盖）
+# 暴露端口: 8000 (API), 8001 (MCP SSE), 9000 (Telegram Bot)
+EXPOSE 8000 8001 9000
+
+# 启动应用（默认 Telegram Bot；API: APP_ENTRYPOINT=api.py；MCP: APP_ENTRYPOINT=mcp_server.py sse）
 CMD ["sh", "-c", "python $APP_ENTRYPOINT"]
