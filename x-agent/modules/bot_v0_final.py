@@ -9,6 +9,7 @@ bot_v0_final.py - X-Agent v0 Final 强制人工审核 Bot 模块
 - 每日 21:00 自动推送复盘报告
 """
 
+import json
 import logging
 from datetime import datetime
 from typing import Any, Dict, Optional
@@ -380,8 +381,9 @@ class XAgentBotV0Final:
                 else:
                     await query.message.reply_text(platform_text, parse_mode="Markdown")
 
-            # 3. 用 LLM 生成趋势总结
+            # 3. 用 LLM 生成趋势总结（带 20 秒超时）
             if self.llm_router:
+                import asyncio as _asyncio
                 try:
                     # 构造 LLM 输入
                     trends_text = "\n".join([
@@ -398,14 +400,17 @@ class XAgentBotV0Final:
 
 请总结出主要趋势和关键特征："""
 
-                    summary = await self.llm_router.chat([
-                        {"role": "user", "content": prompt}
-                    ])
+                    summary = await _asyncio.wait_for(
+                        self.llm_router.chat([{"role": "user", "content": prompt}]),
+                        timeout=20.0,
+                    )
 
                     await query.message.reply_text(
                         f"🤖 **AI 趋势总结**\n\n{summary}",
                         parse_mode="Markdown"
                     )
+                except _asyncio.TimeoutError:
+                    logger.warning("LLM 趋势总结超时 (20s)")
                 except Exception as e:
                     logger.warning(f"LLM 趋势总结失败: {e}")
 
@@ -504,11 +509,18 @@ class XAgentBotV0Final:
             await query.answer()
             user_state = self.user_states.get(user_id, {})
             search_path = user_state.get("search_path", [])
+            keyboard = [
+                [InlineKeyboardButton("📊 生成趋势分析报告", callback_data=f"analyze_report_{user_id}")],
+                [InlineKeyboardButton("✍️ 基于结果生成内容", callback_data=f"create_from_search_{user_id}")],
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
             await query.edit_message_text(
                 f"✅ 搜索完成！\n\n"
                 f"📍 搜索路径：`{' → '.join(search_path)}`\n\n"
                 f"📊 已合并 {len(search_path)} 层搜索结果\n\n"
-                f"接下来可以生成趋势分析或内容"
+                f"接下来可以：",
+                reply_markup=reply_markup,
+                parse_mode="Markdown",
             )
             self.user_states[user_id]["waiting_for_next_keyword"] = False
             return
@@ -989,15 +1001,15 @@ class XAgentBotV0Final:
 
         # 显示 niche 选择菜单
         niches = ["general", "ai_tools", "crypto", "beauty", "fitness", "humor", "adult"]
-        keyboard = [
-            [InlineKeyboardButton(niche_name, callback_data=f"create_niche_{niche}_{user_id}")]
+        buttons = [
+            InlineKeyboardButton(niche_name, callback_data=f"create_niche_{niche}_{user_id}")
             for niche_name, niche in zip(
                 ["通用", "AI工具", "加密货币", "美妆", "健身", "搞笑", "成人用品"],
                 niches
             )
         ]
-        # 分成两列显示
-        keyboard = [keyboard[i:i+2] for i in range(0, len(keyboard), 2)]
+        # 分成两列显示（每行 2 个按钮）
+        keyboard = [buttons[i:i+2] for i in range(0, len(buttons), 2)]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         await query.edit_message_text(
@@ -1278,7 +1290,8 @@ class XAgentBotV0Final:
 
                     keyboard = [
                         [InlineKeyboardButton("🔍 继续搜索下一层", callback_data=f"search_next_layer_{user_id}")],
-                        [InlineKeyboardButton("✅ 完成搜索", callback_data=f"search_complete_{user_id}")],
+                        [InlineKeyboardButton("📊 生成趋势分析报告", callback_data=f"analyze_report_{user_id}")],
+                        [InlineKeyboardButton("✍️ 基于结果生成内容", callback_data=f"create_from_search_{user_id}")],
                     ]
                     reply_markup = InlineKeyboardMarkup(keyboard)
 
