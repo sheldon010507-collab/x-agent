@@ -106,12 +106,9 @@ class XAgentBotV0Final:
         self.application.add_handler(CommandHandler("settings", self.cmd_settings))
         self.application.add_handler(CommandHandler("help", self.cmd_help))
 
-        # Inline 按钮回调处理器
+        # Inline 按钮回调处理器（匹配所有回调）
         self.application.add_handler(
-            CallbackQueryHandler(
-                self.button_callback,
-                pattern=r"^(confirm|final|regen|skip|publish|manual|research|create|view)_",
-            )
+            CallbackQueryHandler(self.button_callback)
         )
 
         # 普通文字消息处理器（必须放在最后）
