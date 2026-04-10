@@ -296,13 +296,13 @@ class XAgentBotV0Final:
 
         # 显示搜索深度选择菜单
         keyboard = [
-            [InlineKeyboardButton("⚡ 快速 (10条/平台)", callback_data=f"search_depth_quick_{keyword}_{user_id}")],
-            [InlineKeyboardButton("⚙️ 标准 (20条/平台)", callback_data=f"search_depth_standard_{keyword}_{user_id}")],
-            [InlineKeyboardButton("🔥 深度 (50条/平台)", callback_data=f"search_depth_deep_{keyword}_{user_id}")],
+            [InlineKeyboardButton("⚡ 快速 (10条/平台)", callback_data=f"search_depth_quick_{user_id}")],
+            [InlineKeyboardButton("⚙️ 标准 (20条/平台)", callback_data=f"search_depth_standard_{user_id}")],
+            [InlineKeyboardButton("🔥 深度 (50条/平台)", callback_data=f"search_depth_deep_{user_id}")],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        # 保存待搜索状态
+        # 保存待搜索状态（关键词存在 user_states 中）
         self.user_states[user_id] = {
             "pending_search_keyword": keyword,
         }
@@ -465,15 +465,16 @@ class XAgentBotV0Final:
         action = parts[0] if parts else ""
 
         # 处理搜索深度选择
-        if action == "search" and len(parts) >= 3 and parts[1] == "depth":
-            # search_depth_quick_<keyword>_<user_id> 或 search_depth_standard_<keyword>_<user_id> 等
-            depth = parts[2]
-            # 重新分割以获取关键词（可能包含空格和特殊字符）
-            full_parts = data.split("_")
-            # 格式: search_depth_<deep>_...<keyword>..._<user_id>
-            # 找到最后一个下划线之前的部分作为关键词
-            remaining = "_".join(full_parts[3:-1])  # 关键词可能包含下划线
-            keyword = remaining.replace("_", " ")  # 恢复空格
+        if action == "search" and len(parts) >= 2 and parts[1] == "depth":
+            # search_depth_<depth>_<user_id>
+            depth = parts[2] if len(parts) > 2 else "standard"
+            # 从 user_states 获取关键词
+            user_state = self.user_states.get(user_id, {})
+            keyword = user_state.get("pending_search_keyword", "")
+
+            if not keyword:
+                await query.answer("❌ 搜索关键词已过期，请重新 /search")
+                return
 
             await query.answer()
             await self._execute_search(update, context, keyword, depth)
