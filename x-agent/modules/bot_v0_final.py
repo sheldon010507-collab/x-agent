@@ -414,13 +414,15 @@ class XAgentBotV0Final:
                 except Exception as e:
                     logger.warning(f"LLM 趋势总结失败: {e}")
 
-            # 4. 保存搜索结果到用户状态
-            self.user_states[user_id] = {
+            # 4. 保存搜索结果到用户状态（用 update 保留已有字段如 search_path）
+            if user_id not in self.user_states:
+                self.user_states[user_id] = {}
+            self.user_states[user_id].update({
                 "research_result": research_result,
                 "search_keyword": keyword,
                 "action": "search_complete",
                 "all_posts": all_posts,
-            }
+            })
 
             # 5. 提供后续操作选项
             # 保存搜索路径用于多层搜索
@@ -635,7 +637,7 @@ class XAgentBotV0Final:
         elif action == "create":
             await self._handle_create_now(query, context)
 
-        elif action == "view" and parts[1] == "report":
+        elif action == "view" and len(parts) > 1 and parts[1] == "report":
             await self._handle_view_report(query)
 
     async def _handle_set_niche(self, query, niche: str) -> None:
