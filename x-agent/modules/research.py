@@ -27,6 +27,7 @@ import hashlib
 import json
 import logging
 import random
+import re
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -365,6 +366,9 @@ class XTrendsFetcher(PlatformFetcher):
         if len(posts) < 10:
             posts.extend(self._generate_fallback_data(niche, count=max(0, 10 - len(posts))))
 
+        # 用 Google News RSS 丰富标签内容，获取真实新闻标题
+        posts = await self._enrich_with_google_news(posts, niche)
+
         logger.info(f"X 趋势爬取成功，共 {len(posts)} 条")
         return {
             "platform": "x",
@@ -373,6 +377,47 @@ class XTrendsFetcher(PlatformFetcher):
             "fetched_at": datetime.now().isoformat(),
             "mock": len(posts) == 0,
         }
+
+    async def _enrich_with_google_news(self, posts: list, niche: str) -> list:
+        """用 Google News RSS 为每个 X 热门标签获取真实新闻标题"""
+        if not posts or not HAS_AIOHTTP:
+            return posts
+        from xml.etree import ElementTree as ET
+        enriched = []
+        try:
+            async with aiohttp.ClientSession(headers=self.HEADERS) as session:
+                for post in posts[:15]:
+                    tag = post.get("title", "").replace("#", "").strip()
+                    if not tag:
+                        enriched.append(post)
+                        continue
+                    try:
+                        query = f"{niche} {tag}".replace(" ", "+")
+                        url = f"https://news.google.com/rss/search?q={query}&hl=en-US&gl=US&ceid=US:en"
+                        async with session.get(url, timeout=aiohttp.ClientTimeout(total=6)) as resp:
+                            if resp.status == 200:
+                                text = await resp.text()
+                                root = ET.fromstring(text)
+                                for item in root.findall(".//item")[:1]:
+                                    raw_title = item.findtext("title", "")
+                                    # Remove source suffix like " - Reuters"
+                                    news_title = raw_title.split(" - ")[0].strip()
+                                    if news_title and len(news_title) > 15:
+                                        p = post.copy()
+                                        p["title"] = news_title
+                                        p["original_tag"] = post["title"]
+                                        enriched.append(p)
+                                        break
+                                else:
+                                    enriched.append(post)
+                            else:
+                                enriched.append(post)
+                    except Exception:
+                        enriched.append(post)
+        except Exception as e:
+            logger.warning(f"Google News 丰富化失败: {e}")
+            return posts
+        return enriched if enriched else posts
 
     async def _scrape_trends24(self) -> list:
         """爬取 trends24.in"""
@@ -563,9 +608,20 @@ class TikTokFetcher(PlatformFetcher):
                     if not tag_name.startswith("#"):
                         tag_name = f"#{tag_name}"
 
+                    # 尝试读取视频数量（第2或第3列）
+                    count_text = ""
+                    for ci in range(1, len(cols)):
+                        ct = cols[ci].get_text(strip=True)
+                        if ct and any(c.isdigit() for c in ct):
+                            count_text = ct
+                            break
+
+                    display_title = f"{tag_name} ({count_text} videos)" if count_text else tag_name
+
                     engagement_val = max(5000 - i * 200, 100)
                     posts.append({
-                        "title": tag_name,
+                        "title": display_title,
+                        "tag": tag_name,
                         "engagement": engagement_val,
                         "url": f"https://www.tiktok.com/tag/{tag_name.lstrip('#')}",
                         "author": "trending",
@@ -1220,6 +1276,152 @@ class Researcher:
         """
         tasks = [self.research_async(niche, days) for niche in niches]
         return await asyncio.gather(*tasks)
+
+    async def research_hierarchical(
+        self, base_keyword: str, layers: int = 3, max_per_layer: int = 20, days: int = 7
+    ) -> Dict:
+        """多层级关键词递进搜索
+
+        Layer 1: 搜索 base_keyword
+        Layer 2: 从结果中自动提取新关键词 → 并发搜索
+        Layer N: 继续扩展...
+        最终合并所有层结果并去重
+
+        Args:
+            base_keyword: 基础关键词
+            layers: 搜索层数 (1-5)
+            max_per_layer: 每平台最大条数
+            days: 回溯天数
+
+        Returns:
+            Dict: 合并后的完整研究结果
+        """
+        all_platform_data: Dict = {}
+        all_citations: List = []
+        layer_info: List = []
+        current_keywords = [base_keyword]
+
+        for layer in range(1, layers + 1):
+            logger.info(f"[多层搜索] 第 {layer}/{layers} 层，关键词: {current_keywords}")
+
+            # 并发搜索当前层的关键词
+            tasks = [self.research_async(kw, days) for kw in current_keywords[:3]]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            layer_results = [r for r in results if isinstance(r, dict) and "error" not in r]
+
+            # 合并 platform_data（去重）
+            for result in layer_results:
+                for platform, data in result.get("platform_data", {}).items():
+                    if not isinstance(data, dict):
+                        continue
+                    if platform not in all_platform_data:
+                        all_platform_data[platform] = data
+                    else:
+                        existing = all_platform_data[platform].get("posts", [])
+                        new_posts = data.get("posts", [])
+                        seen = {p.get("title", "") for p in existing}
+                        merged = existing + [p for p in new_posts if p.get("title", "") not in seen]
+                        all_platform_data[platform] = dict(data)
+                        all_platform_data[platform]["posts"] = merged[:max_per_layer]
+
+                all_citations.extend(result.get("citations", []))
+
+            layer_info.append({
+                "layer": layer,
+                "keywords": current_keywords.copy(),
+                "found": sum(len(r.get("citations", [])) for r in layer_results),
+            })
+
+            # 提取下一层关键词
+            if layer < layers and layer_results:
+                new_kws = self._extract_keywords_from_results(layer_results, base_keyword)
+                if new_kws:
+                    current_keywords = new_kws
+                    logger.info(f"[多层搜索] 下一层关键词: {new_kws}")
+                else:
+                    logger.info("[多层搜索] 无法提取新关键词，停止扩展")
+                    break
+
+        # 去重 citations
+        seen_titles: set = set()
+        unique_citations = []
+        for c in all_citations:
+            t = c.get("title", "")
+            if t and t not in seen_titles:
+                seen_titles.add(t)
+                unique_citations.append(c)
+
+        total_posts = sum(len(d.get("posts", [])) for d in all_platform_data.values() if isinstance(d, dict))
+        metrics = self._calculate_metrics(all_platform_data, total_posts)
+
+        layer_summary = " → ".join(
+            f"层{i['layer']}:{','.join(i['keywords'][:2])}({i['found']}条)" for i in layer_info
+        )
+
+        return {
+            "niche": base_keyword,
+            "layers_used": len(layer_info),
+            "layer_info": layer_info,
+            "platform_data": all_platform_data,
+            "citations": unique_citations[:20],
+            "platforms": list(all_platform_data.keys()),
+            "metrics": metrics,
+            "score": metrics.get("relevance", 50),
+            "risk_score": self._calculate_risk_score(metrics),
+            "summary": f"多层搜索 [{layers} 层]: {layer_summary}",
+            "created_at": datetime.now().isoformat(),
+        }
+
+    def _extract_keywords_from_results(self, results: List[Dict], exclude: str = "") -> List[str]:
+        """从搜索结果中提取高频关键词，用于下一层搜索"""
+        STOP_WORDS = {
+            "the", "a", "an", "is", "are", "was", "were", "be", "been",
+            "to", "of", "in", "for", "on", "with", "at", "by", "from",
+            "as", "it", "its", "this", "that", "and", "or", "but", "not",
+            "has", "have", "had", "will", "would", "could", "should", "can",
+            "about", "which", "who", "what", "how", "when", "where",
+            "的", "是", "在", "了", "和", "与", "或", "但", "不", "也", "都",
+            "这", "那", "我", "你", "他", "她", "它", "我们", "你们", "他们",
+            "一个", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十",
+        }
+        exclude_words = {w.lower() for w in re.split(r"\W+", exclude) if w}
+
+        word_freq: Dict[str, int] = {}
+        for result in results:
+            for citation in result.get("citations", [])[:15]:
+                title = citation.get("title", "")
+                words = re.sub(r"[^\w\s\u4e00-\u9fff]", " ", title).split()
+                for word in words:
+                    w = word.lower().strip()
+                    if len(w) >= 3 and w not in STOP_WORDS and w not in exclude_words:
+                        word_freq[w] = word_freq.get(w, 0) + 1
+
+        sorted_words = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)
+        return [word for word, freq in sorted_words[:3] if freq >= 2]
+
+    def research_hierarchical_sync(
+        self, base_keyword: str, layers: int = 3, max_per_layer: int = 20, days: int = 7
+    ) -> Dict:
+        """同步版多层搜索（兼容非异步调用）"""
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        if loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(
+                    asyncio.run,
+                    self.research_hierarchical(base_keyword, layers, max_per_layer, days),
+                )
+                return future.result()
+        else:
+            return loop.run_until_complete(
+                self.research_hierarchical(base_keyword, layers, max_per_layer, days)
+            )
 
 
 # 便捷函数

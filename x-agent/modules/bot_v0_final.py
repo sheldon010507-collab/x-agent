@@ -291,11 +291,11 @@ class XAgentBotV0Final:
         keyword = " ".join(context.args)
         logger.info(f"用户 {user_id} 搜索关键词: {keyword}")
 
-        # 显示搜索深度选择菜单
+        # 显示搜索深度选择菜单（层数 + 每层条数）
         keyboard = [
-            [InlineKeyboardButton("⚡ 快速 (10条/平台)", callback_data=f"search_depth_quick_{user_id}")],
-            [InlineKeyboardButton("⚙️ 标准 (20条/平台)", callback_data=f"search_depth_standard_{user_id}")],
-            [InlineKeyboardButton("🔥 深度 (50条/平台)", callback_data=f"search_depth_deep_{user_id}")],
+            [InlineKeyboardButton("⚡ 快速 (1层 · 10条/平台)", callback_data=f"search_depth_quick_{user_id}")],
+            [InlineKeyboardButton("⚙️ 标准 (3层 · 20条/平台)", callback_data=f"search_depth_standard_{user_id}")],
+            [InlineKeyboardButton("🔥 深度 (5层 · 50条/平台)", callback_data=f"search_depth_deep_{user_id}")],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -315,19 +315,29 @@ class XAgentBotV0Final:
     async def _execute_search(self, query, keyword: str, depth: str) -> None:
         """执行实际搜索（从 button_callback 调用，query 是 CallbackQuery 对象）"""
         user_id = query.from_user.id
+        layers = {"quick": 1, "standard": 3, "deep": 5}.get(depth, 3)
         max_results = {"quick": 10, "standard": 20, "deep": 50}.get(depth, 20)
 
-        logger.info(f"用户 {user_id} 搜索关键词: {keyword} (深度: {depth})")
+        logger.info(f"用户 {user_id} 搜索关键词: {keyword} (深度: {depth}, 层数: {layers})")
 
         # 开始搜索 (query.answer() 已在 button_callback 中调用)
         await query.edit_message_text(
-            f"🔍 正在搜索「{keyword}」的完整趋势数据...\n⏳ 这可能需要 10-30 秒"
+            f"🔍 正在{'多层' if layers > 1 else ''}搜索「{keyword}」...\n"
+            f"📐 搜索层数: {layers} 层，每平台最多 {max_results} 条\n"
+            f"⏳ 这可能需要 {15 * layers}-{30 * layers} 秒"
         )
 
         try:
             research_result = {}
             if self.researcher:
-                research_result = self.researcher.research_topic(niche=keyword, days=7)
+                if layers > 1:
+                    # 多层递进搜索
+                    research_result = await self.researcher.research_hierarchical(
+                        keyword, layers=layers, max_per_layer=max_results
+                    )
+                else:
+                    # 快速单层搜索
+                    research_result = self.researcher.research_topic(niche=keyword, days=7)
 
             if not research_result or "error" in research_result:
                 await query.message.reply_text(f"❌ 搜索失败：{research_result.get('error', '未知错误')}")
@@ -348,8 +358,15 @@ class XAgentBotV0Final:
 
             # ========== 发送完整数据 ==========
 
-            # 1. 发送汇总统计
+            # 1. 发送汇总统计（含多层信息）
+            layer_info = research_result.get("layer_info", [])
             summary_text = f"📊 **「{keyword}」趋势搜索结果汇总**\n\n"
+            if layer_info:
+                summary_text += f"🔄 **搜索层数**: {len(layer_info)} 层\n"
+                for li in layer_info:
+                    kws = ", ".join(li.get("keywords", []))
+                    summary_text += f"  层{li['layer']}: `{kws}` → {li.get('found', 0)} 条\n"
+                summary_text += "\n"
             for platform, posts in all_posts.items():
                 summary_text += f"✅ **{platform.upper()}**: {len(posts)} 条热点\n"
 
