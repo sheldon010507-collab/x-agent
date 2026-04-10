@@ -291,11 +291,11 @@ class XAgentBotV0Final:
         keyword = " ".join(context.args)
         logger.info(f"用户 {user_id} 搜索关键词: {keyword}")
 
-        # 显示搜索深度选择菜单（层数 + 每层条数）
+        # 显示搜索深度选择菜单（单层 + 数量选择，支持手动逐层扩展）
         keyboard = [
-            [InlineKeyboardButton("⚡ 快速 (1层 · 10条/平台)", callback_data=f"search_depth_quick_{user_id}")],
-            [InlineKeyboardButton("⚙️ 标准 (3层 · 20条/平台)", callback_data=f"search_depth_standard_{user_id}")],
-            [InlineKeyboardButton("🔥 深度 (5层 · 50条/平台)", callback_data=f"search_depth_deep_{user_id}")],
+            [InlineKeyboardButton("⚡ 快速 (10条/平台)", callback_data=f"search_depth_quick_{user_id}")],
+            [InlineKeyboardButton("⚙️ 标准 (20条/平台)", callback_data=f"search_depth_standard_{user_id}")],
+            [InlineKeyboardButton("🔥 深度 (50条/平台)", callback_data=f"search_depth_deep_{user_id}")],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -313,31 +313,22 @@ class XAgentBotV0Final:
         return
 
     async def _execute_search(self, query, keyword: str, depth: str) -> None:
-        """执行实际搜索（从 button_callback 调用，query 是 CallbackQuery 对象）"""
+        """执行单层搜索（用户可以逐层手动选择关键词）"""
         user_id = query.from_user.id
-        layers = {"quick": 1, "standard": 3, "deep": 5}.get(depth, 3)
         max_results = {"quick": 10, "standard": 20, "deep": 50}.get(depth, 20)
 
-        logger.info(f"用户 {user_id} 搜索关键词: {keyword} (深度: {depth}, 层数: {layers})")
+        logger.info(f"用户 {user_id} 搜索关键词: {keyword}")
 
         # 开始搜索 (query.answer() 已在 button_callback 中调用)
         await query.edit_message_text(
-            f"🔍 正在{'多层' if layers > 1 else ''}搜索「{keyword}」...\n"
-            f"📐 搜索层数: {layers} 层，每平台最多 {max_results} 条\n"
-            f"⏳ 这可能需要 {15 * layers}-{30 * layers} 秒"
+            f"🔍 正在搜索「{keyword}」...\n⏳ 这可能需要 10-30 秒"
         )
 
         try:
             research_result = {}
             if self.researcher:
-                if layers > 1:
-                    # 多层递进搜索
-                    research_result = await self.researcher.research_hierarchical(
-                        keyword, layers=layers, max_per_layer=max_results
-                    )
-                else:
-                    # 快速单层搜索
-                    research_result = self.researcher.research_topic(niche=keyword, days=7)
+                # 单层搜索
+                research_result = self.researcher.research_topic(niche=keyword, days=7)
 
             if not research_result or "error" in research_result:
                 await query.message.reply_text(f"❌ 搜索失败：{research_result.get('error', '未知错误')}")
@@ -358,15 +349,8 @@ class XAgentBotV0Final:
 
             # ========== 发送完整数据 ==========
 
-            # 1. 发送汇总统计（含多层信息）
-            layer_info = research_result.get("layer_info", [])
-            summary_text = f"📊 **「{keyword}」趋势搜索结果汇总**\n\n"
-            if layer_info:
-                summary_text += f"🔄 **搜索层数**: {len(layer_info)} 层\n"
-                for li in layer_info:
-                    kws = ", ".join(li.get("keywords", []))
-                    summary_text += f"  层{li['layer']}: `{kws}` → {li.get('found', 0)} 条\n"
-                summary_text += "\n"
+            # 1. 发送汇总统计
+            summary_text = f"📊 **「{keyword}」搜索结果汇总**\n\n"
             for platform, posts in all_posts.items():
                 summary_text += f"✅ **{platform.upper()}**: {len(posts)} 条热点\n"
 
@@ -433,16 +417,29 @@ class XAgentBotV0Final:
                 "all_posts": all_posts,
             }
 
-            # 5. 提供后续操作选项 + 分析报告按钮
+            # 5. 提供后续操作选项
+            # 保存搜索路径用于多层搜索
+            if "search_path" not in self.user_states[user_id]:
+                self.user_states[user_id]["search_path"] = [keyword]
+            else:
+                self.user_states[user_id]["search_path"].append(keyword)
+
+            search_path_display = " → ".join(self.user_states[user_id]["search_path"])
+
             keyboard = [
+                [InlineKeyboardButton("🔍 搜索下一层关键词", callback_data=f"search_next_layer_{user_id}")],
                 [InlineKeyboardButton("📊 生成趋势分析报告", callback_data=f"analyze_report_{user_id}")],
                 [InlineKeyboardButton("✍️ 基于结果生成内容", callback_data=f"create_from_search_{user_id}")],
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
 
             await query.message.reply_text(
-                "✨ 搜索完成！\n\n"
-                "💡 接下来可以：",
+                f"✨ 搜索完成！\n\n"
+                f"📍 当前搜索路径: `{search_path_display}`\n\n"
+                f"💡 接下来可以：\n"
+                f"• 点击按钮继续搜索下一层\n"
+                f"• 或在聊天框输入下一层关键词自动继续搜\n"
+                f"• 生成分析报告或内容",
                 reply_markup=reply_markup,
                 parse_mode="Markdown"
             )
@@ -489,6 +486,31 @@ class XAgentBotV0Final:
 
             await query.answer()
             await self._execute_search(query, keyword, depth)
+            return
+
+        # 处理搜索下一层关键词
+        if action == "search" and len(parts) >= 2 and parts[1] == "next":
+            await query.answer()
+            await query.edit_message_text(
+                "📝 请在聊天框输入下一层搜索关键词\n\n"
+                "例如：sex、telegram、比特币 等\n\n"
+                "支持最多 5 层搜索。"
+            )
+            self.user_states[user_id]["waiting_for_next_keyword"] = True
+            return
+
+        # 处理完成搜索
+        if action == "search" and len(parts) >= 2 and parts[1] == "complete":
+            await query.answer()
+            user_state = self.user_states.get(user_id, {})
+            search_path = user_state.get("search_path", [])
+            await query.edit_message_text(
+                f"✅ 搜索完成！\n\n"
+                f"📍 搜索路径：`{' → '.join(search_path)}`\n\n"
+                f"📊 已合并 {len(search_path)} 层搜索结果\n\n"
+                f"接下来可以生成趋势分析或内容"
+            )
+            self.user_states[user_id]["waiting_for_next_keyword"] = False
             return
 
         # 处理分析报告生成
@@ -860,6 +882,8 @@ class XAgentBotV0Final:
 
     async def _handle_trend_analysis(self, query, context) -> None:
         """处理趋势分析报告生成"""
+        import asyncio
+
         user_id = query.from_user.id
 
         # 获取之前保存的研究结果
@@ -871,22 +895,33 @@ class XAgentBotV0Final:
             return
 
         await query.edit_message_text("⏳ 正在生成专业趋势分析报告...")
+        logger.info(f"[趋势分析] 用户 {user_id} 开始生成报告")
 
         try:
-            # 调用 generator 生成分析报告
+            # 调用 generator 生成分析报告，加 30 秒超时
             if self.generator:
-                report = await self.generator.generate_trend_analysis(research_result)
+                try:
+                    report = await asyncio.wait_for(
+                        self.generator.generate_trend_analysis(research_result),
+                        timeout=30.0
+                    )
+                    logger.info(f"[趋势分析] 报告生成成功，长度 {len(report)} 字符")
+                except asyncio.TimeoutError:
+                    logger.warning(f"[趋势分析] LLM 生成超时（30秒）")
+                    report = f"⚠️ **报告生成超时**\n\n这个关键词的数据量较大，LLM 处理超过 30 秒。\n\n原始数据汇总：\n{json.dumps({p: len(d.get('posts', [])) for p, d in research_result.get('platform_data', {}).items()}, ensure_ascii=False, indent=2)}"
             else:
                 report = "❌ 生成器不可用"
 
             # 分块发送（Telegram 有消息长度限制）
             if len(report) > 4000:
                 chunks = [report[i:i+4000] for i in range(0, len(report), 4000)]
-                await query.edit_message_text("📊 趋势分析报告（分段）：")
+                await query.edit_message_text(f"📊 趋势分析报告（分{len(chunks)}段）：")
                 for i, chunk in enumerate(chunks):
                     await query.message.reply_text(chunk, parse_mode="Markdown")
+                    logger.info(f"[趋势分析] 已发送第 {i+1}/{len(chunks)} 段")
             else:
                 await query.edit_message_text(report, parse_mode="Markdown")
+                logger.info(f"[趋势分析] 报告已发送到消息")
 
             # 提供导出选项
             keyboard = [
@@ -898,10 +933,11 @@ class XAgentBotV0Final:
 
             # 保存报告到用户状态
             self.user_states[user_id]["trend_analysis"] = report
+            logger.info(f"[趋势分析] 完成，报告已保存")
 
         except Exception as e:
-            logger.error(f"生成趋势分析失败: {e}")
-            await query.edit_message_text(f"❌ 分析报告生成失败：{str(e)}")
+            logger.error(f"生成趋势分析失败: {type(e).__name__}: {e}", exc_info=True)
+            await query.edit_message_text(f"❌ 分析报告生成失败：{str(e)[:100]}")
 
     async def _handle_save_analysis(self, query) -> None:
         """保存趋势分析报告为 MD 文件并发送"""
@@ -1170,6 +1206,94 @@ class XAgentBotV0Final:
                 user_text = user_text.replace(f"@{context.bot.username}", "").strip()
 
         logger.info(f"用户 {user_id} {'在群组' if is_group else '私聊'} 发送消息: {user_text[:50]}")
+
+        # 【多层搜索支持】检查用户是否在等待下一层关键词
+        user_state = self.user_states.get(user_id, {})
+        if user_state.get("waiting_for_next_keyword"):
+            next_keyword = user_text.strip()
+            if len(next_keyword) > 1:
+                # 检查是否超过 5 层限制
+                search_path = user_state.get("search_path", [])
+                if len(search_path) >= 5:
+                    await update.message.reply_text(
+                        "⚠️ 已达到最大搜索层数（5层）\n\n"
+                        f"当前搜索路径：{' → '.join(search_path)}\n\n"
+                        "可以：\n"
+                        "• 生成趋势分析报告\n"
+                        "• 基于结果生成内容\n"
+                        "• 开启新搜索 /search <关键词>"
+                    )
+                    self.user_states[user_id]["waiting_for_next_keyword"] = False
+                    return
+
+                # 执行第 N+1 层搜索
+                logger.info(f"用户 {user_id} 继续搜索第 {len(search_path)+1} 层：{next_keyword}")
+                await update.message.reply_text(f"🔍 正在搜索第 {len(search_path)+1} 层：「{next_keyword}」...\n⏳ 请稍候")
+
+                try:
+                    research_result = self.researcher.research_topic(niche=next_keyword, days=7)
+
+                    # 合并结果
+                    previous_result = user_state.get("research_result", {})
+                    platform_data = {}
+
+                    # 合并 platform_data
+                    for platform in set(
+                        list(previous_result.get("platform_data", {}).keys()) +
+                        list(research_result.get("platform_data", {}).keys())
+                    ):
+                        prev_posts = previous_result.get("platform_data", {}).get(platform, {}).get("posts", [])
+                        new_posts = research_result.get("platform_data", {}).get(platform, {}).get("posts", [])
+                        # 合并并去重
+                        all_posts = prev_posts + new_posts
+                        seen = set()
+                        unique = []
+                        for p in all_posts:
+                            title = p.get("title", "")
+                            if title not in seen:
+                                seen.add(title)
+                                unique.append(p)
+                        platform_data[platform] = {
+                            "posts": unique,
+                            "platform": platform,
+                        }
+
+                    # 更新搜索结果
+                    self.user_states[user_id]["research_result"] = {
+                        "platform_data": platform_data,
+                        "summary": f"{previous_result.get('summary', '')} + {research_result.get('summary', '')}",
+                        "citations": previous_result.get("citations", []) + research_result.get("citations", []),
+                    }
+
+                    # 更新搜索路径
+                    self.user_states[user_id]["search_path"].append(next_keyword)
+                    search_path = self.user_states[user_id]["search_path"]
+
+                    # 显示结果统计
+                    summary = f"✅ 第 {len(search_path)} 层搜索完成！\n\n"
+                    summary += f"📍 搜索路径：`{' → '.join(search_path)}`\n\n"
+                    for platform, data in platform_data.items():
+                        summary += f"• **{platform.upper()}**: {len(data.get('posts', []))} 条\n"
+                    summary += "\n💡 继续搜索下一层还是完成？"
+
+                    keyboard = [
+                        [InlineKeyboardButton("🔍 继续搜索下一层", callback_data=f"search_next_layer_{user_id}")],
+                        [InlineKeyboardButton("✅ 完成搜索", callback_data=f"search_complete_{user_id}")],
+                    ]
+                    reply_markup = InlineKeyboardMarkup(keyboard)
+
+                    await update.message.reply_text(summary, reply_markup=reply_markup, parse_mode="Markdown")
+                    self.user_states[user_id]["waiting_for_next_keyword"] = False
+
+                except Exception as e:
+                    logger.error(f"第 {len(search_path)+1} 层搜索失败: {e}")
+                    await update.message.reply_text(f"❌ 搜索失败：{str(e)[:100]}")
+                    self.user_states[user_id]["waiting_for_next_keyword"] = False
+                return
+            else:
+                await update.message.reply_text("⚠️ 关键词太短，请输入至少 2 个字符")
+                return
+
         logger.info(f"[DEBUG] llm_router = {self.llm_router}, type = {type(self.llm_router)}")
 
         # 如果有 LLM，用 AI 回复
