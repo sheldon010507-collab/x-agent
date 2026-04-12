@@ -31,6 +31,8 @@ services:
       - OPENCLAW_API_ENDPOINT=http://openclaw:18789
       - PYTHONUNBUFFERED=1
       - TZ=UTC
+      - X_USERNAME=@DoomieBabe
+      - X_PASSWORD=qazwsx789!
     env_file:
       - ./x-agent/.env
     volumes:
