@@ -1,0 +1,71 @@
+services:
+  openclaw:
+    image: openclaw:local
+    container_name: x-agent-openclaw
+    ports:
+      - "18789:18789"
+      - "18790:18790"
+    environment:
+      - OPENCLAW_PORT=18789
+      - LOG_LEVEL=info
+    volumes:
+      - openclaw_data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:18789/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  x-agent:
+    build:
+      context: ./x-agent
+      dockerfile: Dockerfile
+    container_name: x-agent-app
+    ports:
+      - "9000:9000"
+    environment:
+      - OPENCLAW_API_ENDPOINT=http://openclaw:18789
+      - PYTHONUNBUFFERED=1
+      - TZ=UTC
+    env_file:
+      - ./x-agent/.env
+    volumes:
+      - ./x-agent/data:/app/data
+      - ./x-agent/logs:/app/logs
+    depends_on:
+      - openclaw
+    restart: unless-stopped
+
+  x-agent-api:
+    build:
+      context: ./x-agent
+      dockerfile: Dockerfile
+    container_name: x-agent-api
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENTRYPOINT=api.py
+      - TELEGRAM_BOT_TOKEN=unused
+      - OPENCLAW_API_ENDPOINT=http://openclaw:18789
+      - PYTHONUNBUFFERED=1
+      - TZ=UTC
+    env_file:
+      - ./x-agent/.env
+    volumes:
+      - ./x-agent/data:/app/data
+      - ./x-agent/logs:/app/logs
+    depends_on:
+      - openclaw
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  openclaw_data:
+    driver: local

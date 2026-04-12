@@ -9,9 +9,17 @@ bot_v0_final.py - X-Agent v0 Final 强制人工审核 Bot 模块
 - 每日 21:00 自动推送复盘报告
 """
 
+import json
 import logging
 from datetime import datetime
 from typing import Any, Dict, Optional
+
+
+def _md_escape(text: str) -> str:
+    """转义 Telegram Markdown V1 特殊字符，防止 parse entities 错误"""
+    for ch in ("_", "*", "[", "]", "`"):
+        text = text.replace(ch, f"\\{ch}")
+    return text
 
 from telegram import (
     InlineKeyboardButton,
@@ -23,6 +31,8 @@ from telegram.ext import (
     CallbackContext,
     CallbackQueryHandler,
     CommandHandler,
+    MessageHandler,
+    filters,
 )
 
 logger = logging.getLogger(__name__)
@@ -87,6 +97,11 @@ class XAgentBotV0Final:
         self.application: Application = None
         self.user_states: Dict[int, Dict] = {}
 
+        # X 私信监控（延迟初始化，initialize() 中创建）
+        self.dm_monitor = None
+        # 记录哪些 user_id 订阅了 DM 通知
+        self._dm_notify_chat_ids: set = set()
+
     async def initialize(self) -> None:
         """初始化 Bot"""
         from telegram.ext import ApplicationBuilder
@@ -96,20 +111,35 @@ class XAgentBotV0Final:
         # 注册命令处理器
         self.application.add_handler(CommandHandler("start", self.cmd_start))
         self.application.add_handler(CommandHandler("set_niche", self.cmd_set_niche))
-        self.application.add_handler(CommandHandler("research", self.cmd_research))
-        self.application.add_handler(CommandHandler("trends", self.cmd_trends))
         self.application.add_handler(CommandHandler("create", self.cmd_create))
+        self.application.add_handler(CommandHandler("search", self.cmd_search))
         self.application.add_handler(CommandHandler("report", self.cmd_report))
         self.application.add_handler(CommandHandler("settings", self.cmd_settings))
         self.application.add_handler(CommandHandler("help", self.cmd_help))
+        # 私信监控命令
+        self.application.add_handler(CommandHandler("dms", self.cmd_dms))
+        self.application.add_handler(CommandHandler("monitor_dms", self.cmd_monitor_dms))
 
-        # Inline 按钮回调处理器
+        # Inline 按钮回调处理器（匹配所有回调）
         self.application.add_handler(
-            CallbackQueryHandler(
-                self.button_callback,
-                pattern=r"^(confirm|final|regen|skip|publish|manual|research|create|view)_",
-            )
+            CallbackQueryHandler(self.button_callback)
         )
+
+        # 普通文字消息处理器（必须放在最后）
+        self.application.add_handler(
+            MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message)
+        )
+
+        # 初始化 X 私信监控
+        try:
+            from .x_dm_monitor import XDMMonitor
+            self.dm_monitor = XDMMonitor(
+                config=self.config,
+                notify_callback=self._on_new_dms,
+            )
+            logger.info("✅ X 私信监控模块已加载")
+        except Exception as e:
+            logger.warning(f"X 私信监控模块加载失败: {e}")
 
         logger.info("✅ X-Agent v0 Final Bot 初始化完成 (半自动模式)")
 
@@ -176,13 +206,7 @@ class XAgentBotV0Final:
         """
         /create - 创建内容 (半自动流程核心 - 强制人工审核)
 
-        流程:
-        1. 调用 research 获取热点
-        2. 调用 scorer 评分
-        3. 调用 generator 生成 A/B/C 类内容
-        4. 显示生成的内容 + risk_score
-        5. Inline 按钮：【✅ 人工确认发布】【🔄 重新生成】【❌ 跳过】
-        6. 必须用户通过两步确认后才能发布（无自动发布选项）
+        优先使用之前搜索的结果，如果没有则重新研究热点
         """
         user_id = update.effective_user.id if update.effective_user else 0
         logger.info(f"用户 {user_id} 请求创建内容")
@@ -190,79 +214,269 @@ class XAgentBotV0Final:
         if not update.message:
             return
 
-        # 步骤 1: 研究热点
-        await update.message.reply_text("🔍 正在研究热点...")
+        # 检查是否有之前的搜索结果
+        user_state = self.user_states.get(user_id, {})
+        research_result = user_state.get("research_result")
+        search_keyword = user_state.get("search_keyword")
 
-        research_result = {}
-        if self.researcher:
-            research_result = self.researcher.research_topic(
-                niche=self.config.get("niche", "general") if self.config else "general", days=7
+        if research_result and search_keyword:
+            # 使用之前的搜索结果
+            await update.message.reply_text(
+                f"✅ 使用之前搜索的「{search_keyword}」的数据来生成内容...",
+                parse_mode="Markdown"
             )
         else:
-            research_result = {"error": "Researcher 未初始化"}
+            # 重新研究热点
+            await update.message.reply_text("🔍 正在研究热点...")
 
-        if "error" in research_result:
-            await update.message.reply_text(f"❌ 研究失败：{research_result['error']}")
-            return
+            if self.researcher:
+                research_result = self.researcher.research_topic(
+                    niche=getattr(self.config, "current_niche", "general") if self.config else "general",
+                    days=7
+                )
+            else:
+                research_result = {"error": "Researcher 未初始化"}
 
-        # 步骤 2: 评分
-        risk_score = 50
-        if self.scorer:
-            score_result = self.scorer.score(research_result)
-            risk_score = score_result.get("risk_score", 50)
+            if "error" in research_result:
+                await update.message.reply_text(f"❌ 研究失败：{research_result['error']}")
+                return
 
-        # 步骤 3: 生成内容
-        await update.message.reply_text("✍️ 正在生成内容...")
+        # 显示采集到的热点
+        citations = research_result.get("citations", [])
+        platform_data = research_result.get("platform_data", {})
+        summary = research_result.get("summary", "暂无摘要")
+        risk_score_research = research_result.get("risk_score", 50)
 
-        generated = {"type": "A", "content": "示例内容"}
-        if self.generator:
-            generated = self.generator.generate(
-                niche=self.config.get("niche", "general") if self.config else "general",
-                research=research_result,
-                score={"risk_score": risk_score},
+        # 从 platform_data 中提取真实的话题
+        real_topics = []
+        for platform, data in platform_data.items():
+            if isinstance(data, dict) and "posts" in data:
+                posts = data.get("posts", [])
+                for post in posts[:2]:  # 每个平台取前2个
+                    title = post.get("title", "").strip()
+                    if title and len(title) > 5:  # 过滤掉太短或空的标题
+                        real_topics.append(f"[{platform.upper()}] {title}")
+
+        # 显示热点列表（去重）
+        unique_topics = list(set(real_topics))[:10]
+        if unique_topics:
+            hot_topics_text = "\n".join([f"• {t}" for t in unique_topics])
+            await update.message.reply_text(
+                f"🔥 **采集到的热点话题** (前10个):\n{hot_topics_text}",
+                parse_mode="Markdown"
+            )
+        else:
+            await update.message.reply_text(
+                f"📊 **研究摘要**:\n{summary}",
+                parse_mode="Markdown"
             )
 
-        # 步骤 4: 显示内容 + risk_score
-        content_type = generated.get("type", "A")
-        content_text = generated.get("content", "无内容")
+        # 让用户选择行业
+        await update.message.reply_text("🎯 **选择内容行业**，我将为你生成相应的内容：")
 
-        risk_emoji = "🟢" if risk_score < 50 else "🟡" if risk_score < 80 else "🔴"
-
-        message_text = (
-            f"📝 **已生成 {content_type} 类内容**\n\n"
-            f"{content_text}\n\n"
-            f"---\n"
-            f"{risk_emoji} **风险评分**: {risk_score}/100\n"
-            f"ℹ️ 风险说明:\n"
-            f"- <50: 低风险\n"
-            f"- 50-79: 中风险\n"
-            f"- ≥80: 高风险\n\n"
-            f"⚠️ **所有内容都需要人工审核确认后才能发布**\n\n"
-            f"请选择操作:"
-        )
-
-        # 步骤 5: Inline 确认按钮 - 强制人工审核，无自动发布选项
-        keyboard = [
-            [InlineKeyboardButton("✅ 人工确认发布", callback_data=f"confirm_publish_{user_id}")],
-            [
-                InlineKeyboardButton("🔄 重新生成", callback_data=f"regen_{user_id}"),
-                InlineKeyboardButton("❌ 跳过", callback_data=f"skip_{user_id}"),
-            ],
-        ]
-
-        reply_markup = InlineKeyboardMarkup(keyboard)
-
-        # 保存生成内容到用户状态，等待确认
-        self.user_states[user_id] = {
-            "generated": generated,
-            "risk_score": risk_score,
-            "action": "waiting_confirmation",
+        niche_options = {
+            "general": "通用",
+            "ai_tools": "AI 工具",
+            "crypto": "加密货币",
+            "beauty": "美妆",
+            "fitness": "健身",
+            "humor": "搞笑",
         }
 
-        if update.message:
+        keyboard = []
+        for niche_id, niche_name in niche_options.items():
+            keyboard.append([InlineKeyboardButton(niche_name, callback_data=f"create_niche_{niche_id}_{user_id}")])
+
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text("请选择：", reply_markup=reply_markup)
+
+        # 保存研究结果到用户状态，等待选择行业
+        self.user_states[user_id] = {
+            "research_result": research_result,
+            "action": "waiting_niche_selection",
+        }
+
+    async def cmd_search(self, update: Update, context: CallbackContext) -> None:
+        """
+        /search <关键词> - 根据关键词搜索趋势和热点，显示完整数据+LLM总结
+        """
+        user_id = update.effective_user.id if update.effective_user else 0
+
+        if not update.message or not context.args:
             await update.message.reply_text(
-                message_text, reply_markup=reply_markup, parse_mode="Markdown"
+                "用法：/search <关键词>\n\n"
+                "例如：\n"
+                "/search AI开源项目\n"
+                "/search 加密货币\n"
+                "/search 产品发布",
+                parse_mode="Markdown"
             )
+            return
+
+        keyword = " ".join(context.args)
+        logger.info(f"用户 {user_id} 搜索关键词: {keyword}")
+
+        # 显示搜索深度选择菜单（单层 + 数量选择，支持手动逐层扩展）
+        keyboard = [
+            [InlineKeyboardButton("⚡ 快速 (10条/平台)", callback_data=f"search_depth_quick_{user_id}")],
+            [InlineKeyboardButton("⚙️ 标准 (20条/平台)", callback_data=f"search_depth_standard_{user_id}")],
+            [InlineKeyboardButton("🔥 深度 (50条/平台)", callback_data=f"search_depth_deep_{user_id}")],
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        # 保存待搜索状态（关键词存在 user_states 中）
+        self.user_states[user_id] = {
+            "pending_search_keyword": keyword,
+        }
+
+        await update.message.reply_text(
+            f"📊 搜索关键词：**{keyword}**\n\n"
+            "🎯 请选择搜索深度：",
+            reply_markup=reply_markup,
+            parse_mode="Markdown"
+        )
+        return
+
+    async def _execute_search(self, query, keyword: str, depth: str) -> None:
+        """执行单层搜索（用户可以逐层手动选择关键词）"""
+        user_id = query.from_user.id
+        max_results = {"quick": 10, "standard": 20, "deep": 50}.get(depth, 20)
+
+        logger.info(f"用户 {user_id} 搜索关键词: {keyword}")
+
+        # 开始搜索 (query.answer() 已在 button_callback 中调用)
+        await query.edit_message_text(
+            f"🔍 正在搜索「{keyword}」...\n⏳ 这可能需要 10-30 秒"
+        )
+
+        try:
+            research_result = {}
+            if self.researcher:
+                # 单层搜索
+                research_result = self.researcher.research_topic(niche=keyword, days=7)
+
+            if not research_result or "error" in research_result:
+                await query.message.reply_text(f"❌ 搜索失败：{research_result.get('error', '未知错误')}")
+                return
+
+            # 提取每个平台的数据
+            platform_data = research_result.get("platform_data", {})
+            all_posts = {}
+
+            for platform, data in platform_data.items():
+                if isinstance(data, dict) and "posts" in data:
+                    posts = data.get("posts", [])
+                    all_posts[platform] = posts[:max_results]  # 根据深度限制条数
+
+            if not all_posts:
+                await query.message.reply_text("❌ 未能获取任何趋势数据")
+                return
+
+            # ========== 发送完整数据 ==========
+
+            # 1. 发送汇总统计
+            summary_text = f"📊 **「{keyword}」搜索结果汇总**\n\n"
+            for platform, posts in all_posts.items():
+                summary_text += f"✅ {_md_escape(platform.upper())}: {len(posts)} 条热点\n"
+
+            await query.message.reply_text(summary_text, parse_mode="Markdown")
+
+            # 2. 为每个平台发送详细数据
+            for platform, posts in all_posts.items():
+                if not posts:
+                    continue
+
+                platform_text = f"🔥 {_md_escape(platform.upper())} 热点排行\n\n"
+                for idx, post in enumerate(posts, 1):
+                    # 转义 Markdown 特殊字符，防止解析错误
+                    title = post.get("title", "无标题")[:80]
+                    title = title.replace("*", "\\*").replace("_", "\\_").replace("[", "\\[").replace("]", "\\]")
+                    engagement = post.get("engagement", 0)
+                    platform_text += f"{idx}. {title}\n   📊 热度: {engagement}\n"
+
+                    if idx % 5 == 0:
+                        platform_text += "\n"
+
+                # Telegram 有消息长度限制，如果太长则分块发送
+                if len(platform_text) > 3000:
+                    chunks = [platform_text[i:i+3000] for i in range(0, len(platform_text), 3000)]
+                    for chunk in chunks:
+                        await query.message.reply_text(chunk, parse_mode="Markdown")
+                else:
+                    await query.message.reply_text(platform_text, parse_mode="Markdown")
+
+            # 3. 用 LLM 生成趋势总结（带 20 秒超时）
+            if self.llm_router:
+                import asyncio as _asyncio
+                try:
+                    # 构造 LLM 输入
+                    trends_text = "\n".join([
+                        f"{platform}: " + ", ".join([p.get("title", "")[:50] for p in posts[:5]])
+                        for platform, posts in all_posts.items()
+                    ])
+
+                    prompt = f"""基于以下多平台的热点数据，用中文生成 2-3 句的趋势总结：
+
+平台热点：
+{trends_text}
+
+搜索关键词：{keyword}
+
+请总结出主要趋势和关键特征："""
+
+                    summary = await _asyncio.wait_for(
+                        self.llm_router.chat([{"role": "user", "content": prompt}]),
+                        timeout=20.0,
+                    )
+
+                    await query.message.reply_text(
+                        f"🤖 **AI 趋势总结**\n\n{summary}",
+                        parse_mode="Markdown"
+                    )
+                except _asyncio.TimeoutError:
+                    logger.warning("LLM 趋势总结超时 (20s)")
+                except Exception as e:
+                    logger.warning(f"LLM 趋势总结失败: {e}")
+
+            # 4. 保存搜索结果到用户状态（用 update 保留已有字段如 search_path）
+            if user_id not in self.user_states:
+                self.user_states[user_id] = {}
+            self.user_states[user_id].update({
+                "research_result": research_result,
+                "search_keyword": keyword,
+                "action": "search_complete",
+                "all_posts": all_posts,
+            })
+
+            # 5. 提供后续操作选项
+            # 保存搜索路径用于多层搜索
+            if "search_path" not in self.user_states[user_id]:
+                self.user_states[user_id]["search_path"] = [keyword]
+            else:
+                self.user_states[user_id]["search_path"].append(keyword)
+
+            search_path_display = " → ".join(self.user_states[user_id]["search_path"])
+
+            keyboard = [
+                [InlineKeyboardButton("🔍 搜索下一层关键词", callback_data=f"search_next_layer_{user_id}")],
+                [InlineKeyboardButton("📊 生成趋势分析报告", callback_data=f"analyze_report_{user_id}")],
+                [InlineKeyboardButton("✍️ 基于结果生成内容", callback_data=f"create_from_search_{user_id}")],
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+
+            await query.message.reply_text(
+                f"✨ 搜索完成！\n\n"
+                f"📍 当前搜索路径: {search_path_display}\n\n"
+                f"💡 接下来可以：\n"
+                f"• 点击按钮继续搜索下一层\n"
+                f"• 或在聊天框输入下一层关键词自动继续搜\n"
+                f"• 生成分析报告或内容",
+                reply_markup=reply_markup,
+            )
+
+        except Exception as e:
+            logger.error(f"搜索命令出错: {e}")
+            await query.message.reply_text(f"❌ 搜索出现错误：{str(e)}")
 
     async def button_callback(self, update: Update, context: CallbackContext) -> None:
         """
@@ -285,14 +499,90 @@ class XAgentBotV0Final:
 
         logger.info(f"用户 {user_id} 点击按钮：{data}")
 
-        await query.answer()
-
-        parts = data.split("_")
+        parts = data.split("_", 3)  # 最多分 4 段
         action = parts[0] if parts else ""
 
-        if action == "confirm":
-            # 第一步：用户点击"人工确认发布"
-            sub_action = "_".join(parts[1:-1]) if len(parts) > 2 else ""
+        # 处理搜索深度选择
+        if action == "search" and len(parts) >= 2 and parts[1] == "depth":
+            # search_depth_<depth>_<user_id>
+            depth = parts[2] if len(parts) > 2 else "standard"
+            # 从 user_states 获取关键词
+            user_state = self.user_states.get(user_id, {})
+            keyword = user_state.get("pending_search_keyword", "")
+
+            if not keyword:
+                await query.answer("❌ 搜索关键词已过期，请重新 /search")
+                return
+
+            await query.answer()
+            await self._execute_search(query, keyword, depth)
+            return
+
+        # 处理搜索下一层关键词
+        if action == "search" and len(parts) >= 2 and parts[1] == "next":
+            await query.answer()
+            await query.edit_message_text(
+                "📝 请在聊天框输入下一层搜索关键词\n\n"
+                "例如：sex、telegram、比特币 等\n\n"
+                "支持最多 5 层搜索。"
+            )
+            self.user_states[user_id]["waiting_for_next_keyword"] = True
+            return
+
+        # 处理完成搜索
+        if action == "search" and len(parts) >= 2 and parts[1] == "complete":
+            await query.answer()
+            user_state = self.user_states.get(user_id, {})
+            search_path = user_state.get("search_path", [])
+            keyboard = [
+                [InlineKeyboardButton("📊 生成趋势分析报告", callback_data=f"analyze_report_{user_id}")],
+                [InlineKeyboardButton("✍️ 基于结果生成内容", callback_data=f"create_from_search_{user_id}")],
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await query.edit_message_text(
+                f"✅ 搜索完成！\n\n"
+                f"📍 搜索路径：{' → '.join(search_path)}\n\n"
+                f"📊 已合并 {len(search_path)} 层搜索结果\n\n"
+                f"接下来可以：",
+                reply_markup=reply_markup,
+                parse_mode="Markdown",
+            )
+            self.user_states[user_id]["waiting_for_next_keyword"] = False
+            return
+
+        # 处理分析报告生成
+        if action == "analyze" and len(parts) >= 2 and parts[1] == "report":
+            await query.answer()
+            await self._handle_trend_analysis(query, context)
+            return
+
+        # 处理保存分析报告为文件
+        if action == "save" and len(parts) >= 2 and parts[1] == "analysis":
+            await query.answer()
+            await self._handle_save_analysis(query)
+            return
+
+        # 处理基于搜索结果生成内容
+        if action == "create" and len(parts) >= 2 and parts[1] == "from":
+            await query.answer()
+            await self._handle_create_from_search(query, context)
+            return
+
+        await query.answer()
+
+        if action == "create" and len(parts) >= 4 and parts[1] == "niche":
+            # 处理 create_niche_<niche>_<user_id> 回调
+            niche = parts[2]
+            await self._handle_create_with_niche(query, context, niche)
+
+        elif action == "search" and len(parts) >= 4 and parts[1] == "niche":
+            # 处理 search_niche_<niche>_<user_id> 回调
+            niche = parts[2]
+            await self._handle_create_with_niche(query, context, niche)
+
+        elif action == "confirm":
+            # 第一步：用户点击"人工确认发布" (confirm_publish_{user_id})
+            sub_action = "_".join(parts[1:-1]) if len(parts) > 2 else parts[1] if len(parts) > 1 else ""
 
             if sub_action == "publish":
                 # 显示二次确认对话框
@@ -332,7 +622,7 @@ class XAgentBotV0Final:
 
         elif action == "regen":
             await query.edit_message_text("🔄 正在重新生成...")
-            if update.message and update.message.chat:
+            if query.message and query.message.chat:
                 fake_update = type(
                     "FakeUpdate",
                     (),
@@ -341,11 +631,12 @@ class XAgentBotV0Final:
                             "FakeMessage",
                             (),
                             {
-                                "chat": update.message.chat,
-                                "reply_text": update.message.reply_text,
+                                "chat": query.message.chat,
+                                "reply_text": query.message.reply_text,
                                 "effective_user": query.from_user,
                             },
-                        )()
+                        )(),
+                        "effective_user": query.from_user,
                     },
                 )()
                 await self.cmd_create(fake_update, context)
@@ -369,8 +660,52 @@ class XAgentBotV0Final:
         elif action == "create":
             await self._handle_create_now(query, context)
 
-        elif action == "view" and parts[1] == "report":
+        elif action == "view" and len(parts) > 1 and parts[1] == "report":
             await self._handle_view_report(query)
+
+        # 私信监控按钮
+        elif action == "dm" and len(parts) >= 2:
+            sub = parts[1]
+            chat_id = query.message.chat_id if query.message else user_id
+            if sub == "monitor" and len(parts) >= 3 and parts[2] == "on":
+                if self.dm_monitor:
+                    self._dm_notify_chat_ids.add(chat_id)
+                    self.dm_monitor.start_monitoring(interval=300)
+                    await query.edit_message_text(
+                        "✅ 私信监控已开启\n每 5 分钟检查一次，有新私信立即通知\n\n停止：/monitor_dms off"
+                    )
+                else:
+                    await query.answer("❌ 监控模块未加载", show_alert=True)
+            elif sub == "monitor" and len(parts) >= 3 and parts[2] == "off":
+                if self.dm_monitor:
+                    self._dm_notify_chat_ids.discard(chat_id)
+                    if not self._dm_notify_chat_ids:
+                        self.dm_monitor.stop_monitoring()
+                    await query.edit_message_text("🛑 私信监控已关闭")
+                else:
+                    await query.answer("❌ 监控模块未加载", show_alert=True)
+            elif sub == "refresh":
+                await query.edit_message_text("🔄 正在刷新私信列表，请稍候...")
+                if self.dm_monitor:
+                    try:
+                        import asyncio as _ai
+                        dms = await _ai.wait_for(self.dm_monitor.fetch_dms(), timeout=90.0)
+                        lines = [f"📨 X 私信（共 {len(dms)} 条会话）\n"]
+                        for i, dm in enumerate(dms[:15], 1):
+                            unread = " 🔴" if dm.get("is_unread") else ""
+                            lines.append(f"{i}.{unread} {dm.get('sender','')}: {dm.get('preview','')[:60]}")
+                        keyboard = [
+                            [
+                                InlineKeyboardButton("🔔 开启通知", callback_data=f"dm_monitor_on_{user_id}"),
+                                InlineKeyboardButton("🔕 关闭通知", callback_data=f"dm_monitor_off_{user_id}"),
+                            ],
+                            [InlineKeyboardButton("🔄 刷新", callback_data=f"dm_refresh_{user_id}")],
+                        ]
+                        await query.edit_message_text(
+                            "\n".join(lines)[:4000], reply_markup=InlineKeyboardMarkup(keyboard)
+                        )
+                    except Exception as e:
+                        await query.edit_message_text(f"❌ 刷新失败：{str(e)[:200]}")
 
     async def _handle_set_niche(self, query, niche: str) -> None:
         """处理设置领域"""
@@ -538,6 +873,221 @@ class XAgentBotV0Final:
             parse_mode="Markdown",
         )
 
+    async def _handle_create_with_niche(self, query, context, niche: str) -> None:
+        """处理用户选择行业后生成内容"""
+        user_id = query.from_user.id
+
+        # 获取之前保存的研究结果
+        user_state = self.user_states.get(user_id, {})
+        research_result = user_state.get("research_result", {})
+
+        if not research_result:
+            await query.edit_message_text("❌ 研究数据已过期，请重新 /create")
+            return
+
+        await query.edit_message_text(f"⏳ 正在为 {niche} 行业生成内容...")
+
+        # 从 platform_data 中提取真实的话题
+        platform_data = research_result.get("platform_data", {})
+        real_topics = []
+        for platform, data in platform_data.items():
+            if isinstance(data, dict) and "posts" in data:
+                posts = data.get("posts", [])
+                for post in posts[:2]:
+                    title = post.get("title", "").strip()
+                    if title and len(title) > 5:
+                        real_topics.append(title)
+
+        # 从真实话题中随机选择一个
+        if real_topics:
+            import random
+            selected_topic_title = random.choice(real_topics)
+        else:
+            selected_topic_title = research_result.get("summary", "通用话题")[:100]
+
+        # 评分
+        risk_score = 50
+        if self.scorer:
+            score_result = self.scorer.score_with_details(research_result)
+            risk_score = score_result.get("score", 50)
+
+        # 生成内容
+        generated = {"type": "A", "content": "示例内容"}
+        if self.generator:
+            generated = await self.generator.generate(
+                topic=selected_topic_title,
+                niche=niche,
+                content_type="a"
+            )
+
+        # 显示内容 + risk_score
+        content_type = generated.get("type", "A").upper()
+        content_text = generated.get("content", "无内容")
+        risk_emoji = "🟢" if risk_score < 50 else "🟡" if risk_score < 80 else "🔴"
+
+        message_text = (
+            f"📝 **{niche} 行业**\n\n"
+            f"🔥 **话题**: {selected_topic_title}\n\n"
+            f"{content_text}\n\n"
+            f"---\n"
+            f"{risk_emoji} **风险评分**: {risk_score}/100\n"
+            f"ℹ️ 风险说明: <50 低风险 | 50-79 中风险 | ≥80 高风险\n\n"
+            f"⚠️ **需要人工审核确认后才能发布**\n\n"
+            f"请选择操作:"
+        )
+
+        # 确认按钮
+        keyboard = [
+            [InlineKeyboardButton("✅ 人工确认发布", callback_data=f"confirm_publish_{user_id}")],
+            [
+                InlineKeyboardButton("🔄 重新生成", callback_data=f"regen_{user_id}"),
+                InlineKeyboardButton("❌ 跳过", callback_data=f"skip_{user_id}"),
+            ],
+        ]
+
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        # 保存生成内容到用户状态
+        self.user_states[user_id] = {
+            "generated": generated,
+            "risk_score": risk_score,
+            "niche": niche,
+            "topic": selected_topic_title,
+            "research_result": research_result,
+            "action": "waiting_confirmation",
+        }
+
+        await query.edit_message_text(
+            message_text, reply_markup=reply_markup, parse_mode="Markdown"
+        )
+
+    async def _handle_trend_analysis(self, query, context) -> None:
+        """处理趋势分析报告生成"""
+        import asyncio
+
+        user_id = query.from_user.id
+
+        # 获取之前保存的研究结果
+        user_state = self.user_states.get(user_id, {})
+        research_result = user_state.get("research_result", {})
+
+        if not research_result:
+            await query.edit_message_text("❌ 研究数据已过期，请重新 /search")
+            return
+
+        await query.edit_message_text("⏳ 正在生成专业趋势分析报告...")
+        logger.info(f"[趋势分析] 用户 {user_id} 开始生成报告")
+
+        try:
+            # 调用 generator 生成分析报告，加 60 秒超时（增加至 60s）
+            if self.generator:
+                try:
+                    report = await asyncio.wait_for(
+                        self.generator.generate_trend_analysis(research_result),
+                        timeout=60.0
+                    )
+                    logger.info(f"[趋势分析] 报告生成成功，长度 {len(report)} 字符")
+                except asyncio.TimeoutError:
+                    logger.warning(f"[趋势分析] LLM 生成超时（30秒）")
+                    platforms_summary = {p: len(d.get('posts', [])) for p, d in research_result.get('platform_data', {}).items()}
+                    summary_text = "\n".join([f"{p.upper()}: {count} 条" for p, count in platforms_summary.items()])
+                    report = f"⚠️ 报告生成超时\n\n这个关键词的数据量较大，LLM 处理超过 30 秒。\n\n原始数据汇总：\n{summary_text}"
+            else:
+                report = "❌ 生成器不可用"
+
+            # 分块发送（Telegram 有消息长度限制，不用 Markdown 避免解析错误）
+            if len(report) > 4000:
+                chunks = [report[i:i+4000] for i in range(0, len(report), 4000)]
+                await query.edit_message_text(f"📊 趋势分析报告（分{len(chunks)}段）：")
+                for i, chunk in enumerate(chunks):
+                    await query.message.reply_text(chunk)
+                    logger.info(f"[趋势分析] 已发送第 {i+1}/{len(chunks)} 段")
+            else:
+                await query.edit_message_text(report)
+                logger.info(f"[趋势分析] 报告已发送到消息")
+
+            # 提供导出选项
+            keyboard = [
+                [InlineKeyboardButton("💾 保存为文件", callback_data=f"save_analysis_{user_id}")],
+                [InlineKeyboardButton("🔄 生成新分析", callback_data=f"analyze_report_{user_id}")],
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await query.message.reply_text("📋 分析报告已生成", reply_markup=reply_markup)
+
+            # 保存报告到用户状态
+            self.user_states[user_id]["trend_analysis"] = report
+            logger.info(f"[趋势分析] 完成，报告已保存")
+
+        except Exception as e:
+            logger.error(f"生成趋势分析失败: {type(e).__name__}: {e}", exc_info=True)
+            await query.edit_message_text(f"❌ 分析报告生成失败：{str(e)[:100]}")
+
+    async def _handle_save_analysis(self, query) -> None:
+        """保存趋势分析报告为 MD 文件并发送"""
+        import os
+        from datetime import datetime
+
+        user_id = query.from_user.id
+        user_state = self.user_states.get(user_id, {})
+        report = user_state.get("trend_analysis", "")
+
+        if not report:
+            await query.edit_message_text("❌ 没有可保存的分析报告，请先生成报告")
+            return
+
+        try:
+            # 保存到文件
+            date_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+            keyword = user_state.get("search_keyword", "trends")
+            filename = f"trend_analysis_{keyword}_{date_str}.md"
+            filepath = os.path.join("data", filename)
+            os.makedirs("data", exist_ok=True)
+
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write(report)
+
+            # 发送文件给用户
+            await query.message.reply_document(
+                document=open(filepath, "rb"),
+                filename=filename,
+                caption=f"📊 趋势分析报告 - {keyword}"
+            )
+            await query.edit_message_text("✅ 报告已保存并发送")
+
+        except Exception as e:
+            logger.error(f"保存分析报告失败: {e}")
+            await query.edit_message_text(f"❌ 保存失败：{str(e)}")
+
+    async def _handle_create_from_search(self, query, context) -> None:
+        """基于搜索结果生成内容"""
+        user_id = query.from_user.id
+
+        # 获取之前保存的研究结果
+        user_state = self.user_states.get(user_id, {})
+        research_result = user_state.get("research_result", {})
+
+        if not research_result:
+            await query.edit_message_text("❌ 研究数据已过期，请重新 /search")
+            return
+
+        # 显示 niche 选择菜单
+        niches = ["general", "ai_tools", "crypto", "beauty", "fitness", "humor", "adult"]
+        buttons = [
+            InlineKeyboardButton(niche_name, callback_data=f"create_niche_{niche}_{user_id}")
+            for niche_name, niche in zip(
+                ["通用", "AI工具", "加密货币", "美妆", "健身", "搞笑", "成人用品"],
+                niches
+            )
+        ]
+        # 分成两列显示（每行 2 个按钮）
+        keyboard = [buttons[i:i+2] for i in range(0, len(buttons), 2)]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        await query.edit_message_text(
+            "🎯 请选择内容领域：",
+            reply_markup=reply_markup
+        )
+
     async def cmd_report(self, update: Update, context: CallbackContext) -> None:
         """
         /report - 每日复盘报告
@@ -694,15 +1244,334 @@ class XAgentBotV0Final:
         self.user_states[update.effective_user.id] = {"action": "logging_data"}
         # TODO: 实现 ConversationHandler 接收下一步输入
 
+    # ─── X 私信监控命令 ────────────────────────────────────────────────────────
+
+    async def _on_new_dms(self, new_dms: list) -> None:
+        """收到新私信时的 Telegram 通知回调"""
+        if not self._dm_notify_chat_ids or not self.application:
+            return
+        for dm in new_dms:
+            sender = dm.get("sender", "unknown")
+            preview = dm.get("preview", "（无预览）")[:100]
+            url = dm.get("url", "https://x.com/messages")
+            is_unread = dm.get("is_unread", False)
+            unread_tag = " 🔴" if is_unread else ""
+            msg = (
+                f"📨 X 私信新回复{unread_tag}\n\n"
+                f"发件人：{sender}\n"
+                f"预览：{preview}\n"
+                f"链接：{url}"
+            )
+            for chat_id in list(self._dm_notify_chat_ids):
+                try:
+                    await self.application.bot.send_message(chat_id=chat_id, text=msg)
+                except Exception as e:
+                    logger.warning(f"发送 DM 通知失败 (chat_id={chat_id}): {e}")
+
+    async def cmd_dms(self, update: Update, context: CallbackContext) -> None:
+        """/dms - 查看当前 X 私信列表"""
+        if not update.message:
+            return
+        user_id = update.effective_user.id if update.effective_user else 0
+
+        if not self.dm_monitor:
+            await update.message.reply_text("❌ 私信监控模块未加载，请检查配置")
+            return
+
+        has_creds = (
+            self.config
+            and getattr(self.config, "x_username", None)
+            and getattr(self.config, "x_password", None)
+        )
+        if not has_creds:
+            await update.message.reply_text(
+                "⚠️ 未配置 X 账号\n\n"
+                "请在 .env 中添加：\n"
+                "X_USERNAME=your_email@example.com\n"
+                "X_PASSWORD=your_password"
+            )
+            return
+
+        await update.message.reply_text("🔍 正在获取私信（需要启动浏览器，约 20-40 秒）...")
+
+        try:
+            import asyncio as _asyncio
+            dms = await _asyncio.wait_for(self.dm_monitor.fetch_dms(), timeout=90.0)
+        except _asyncio.TimeoutError:
+            await update.message.reply_text("⏱️ 获取超时，请稍后重试")
+            return
+        except Exception as e:
+            await update.message.reply_text(f"❌ 获取失败：{str(e)[:200]}")
+            return
+
+        if not dms:
+            await update.message.reply_text("📭 暂无私信，或账号没有私信权限")
+            return
+
+        # 构建私信列表消息
+        lines = [f"📨 X 私信列表（共 {len(dms)} 条会话）\n"]
+        for i, dm in enumerate(dms[:15], 1):
+            sender = dm.get("sender", "unknown")
+            preview = dm.get("preview", "")[:60]
+            is_unread = dm.get("is_unread", False)
+            ts = dm.get("timestamp", "")[:10]
+            unread = " 🔴" if is_unread else ""
+            lines.append(f"{i}.{unread} {sender}")
+            if preview:
+                lines.append(f"   {preview}")
+            if ts:
+                lines.append(f"   {ts}")
+            lines.append("")
+
+        text = "\n".join(lines)
+        # Telegram 单条消息最大 4096 字符
+        if len(text) > 4000:
+            text = text[:4000] + "\n..."
+
+        keyboard = [
+            [
+                InlineKeyboardButton(
+                    "🔔 开启监控通知", callback_data=f"dm_monitor_on_{user_id}"
+                ),
+                InlineKeyboardButton(
+                    "🔕 关闭监控通知", callback_data=f"dm_monitor_off_{user_id}"
+                ),
+            ],
+            [InlineKeyboardButton("🔄 刷新私信", callback_data=f"dm_refresh_{user_id}")],
+        ]
+        await update.message.reply_text(
+            text, reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+    async def cmd_monitor_dms(self, update: Update, context: CallbackContext) -> None:
+        """/monitor_dms [on|off|status] - 控制私信监控"""
+        if not update.message:
+            return
+        user_id = update.effective_user.id if update.effective_user else 0
+        chat_id = update.message.chat_id
+        args = context.args or []
+        action = args[0].lower() if args else "status"
+
+        if not self.dm_monitor:
+            await update.message.reply_text("❌ 私信监控模块未加载")
+            return
+
+        if action == "on":
+            self._dm_notify_chat_ids.add(chat_id)
+            started = self.dm_monitor.start_monitoring(interval=300)
+            if started:
+                await update.message.reply_text(
+                    "✅ 私信监控已开启\n\n"
+                    "每 5 分钟检查一次，有新私信会立即推送通知\n"
+                    "停止：/monitor_dms off"
+                )
+            else:
+                await update.message.reply_text(
+                    "✅ 已订阅私信通知（监控已在后台运行）"
+                )
+        elif action == "off":
+            self._dm_notify_chat_ids.discard(chat_id)
+            if not self._dm_notify_chat_ids:
+                # 没有任何订阅者了，停止监控
+                self.dm_monitor.stop_monitoring()
+                await update.message.reply_text("🛑 私信监控已关闭")
+            else:
+                await update.message.reply_text("🔕 已取消本会话的私信通知")
+        elif action == "reset":
+            self.dm_monitor.reset_seen()
+            await update.message.reply_text("🔄 已重置已读记录，下次检查会推送所有当前私信")
+        elif action == "clear_session":
+            self.dm_monitor.clear_session()
+            await update.message.reply_text("🗑️ 已清除 X 会话，下次将重新登录")
+        else:
+            # status
+            is_running = self.dm_monitor.is_running
+            subscribed = chat_id in self._dm_notify_chat_ids
+            status = (
+                f"📊 私信监控状态\n\n"
+                f"后台监控：{'运行中 ✅' if is_running else '已停止 ⛔'}\n"
+                f"本会话通知：{'已订阅 🔔' if subscribed else '未订阅 🔕'}\n\n"
+                f"命令：\n"
+                f"/monitor_dms on  - 开启监控\n"
+                f"/monitor_dms off - 关闭监控\n"
+                f"/monitor_dms reset - 重置已读记录\n"
+                f"/monitor_dms clear_session - 清除登录 Session"
+            )
+            await update.message.reply_text(status)
+
     async def cmd_help(self, update: Update, context: CallbackContext) -> None:
         """帮助"""
         help_text = (
             "📚 **X-Agent v0 Final 帮助**\n\n"
-            "/start - 欢迎信息\n"
-            "/create - 创建内容 (半自动)\n"
+            "**内容生成:**\n"
+            "/search <关键词> - 搜索趋势热点\n"
+            "/create - 创建内容 (根据 niche)\n"
+            "\n**查询命令:**\n"
             "/report - 复盘报告\n"
+            "\n**私信监控:**\n"
+            "/dms - 查看 X 私信列表\n"
+            "/monitor_dms on/off - 开启/关闭实时通知\n"
+            "\n**设置:**\n"
             "/set_niche - 切换 Niche\n"
+            "/settings - 更多设置\n"
+            "\n**其他:**\n"
             "/help - 帮助"
         )
         if update.message:
             await update.message.reply_text(help_text, parse_mode="Markdown")
+
+    async def handle_message(self, update: Update, context: CallbackContext) -> None:
+        """处理普通文字消息（私聊和群组 @Bot）"""
+        if not update.message or not update.message.text:
+            return
+
+        user_text = update.message.text
+        user_id = update.effective_user.id if update.effective_user else 0
+        chat_id = update.message.chat_id
+        is_group = update.message.chat.type in ["group", "supergroup"]
+
+        # 群组消息需要检查是否 @Bot
+        if is_group:
+            # 检查消息是否提及此 Bot
+            if update.message.reply_to_message:
+                # 如果是回复此 Bot 的消息
+                if update.message.reply_to_message.from_user.id != context.bot.id:
+                    return
+            elif not update.message.text.startswith("@"):
+                # 如果不是 @Bot 开头，忽略
+                return
+            else:
+                # 移除 @Bot 前缀
+                user_text = user_text.replace(f"@{context.bot.username}", "").strip()
+
+        logger.info(f"用户 {user_id} {'在群组' if is_group else '私聊'} 发送消息: {user_text[:50]}")
+
+        # 【多层搜索支持】检查用户是否在等待下一层关键词
+        user_state = self.user_states.get(user_id, {})
+        if user_state.get("waiting_for_next_keyword"):
+            next_keyword = user_text.strip()
+            if len(next_keyword) > 1:
+                # 检查是否超过 5 层限制
+                search_path = user_state.get("search_path", [])
+                if len(search_path) >= 5:
+                    await update.message.reply_text(
+                        "⚠️ 已达到最大搜索层数（5层）\n\n"
+                        f"当前搜索路径：{' → '.join(search_path)}\n\n"
+                        "可以：\n"
+                        "• 生成趋势分析报告\n"
+                        "• 基于结果生成内容\n"
+                        "• 开启新搜索 /search <关键词>"
+                    )
+                    self.user_states[user_id]["waiting_for_next_keyword"] = False
+                    return
+
+                # 执行第 N+1 层搜索
+                logger.info(f"用户 {user_id} 继续搜索第 {len(search_path)+1} 层：{next_keyword}")
+                await update.message.reply_text(f"🔍 正在搜索第 {len(search_path)+1} 层：「{next_keyword}」...\n⏳ 请稍候")
+
+                try:
+                    research_result = self.researcher.research_topic(niche=next_keyword, days=7)
+
+                    # 合并结果
+                    previous_result = user_state.get("research_result", {})
+                    platform_data = {}
+
+                    # 合并 platform_data
+                    for platform in set(
+                        list(previous_result.get("platform_data", {}).keys()) +
+                        list(research_result.get("platform_data", {}).keys())
+                    ):
+                        prev_posts = previous_result.get("platform_data", {}).get(platform, {}).get("posts", [])
+                        new_posts = research_result.get("platform_data", {}).get(platform, {}).get("posts", [])
+                        # 合并并去重
+                        all_posts = prev_posts + new_posts
+                        seen = set()
+                        unique = []
+                        for p in all_posts:
+                            title = p.get("title", "")
+                            if title not in seen:
+                                seen.add(title)
+                                unique.append(p)
+                        platform_data[platform] = {
+                            "posts": unique,
+                            "platform": platform,
+                        }
+
+                    # 更新搜索结果
+                    self.user_states[user_id]["research_result"] = {
+                        "platform_data": platform_data,
+                        "summary": f"{previous_result.get('summary', '')} + {research_result.get('summary', '')}",
+                        "citations": previous_result.get("citations", []) + research_result.get("citations", []),
+                    }
+
+                    # 更新搜索路径
+                    self.user_states[user_id]["search_path"].append(next_keyword)
+                    search_path = self.user_states[user_id]["search_path"]
+
+                    # 显示结果统计（不用 Markdown，避免动态内容解析错误）
+                    summary = f"✅ 第 {len(search_path)} 层搜索完成！\n\n"
+                    summary += f"📍 搜索路径：{' → '.join(search_path)}\n\n"
+                    for platform, data in platform_data.items():
+                        summary += f"• {platform.upper()}: {len(data.get('posts', []))} 条\n"
+                    summary += "\n💡 继续搜索还是生成报告？"
+
+                    keyboard = [
+                        [InlineKeyboardButton("🔍 继续搜索下一层", callback_data=f"search_next_layer_{user_id}")],
+                        [InlineKeyboardButton("📊 生成趋势分析报告", callback_data=f"analyze_report_{user_id}")],
+                        [InlineKeyboardButton("✍️ 基于结果生成内容", callback_data=f"create_from_search_{user_id}")],
+                    ]
+                    reply_markup = InlineKeyboardMarkup(keyboard)
+
+                    await update.message.reply_text(summary, reply_markup=reply_markup)
+                    self.user_states[user_id]["waiting_for_next_keyword"] = False
+
+                except Exception as e:
+                    logger.error(f"第 {len(search_path)+1} 层搜索失败: {e}")
+                    await update.message.reply_text(f"❌ 搜索失败：{str(e)[:100]}")
+                    self.user_states[user_id]["waiting_for_next_keyword"] = False
+                return
+            else:
+                await update.message.reply_text("⚠️ 关键词太短，请输入至少 2 个字符")
+                return
+
+        logger.info(f"[DEBUG] llm_router = {self.llm_router}, type = {type(self.llm_router)}")
+
+        # 如果有 LLM，用 AI 回复
+        if self.llm_router:
+            try:
+                logger.info(f"[DEBUG] 正在调用 LLM 回复...")
+                await update.message.reply_text("💭 思考中...", reply_to_message_id=update.message.message_id)
+
+                reply = await self.llm_router.chat(
+                    messages=[
+                        {"role": "system", "content": (
+                            "你是一个智能 AI 助手，可以回答任何问题。你同时也具备帮助用户在 X (Twitter) 上运营账号的能力。\n"
+                            "请用中文回答，简洁、有用、友好。如果用户问的是通用问题，正常回答即可。"
+                        )},
+                        {"role": "user", "content": user_text}
+                    ]
+                )
+                logger.info(f"[DEBUG] LLM 回复成功: {reply[:50] if reply else 'empty'}")
+
+                # Telegram 消息最大 4096 字符
+                if len(reply) > 4000:
+                    for i in range(0, len(reply), 4000):
+                        await update.message.reply_text(reply[i:i+4000], reply_to_message_id=update.message.message_id)
+                else:
+                    await update.message.reply_text(reply, reply_to_message_id=update.message.message_id)
+            except Exception as e:
+                logger.error(f"LLM 回复失败: {e}", exc_info=True)
+                await update.message.reply_text(
+                    f"❌ AI 回复失败: {str(e)[:200]}\n\n"
+                    "可能是 API 连接问题，请稍后再试。",
+                    reply_to_message_id=update.message.message_id
+                )
+        else:
+            logger.warning(f"[DEBUG] llm_router 为 None，无法回复消息")
+            await update.message.reply_text(
+                "❓ 请使用命令与我交互：\n\n"
+                "/create - 创建内容\n"
+                "/trends - 查看热点\n"
+                "/help - 查看所有命令",
+                reply_to_message_id=update.message.message_id
+            )

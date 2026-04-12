@@ -12,7 +12,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from modules.research import Researcher, research_topic
+from modules.research import Researcher, XTrendsFetcher, TikTokFetcher, YouTubeFetcher, research_topic
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -26,7 +26,9 @@ def researcher(tmp_path):
         patch("modules.research.RedditFetcher") as mock_reddit,
         patch("modules.research.HackerNewsFetcher") as mock_hn,
         patch("modules.research.GoogleTrendsFetcher") as mock_trends,
-        patch("modules.research.SimulatedPlatformFetcher") as mock_sim,
+        patch("modules.research.XTrendsFetcher") as mock_x,
+        patch("modules.research.TikTokFetcher") as mock_tiktok,
+        patch("modules.research.YouTubeFetcher") as mock_youtube,
     ):
         mock_reddit.return_value.fetch = AsyncMock(
             return_value={"posts": [], "engagement": 500, "top_posts": []}
@@ -37,8 +39,14 @@ def researcher(tmp_path):
         mock_trends.return_value.fetch = AsyncMock(
             return_value={"posts": [], "interest": 75, "related_queries": []}
         )
-        mock_sim.return_value.fetch = AsyncMock(
+        mock_x.return_value.fetch = AsyncMock(
             return_value={"posts": [], "engagement": 800, "top_posts": []}
+        )
+        mock_tiktok.return_value.fetch = AsyncMock(
+            return_value={"posts": [], "engagement": 600, "top_posts": []}
+        )
+        mock_youtube.return_value.fetch = AsyncMock(
+            return_value={"posts": [], "engagement": 700, "top_posts": []}
         )
         r = Researcher(config=None)
         r.cache_dir = tmp_path / "research"
@@ -59,7 +67,9 @@ class TestResearcherInit:
         assert hasattr(researcher, "reddit_fetcher")
         assert hasattr(researcher, "hn_fetcher")
         assert hasattr(researcher, "trends_fetcher")
-        assert hasattr(researcher, "simulated_fetcher")
+        assert hasattr(researcher, "x_fetcher")
+        assert hasattr(researcher, "tiktok_fetcher")
+        assert hasattr(researcher, "youtube_fetcher")
 
 
 # ---------------------------------------------------------------------------
@@ -201,7 +211,9 @@ class TestResearchTopicFunction:
             patch("modules.research.RedditFetcher"),
             patch("modules.research.HackerNewsFetcher"),
             patch("modules.research.GoogleTrendsFetcher"),
-            patch("modules.research.SimulatedPlatformFetcher"),
+            patch("modules.research.XTrendsFetcher"),
+            patch("modules.research.TikTokFetcher"),
+            patch("modules.research.YouTubeFetcher"),
             patch("modules.research.Researcher.research_topic") as mock_rt,
         ):
             mock_rt.return_value = {"niche": "ai_tools", "risk_score": 30}

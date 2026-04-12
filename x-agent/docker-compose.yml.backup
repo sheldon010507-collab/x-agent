@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  # OpenClaw 服务器
+  openclaw:
+    image: openclaw/openclaw:latest
+    container_name: x-agent-openclaw
+    ports:
+      - "18789:18789"
+      - "18790:18790"
+    environment:
+      - OPENCLAW_PORT=18789
+      - LOG_LEVEL=info
+    volumes:
+      - openclaw_data:/app/data
+    restart: unless-stopped
+    networks:
+      - x-agent-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:18789/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # X-Agent Telegram Bot
+  x-agent:
+    build:
+      context: ./x-agent
+      dockerfile: Dockerfile
+    container_name: x-agent-app
+    ports:
+      - "9000:9000"
+    environment:
+      - OPENCLAW_API_ENDPOINT=http://openclaw:18789
+      - PYTHONUNBUFFERED=1
+      - TZ=UTC
+    env_file:
+      - ./x-agent/.env
+    volumes:
+      - ./x-agent/data:/app/data
+      - ./x-agent/logs:/app/logs
+    depends_on:
+      openclaw:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - x-agent-network
+
+  # X-Agent HTTP API（供 OpenClaw Bot 调用）
+  x-agent-api:
+    build:
+      context: ./x-agent
+      dockerfile: Dockerfile
+    container_name: x-agent-api
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENTRYPOINT=api.py
+      - TELEGRAM_BOT_TOKEN=unused
+      - OPENCLAW_API_ENDPOINT=http://openclaw:18789
+      - PYTHONUNBUFFERED=1
+      - TZ=UTC
+    env_file:
+      - ./x-agent/.env
+    volumes:
+      - ./x-agent/data:/app/data
+      - ./x-agent/logs:/app/logs
+    depends_on:
+      openclaw:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - x-agent-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  openclaw_data:
+    driver: local
+
+networks:
+  x-agent-network:
+    driver: bridge

@@ -1,0 +1,239 @@
+{
+  "niche": "general",
+  "days": 7,
+  "sources": "x,reddit,youtube,web,tiktok,hackernews",
+  "relevance_score": 67.5,
+  "velocity_24h": 90.0,
+  "authority_score": 80.0,
+  "platform_count": 6,
+  "platform_sources": [
+    "reddit",
+    "hackernews",
+    "google_trends",
+    "x",
+    "tiktok",
+    "youtube"
+  ],
+  "risk_score": 50.0,
+  "total_posts": 35,
+  "summary": "在 6 个平台发现了相关内容。话题热度较高，建议及时跟进。 🟡 存在中等风险，请谨慎发布。",
+  "citations": [
+    {
+      "platform": "hackernews",
+      "title": "Gemma 4 on iPhone",
+      "url": "https://apps.apple.com/nl/app/google-ai-edge-gallery/id6749645337",
+      "text": "Gemma 4 on iPhone"
+    },
+    {
+      "platform": "hackernews",
+      "title": "LÖVE: 2D Game Framework for Lua",
+      "url": "https://github.com/love2d/love",
+      "text": "LÖVE: 2D Game Framework for Lua"
+    },
+    {
+      "platform": "hackernews",
+      "title": "Artemis II crew see first glimpse of far side of Moon [video]",
+      "url": "https://www.bbc.com/news/videos/ce3d5gkd2geo",
+      "text": "Artemis II crew see first glimpse of far side of Moon [video]"
+    },
+    {
+      "platform": "x",
+      "title": "[Mock X] general 领域热门内容 #0",
+      "url": "https://x.com/mock_0",
+      "text": "[Mock X] general 领域热门内容 #0"
+    }
+  ],
+  "platforms": [
+    "reddit",
+    "hackernews",
+    "google_trends",
+    "x",
+    "tiktok",
+    "youtube"
+  ],
+  "platform_data": {
+    "reddit": {
+      "platform": "reddit",
+      "niche": "general",
+      "posts": [],
+      "fetched_at": "2026-04-05T21:33:54.553652"
+    },
+    "hackernews": {
+      "platform": "hackernews",
+      "niche": "general",
+      "posts": [
+        {
+          "title": "Gemma 4 on iPhone",
+          "score": 197,
+          "url": "https://apps.apple.com/nl/app/google-ai-edge-gallery/id6749645337",
+          "by": "janandonly",
+          "time": 1775414753,
+          "descendants": 56
+        },
+        {
+          "title": "LÖVE: 2D Game Framework for Lua",
+          "score": 87,
+          "url": "https://github.com/love2d/love",
+          "by": "cl3misch",
+          "time": 1775294434,
+          "descendants": 25
+        },
+        {
+          "title": "Artemis II crew see first glimpse of far side of Moon [video]",
+          "score": 337,
+          "url": "https://www.bbc.com/news/videos/ce3d5gkd2geo",
+          "by": "mooreds",
+          "time": 1775398692,
+          "descendants": 267
+        },
+        {
+          "title": "Eight years of wanting, three months of building with AI",
+          "score": 471,
+          "url": "https://lalitm.com/post/building-syntaqlite-ai/",
+          "by": "brilee",
+          "time": 1775393027,
+          "descendants": 140
+        },
+        {
+          "title": "Caveman: Why use many token when few token do trick",
+          "score": 605,
+          "url": "https://github.com/JuliusBrussee/caveman",
+          "by": "tosh",
+          "time": 1775379378,
+          "descendants": 290
+        },
+        {
+          "title": "Running Gemma 4 locally with LM Studio's new headless CLI and Claude Code",
+          "score": 84,
+          "url": "https://ai.georgeliu.com/p/running-google-gemma-4-locally-with",
+          "by": "vbtechguy",
+          "time": 1775409231,
+          "descendants": 21
+        },
+        {
+          "title": "A tail-call interpreter in (nightly) Rust",
+          "score": 106,
+          "url": "https://www.mattkeeter.com/blog/2026-04-05-tailcall/",
+          "by": "g0xA52A2A",
+          "time": 1775402281,
+          "descendants": 9
+        },
+        {
+          "title": "Computational Physics (2nd Edition)",
+          "score": 72,
+          "url": "https://websites.umich.edu/~mejn/cp2/",
+          "by": "teleforce",
+          "time": 1775403498,
+          "descendants": 7
+        },
+        {
+          "title": "Nanocode: The best Claude Code that $200 can buy in pure JAX on TPUs",
+          "score": 112,
+          "url": "https://github.com/salmanmohammadi/nanocode/discussions/1",
+          "by": "desideratum",
+          "time": 1775398877,
+          "descendants": 19
+        },
+        {
+          "title": "LibreOffice – Let's put an end to the speculation",
+          "score": 104,
+          "url": "https://blog.documentfoundation.org/blog/2026/04/05/lets-put-an-end-to-the-speculation/",
+          "by": "eisa01",
+          "time": 1775413394,
+          "descendants": 61
+        },
+        {
+          "title": "From birds to brains: My path to the fusiform face area (2024)",
+          "score": 26,
+          "url": "https://www.kavliprize.org/nancy-kanwisher-autobiography",
+          "by": "everbody",
+          "time": 1775408935,
+          "descendants": 0
+        },
+        {
+          "title": "Lisette a little language inspired by Rust that compiles to Go",
+          "score": 236,
+          "url": "https://lisette.run/",
+          "by": "jspdown",
+          "time": 1775372239,
+          "descendants": 125
+        },
+        {
+          "title": "Music for Programming",
+          "score": 23,
+          "url": "https://musicforprogramming.net",
+          "by": "merusame",
+          "time": 1775413388,
+          "descendants": 6
+        },
+        {
+          "title": "Finnish sauna heat exposure induces stronger immune cell than cytokine responses",
+          "score": 279,
+          "url": "https://www.tandfonline.com/doi/full/10.1080/23328940.2026.2645467#abstract",
+          "by": "Growtika",
+          "time": 1775394876,
+          "descendants": 190
+        },
+        {
+          "title": "Baby's Second Garbage Collector",
+          "score": 36,
+          "url": "https://www.matheusmoreira.com/articles/babys-second-garbage-collector",
+          "by": "matheusmoreira",
+          "time": 1775124676,
+          "descendants": 9
+        },
+        {
+          "title": "Friendica – A Decentralized Social Network",
+          "score": 106,
+          "url": "https://friendi.ca/",
+          "by": "janandonly",
+          "time": 1775385666,
+          "descendants": 39
+        },
+        {
+          "title": "Show HN: Contrapunk – Real-time counterpoint harmony from guitar input",
+          "score": 102,
+          "url": "https://contrapunk.com/",
+          "by": "waveywaves",
+          "time": 1775349618,
+          "descendants": 40
+        },
+        {
+          "title": "UK intelligence censored report on global warming and homeland security",
+          "score": 12,
+          "url": "https://theoryofchange1.substack.com/p/from-global-warming-to-homeland-security",
+          "by": "ewidar",
+          "time": 1775422792,
+          "descendants": 1
+        },
+        {
+          "title": "The underrated benefits of always having oatmeal at lunch",
+          "score": 9,
+          "url": "https://hazn.com/oatmeal",
+          "by": "surprisetalk",
+          "time": 1775140137,
+          "descendants": 0
+        },
+        {
+          "title": "The threat is comfortable drift toward not understanding what you're doing",
+          "score": 750,
+          "url": "https://ergosphere.blog/posts/the-machines-are-fine/",
+          "by": "zaikunzhang",
+          "time": 1775383045,
+          "descendants": 491
+        }
+      ],
+      "fetched_at": "2026-04-05T21:33:58.177449"
+    },
+    "google_trends": {
+      "platform": "google_trends",
+      "niche": "general",
+      "keywords": [
+        "news",
+        "trending",
+        "popular"
+      ],
+      "fetched_at": "2026-04-05T21:34:03.666935",
+      "interest_over_time": {
+        "news": {
+          

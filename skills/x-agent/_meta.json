@@ -1,0 +1,25 @@
+{
+  "name": "x-agent",
+  "version": "1.0.0",
+  "description": "X (Twitter) full-stack automation — multi-platform trend search, AI content generation, auto-posting, DM monitoring, daily reports.",
+  "author": "x-agent",
+  "requires": {
+    "env": ["X_USERNAME", "X_PASSWORD"],
+    "services": ["x-agent-api"]
+  },
+  "api_base": "http://localhost:8000",
+  "scripts": [
+    "scripts/search.py",
+    "scripts/generate.py",
+    "scripts/post.py",
+    "scripts/comment.py",
+    "scripts/like.py",
+    "scripts/retweet.py",
+    "scripts/dms.py",
+    "scripts/report.py",
+    "scripts/analyze.py",
+    "scripts/score.py",
+    "scripts/validate_config.py",
+    "scripts/llm_status.py"
+  ]
+}

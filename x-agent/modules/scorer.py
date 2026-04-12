@@ -37,6 +37,15 @@ class TrendScorer:
         "platform_diversity": 0.05,  # 5% (新增)
     }
 
+    # V3 权重（加入 engagement）
+    WEIGHTS_V3 = {
+        "relevance": 0.30,  # 30% (降低)
+        "velocity": 0.20,  # 20% (降低)
+        "authority": 0.15,  # 15%
+        "convergence": 0.15,  # 15%
+        "engagement": 0.20,  # 20% (新增 - 真实转发/点赞)
+    }
+
     # 各维度权重（保持向后兼容）
     WEIGHTS = WEIGHTS_BASE
 
@@ -49,12 +58,13 @@ class TrendScorer:
         """初始化评分器"""
         self.db = db
 
-    def calculate_score(self, trend_data: Dict) -> float:
+    def calculate_score(self, trend_data: Dict, use_engagement: bool = True) -> float:
         """
         计算热点的综合评分
 
         Args:
             trend_data: 包含评分字段的数据
+            use_engagement: 是否使用 engagement 分数（默认 True）
 
         Returns:
             float: 综合评分 (0-100)
@@ -64,12 +74,24 @@ class TrendScorer:
         authority = self._normalize_score(trend_data.get("authority_score", 50))
         convergence = self._calc_convergence(trend_data.get("platform_count", 1))
 
+        # 支持 engagement_score（如果存在且启用）
+        if use_engagement and "engagement_score" in trend_data:
+            engagement = self._normalize_score(trend_data.get("engagement_score", 0))
+            weights = self.WEIGHTS_V3
+        else:
+            engagement = 0
+            weights = self.WEIGHTS
+
         total_score = (
-            relevance * self.WEIGHTS["relevance"]
-            + velocity * self.WEIGHTS["velocity"]
-            + authority * self.WEIGHTS["authority"]
-            + convergence * self.WEIGHTS["convergence"]
+            relevance * weights["relevance"]
+            + velocity * weights["velocity"]
+            + authority * weights["authority"]
+            + convergence * weights["convergence"]
         )
+
+        # 如果使用 engagement，添加到评分中
+        if use_engagement and "engagement_score" in trend_data:
+            total_score += engagement * weights.get("engagement", 0)
 
         return max(0.0, min(100.0, total_score))
 

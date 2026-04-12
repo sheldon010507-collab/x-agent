@@ -429,6 +429,69 @@ class ContentGenerator:
         comments = result.get("comments", [])
         return "\n\n".join([f"{i+1}. {c.get('content', c)}" for i, c in enumerate(comments[:3])])
 
+    async def generate_trend_analysis(self, research_result: Dict, date: str = None) -> str:
+        """
+        生成趋势分析 Markdown 报告
+
+        Args:
+            research_result: 研究结果（包含 platform_data、summary、risk_score 等）
+            date: 报告日期（可选）
+
+        Returns:
+            str: Markdown 格式的趋势分析报告
+        """
+        from datetime import datetime
+
+        if not date:
+            date = datetime.now().strftime("%Y-%m-%d")
+
+        # 提取关键数据
+        platform_data = research_result.get("platform_data", {})
+        summary = research_result.get("summary", "")
+
+        # 构建分析提示
+        trends_info = []
+        total_posts = 0
+        for platform, data in platform_data.items():
+            if isinstance(data, dict) and isinstance(data.get("posts"), list):
+                posts = data["posts"][:5]  # 取前 5 条
+                total_posts += len(posts)
+                platform_trends = [p.get("title", "")[:60] for p in posts]
+                trends_info.append(f"**{platform.upper()}**:\n" + "\n".join(f"- {t}" for t in platform_trends))
+
+        trends_text = "\n\n".join(trends_info)
+
+        prompt = f"""根据以下多平台趋势数据，用中文生成简洁的趋势分析（不超过 200 字）：
+
+【数据】
+- 报告日期：{date}
+- 总话题数：{total_posts}
+- 数据来源：{', '.join(platform_data.keys())}
+- 热点数据：{trends_text}
+
+【要求】
+简要分析：主要趋势、热度排名、平台特点、建议。不要过长。"""
+
+        try:
+            report = await self.llm_router.chat([
+                {"role": "system", "content": "你是数据分析师。用简洁中文总结趋势。"},
+                {"role": "user", "content": prompt}
+            ])
+            return report
+        except Exception as e:
+            # 返回备用报告格式
+            return f"""📊 趋势分析报告 [{date}]
+
+【基础数据】
+- 总话题数：{total_posts}
+- 数据来源：{', '.join(platform_data.keys())}
+- AI 总结：{summary[:150]}...
+
+【平台热点分布】
+{trends_text}
+
+注：LLM 生成失败，以上为基础数据展示"""
+
 
 async def generate_content(
     content_type: str, topic: str, summary: str = "", niche: str = "general"
