@@ -1,0 +1,98 @@
+.overview-section {
+  margin-bottom: 30px;
+}
+
+.overview-section h2 {
+  font-size: 22px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  color: #1f2937;
+}
+
+.overview-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+}
+
+.card {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+  display: flex;
+  gap: 16px;
+  border-left: 4px solid #dbeafe;
+}
+
+.card:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  transform: translateY(-4px);
+}
+
+.post-card {
+  border-left-color: #3b82f6;
+}
+
+.engagement-card {
+  border-left-color: #10b981;
+}
+
+.niche-card {
+  border-left-color: #8b5cf6;
+}
+
+.status-card {
+  border-left-color: #f59e0b;
+}
+
+.card-icon {
+  font-size: 40px;
+  min-width: 60px;
+  text-align: center;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card-content {
+  flex: 1;
+}
+
+.card-label {
+  font-size: 13px;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.card-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 8px;
+}
+
+.card-period,
+.card-hint {
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+.card-status {
+  font-size: 14px;
+  color: #059669;
+  font-weight: 500;
+  margin-top: 8px;
+}
+
+.card-status.warning {
+  color: #d97706;
+}
+
+.card-status.error {
+  color: #dc2626;
+}

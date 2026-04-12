@@ -1,0 +1,179 @@
+.chart-card {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #f3f4f6;
+  padding-bottom: 16px;
+}
+
+.chart-header h3,
+.chart-header h4 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+}
+
+.chart-stats {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.chart-stats span {
+  padding: 4px 8px;
+  background: #f3f4f6;
+  border-radius: 4px;
+}
+
+.chart-container {
+  width: 100%;
+  height: 100%;
+  min-height: 300px;
+  margin-bottom: 20px;
+}
+
+/* Rankings */
+.niche-rankings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.ranking-column {
+  padding: 16px;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.ranking-column h4 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #1f2937;
+}
+
+.ranking-item {
+  padding: 12px;
+  background: white;
+  border-radius: 6px;
+  border-left: 3px solid #3b82f6;
+  text-align: center;
+}
+
+.ranking-item.best {
+  border-left-color: #10b981;
+  background: #ecfdf5;
+}
+
+.ranking-item.worst {
+  border-left-color: #ef4444;
+  background: #fef2f2;
+}
+
+.ranking-name {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 6px;
+  color: #1f2937;
+}
+
+.ranking-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #667eea;
+  margin-bottom: 4px;
+}
+
+.ranking-posts {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.ranking-table {
+  overflow-x: auto;
+}
+
+.ranking-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.ranking-table thead {
+  background: #f3f4f6;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.ranking-table th {
+  padding: 8px;
+  text-align: left;
+  font-weight: 600;
+  color: #4b5563;
+}
+
+.ranking-table td {
+  padding: 8px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.ranking-table .highlight {
+  color: #667eea;
+  font-weight: 600;
+}
+
+/* Insights */
+.chart-insights {
+  background: #eff6ff;
+  border-left: 4px solid #3b82f6;
+  padding: 16px;
+  border-radius: 6px;
+}
+
+.chart-insights h4 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #1e40af;
+}
+
+.chart-insights ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.chart-insights li {
+  font-size: 13px;
+  color: #1e40af;
+  margin-bottom: 6px;
+  padding-left: 24px;
+  position: relative;
+}
+
+.chart-insights li:before {
+  content: '•';
+  position: absolute;
+  left: 0;
+}
+
+.chart-insights li:last-child {
+  margin-bottom: 0;
+}
+
+.chart-insights strong {
+  color: #1e3a8a;
+  font-weight: 600;
+}

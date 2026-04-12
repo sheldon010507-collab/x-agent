@@ -136,6 +136,39 @@ class StatusResponse(BaseModel):
     timestamp: str
 
 
+# ============ Phase 2 Dashboard Models ============
+
+
+class DashboardOverview(BaseModel):
+    total_posts: int
+    avg_engagement_rate: float
+    top_niche: str
+    period_days: int
+    timestamp: str = ""
+
+
+class EngagementTimelineData(BaseModel):
+    dates: List[str]
+    engagement_rates: List[float]
+    post_counts: List[int]
+
+
+class NicheComparisonData(BaseModel):
+    niches: List[str]
+    avg_engagement_rates: List[float]
+    post_counts: List[int]
+    avg_likes: List[float]
+
+
+class LearningFeedbackItem(BaseModel):
+    id: str
+    feedback_type: str
+    niche: str
+    engagement_rate: float
+    adjustment_reason: str
+    applied: bool
+
+
 # ============ 应用初始化 ============
 
 
@@ -150,6 +183,8 @@ async def lifespan(app: FastAPI):
     from modules.scorer import TrendScorer
 
     logger.info("🚀 X-Agent API 启动中...")
+
+    scheduler = None
 
     try:
         config = Config()
@@ -180,12 +215,60 @@ async def lifespan(app: FastAPI):
         app.state.scorer = TrendScorer(app.state.db) if app.state.db else None
         app.state.deduplicator = ContentDeduplicator()
 
+        # ========== Phase 2: 数据库迁移 ==========
+        if app.state.db:
+            logger.info("🔄 执行 Phase 2 数据库迁移...")
+            try:
+                from modules.migrations import DatabaseMigration
+                migration = DatabaseMigration(app.state.db)
+                await migration.migrate_to_phase2()
+            except Exception as mig_err:
+                logger.error(f"⚠️  数据库迁移失败: {mig_err}")
+
+        # ========== Phase 2: 启动 APScheduler 定时任务 ==========
+        logger.info("⏰ 启动 APScheduler 定时任务...")
+        try:
+            from apscheduler.schedulers.asyncio import AsyncIOScheduler
+            from modules.engagement_tracker import EngagementTracker
+
+            scheduler = AsyncIOScheduler()
+
+            # 初始化互动数据追踪器
+            tracker = EngagementTracker(app.state.db, config)
+            await tracker.initialize()
+            app.state.engagement_tracker = tracker
+
+            # 每小时同步一次互动数据
+            scheduler.add_job(
+                tracker.sync_engagement_data,
+                'interval',
+                hours=1,
+                kwargs={'hours_lookback': 24},
+                id='sync_engagement_hourly',
+                name='Sync engagement data every hour',
+            )
+
+            scheduler.start()
+            logger.info("✅ APScheduler 已启动（定时同步互动数据）")
+            app.state.scheduler = scheduler
+
+        except Exception as sched_err:
+            logger.warning(f"⚠️  APScheduler 启动失败（功能降级）: {sched_err}")
+
         logger.info("🎉 X-Agent API 初始化完成")
     except Exception as e:
         logger.error(f"❌ 初始化失败: {e}")
         raise
 
     yield
+
+    # ========== 清理资源 ==========
+    if scheduler:
+        try:
+            scheduler.shutdown()
+            logger.info("✅ APScheduler 已关闭")
+        except Exception as e:
+            logger.error(f"⚠️  关闭 APScheduler 失败: {e}")
 
     logger.info("👋 X-Agent API 关闭")
 
@@ -562,6 +645,206 @@ async def analyze_trends(req: AnalyzeRequest):
     except Exception as e:
         logger.error(f"分析报告生成失败: {e}")
         raise HTTPException(status_code=500, detail=f"分析报告生成失败: {e}")
+
+
+# ============ Phase 2 Dashboard API ============
+
+
+@app.get("/dashboard/overview", response_model=DashboardOverview)
+async def get_dashboard_overview(days: int = Query(default=7, ge=1, le=90)):
+    """获取仪表板概览数据"""
+    db = app.state.db
+    if not db:
+        raise HTTPException(status_code=503, detail="数据库未初始化")
+
+    try:
+        # 查询统计数据
+        posts = await run_in_threadpool(
+            db.execute,
+            """
+            SELECT COUNT(*) FROM posts_analytics
+            WHERE created_at > datetime('now', ? || ' days')
+            """,
+            (f"-{days}",),
+        )
+        total_posts = posts[0][0] if posts else 0
+
+        engagement = await run_in_threadpool(
+            db.execute,
+            """
+            SELECT AVG(engagement_rate) FROM posts_analytics
+            WHERE created_at > datetime('now', ? || ' days')
+            """,
+            (f"-{days}",),
+        )
+        avg_engagement = engagement[0][0] if engagement and engagement[0][0] else 0.0
+
+        # 获取表现最好的 niche
+        top = await run_in_threadpool(
+            db.execute,
+            """
+            SELECT niche FROM niche_performance
+            WHERE period_days = 7
+            ORDER BY avg_engagement_rate DESC
+            LIMIT 1
+            """,
+        )
+        top_niche = top[0][0] if top else "unknown"
+
+        return DashboardOverview(
+            total_posts=total_posts,
+            avg_engagement_rate=float(avg_engagement),
+            top_niche=top_niche,
+            period_days=days,
+            timestamp=datetime.now().isoformat(),
+        )
+
+    except Exception as e:
+        logger.error(f"获取概览数据失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取概览数据失败: {e}")
+
+
+@app.get("/dashboard/engagement-timeline", response_model=EngagementTimelineData)
+async def get_engagement_timeline(days: int = Query(default=30, ge=1, le=90)):
+    """获取互动趋势时间序列数据（按天聚合）"""
+    db = app.state.db
+    if not db:
+        raise HTTPException(status_code=503, detail="数据库未初始化")
+
+    try:
+        daily_stats = await run_in_threadpool(
+            db.execute,
+            """
+            SELECT
+                DATE(created_at) as date,
+                COUNT(*) as post_count,
+                AVG(engagement_rate) as avg_engagement_rate
+            FROM posts_analytics
+            WHERE created_at > datetime('now', ? || ' days')
+            GROUP BY DATE(created_at)
+            ORDER BY date ASC
+            """,
+            (f"-{days}",),
+        )
+
+        dates = []
+        post_counts = []
+        engagement_rates = []
+
+        for stat in daily_stats:
+            dates.append(stat[0])
+            post_counts.append(stat[1])
+            engagement_rates.append(float(stat[2]) if stat[2] else 0.0)
+
+        return EngagementTimelineData(
+            dates=dates,
+            post_counts=post_counts,
+            engagement_rates=engagement_rates,
+        )
+
+    except Exception as e:
+        logger.error(f"获取时间序列数据失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取时间序列数据失败: {e}")
+
+
+@app.get("/dashboard/niche-comparison", response_model=NicheComparisonData)
+async def get_niche_comparison(days: int = Query(default=7, ge=1, le=30)):
+    """获取 Niche 语气对标数据"""
+    db = app.state.db
+    if not db:
+        raise HTTPException(status_code=503, detail="数据库未初始化")
+
+    try:
+        niche_stats = await run_in_threadpool(
+            db.execute,
+            """
+            SELECT
+                niche,
+                total_posts,
+                avg_engagement_rate,
+                avg_likes
+            FROM niche_performance
+            WHERE period_days = ?
+            ORDER BY avg_engagement_rate DESC
+            """,
+            (days,),
+        )
+
+        niches = []
+        post_counts = []
+        engagement_rates = []
+        avg_likes = []
+
+        for stat in niche_stats:
+            niches.append(stat[0])
+            post_counts.append(stat[1])
+            engagement_rates.append(float(stat[2]) if stat[2] else 0.0)
+            avg_likes.append(float(stat[3]) if stat[3] else 0.0)
+
+        return NicheComparisonData(
+            niches=niches,
+            post_counts=post_counts,
+            avg_engagement_rates=engagement_rates,
+            avg_likes=avg_likes,
+        )
+
+    except Exception as e:
+        logger.error(f"获取 Niche 对标数据失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取 Niche 对标数据失败: {e}")
+
+
+@app.get("/dashboard/learning-feedback")
+async def get_learning_feedback(limit: int = Query(default=10, ge=1, le=100)):
+    """获取学习建议列表（优先显示未应用的）"""
+    db = app.state.db
+    if not db:
+        raise HTTPException(status_code=503, detail="数据库未初始化")
+
+    try:
+        feedbacks = await run_in_threadpool(
+            db.execute,
+            """
+            SELECT
+                id,
+                feedback_type,
+                niche,
+                engagement_rate,
+                adjustment_reason,
+                applied
+            FROM learning_feedback
+            ORDER BY applied ASC, created_at DESC
+            LIMIT ?
+            """,
+            (limit,),
+        )
+
+        items = [
+            LearningFeedbackItem(
+                id=f[0],
+                feedback_type=f[1],
+                niche=f[2],
+                engagement_rate=float(f[3]) if f[3] else 0.0,
+                adjustment_reason=f[4],
+                applied=bool(f[5]),
+            )
+            for f in feedbacks
+        ]
+
+        # 统计待应用的反馈数
+        pending = await run_in_threadpool(
+            db.execute,
+            "SELECT COUNT(*) FROM learning_feedback WHERE applied = FALSE",
+        )
+        pending_count = pending[0][0] if pending else 0
+
+        return {
+            "total_pending": pending_count,
+            "feedbacks": items,
+        }
+
+    except Exception as e:
+        logger.error(f"获取学习反馈失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取学习反馈失败: {e}")
 
 
 # ============ 启动入口 ============

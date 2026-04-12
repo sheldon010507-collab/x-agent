@@ -102,6 +102,26 @@ services:
       retries: 3
       start_period: 15s
 
+  # x-agent Web Dashboard (Phase 2)
+  x-agent-dashboard:
+    build:
+      context: ./x-agent-dashboard
+      dockerfile: Dockerfile
+    container_name: x-agent-dashboard
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000
+    depends_on:
+      - x-agent-api
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
 volumes:
   openclaw_data:
     driver: local
