@@ -1,6 +1,9 @@
+version: '3.8'
+
 services:
+  # OpenClaw 服务器
   openclaw:
-    image: openclaw:local
+    image: openclaw/openclaw:latest
     container_name: x-agent-openclaw
     ports:
       - "18789:18789"
@@ -11,6 +14,8 @@ services:
     volumes:
       - openclaw_data:/app/data
     restart: unless-stopped
+    networks:
+      - x-agent-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:18789/health"]
       interval: 30s
@@ -18,8 +23,7 @@ services:
       retries: 3
       start_period: 10s
 
-  # x-agent Telegram Bot — 默认不启动（与 OpenClaw Telegram 冲突）
-  # 需要时启动: docker-compose --profile telegram up x-agent
+  # X-Agent Telegram Bot
   x-agent:
     build:
       context: ./x-agent
@@ -31,19 +35,19 @@ services:
       - OPENCLAW_API_ENDPOINT=http://openclaw:18789
       - PYTHONUNBUFFERED=1
       - TZ=UTC
-      - X_USERNAME=@DoomieBabe
-      - X_PASSWORD=qazwsx789!
     env_file:
       - ./x-agent/.env
     volumes:
       - ./x-agent/data:/app/data
       - ./x-agent/logs:/app/logs
     depends_on:
-      - openclaw
+      openclaw:
+        condition: service_healthy
     restart: unless-stopped
-    profiles:
-      - telegram
+    networks:
+      - x-agent-network
 
+  # X-Agent HTTP API（供 OpenClaw Bot 调用）
   x-agent-api:
     build:
       context: ./x-agent
@@ -57,48 +61,19 @@ services:
       - OPENCLAW_API_ENDPOINT=http://openclaw:18789
       - PYTHONUNBUFFERED=1
       - TZ=UTC
-      - X_USERNAME=DoomieBabe
-      - X_PASSWORD=qazwsx789!
     env_file:
       - ./x-agent/.env
     volumes:
       - ./x-agent/data:/app/data
       - ./x-agent/logs:/app/logs
     depends_on:
-      - openclaw
+      openclaw:
+        condition: service_healthy
     restart: unless-stopped
+    networks:
+      - x-agent-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
-
-  # x-agent MCP Server（stdio + SSE 双模式）
-  x-agent-mcp:
-    build:
-      context: ./x-agent
-      dockerfile: Dockerfile
-    container_name: x-agent-mcp
-    ports:
-      - "8001:8001"
-    environment:
-      - APP_ENTRYPOINT=mcp_server.py sse
-      - OPENCLAW_API_ENDPOINT=http://openclaw:18789
-      - PYTHONUNBUFFERED=1
-      - TZ=UTC
-      - X_USERNAME=DoomieBabe
-      - X_PASSWORD=qazwsx789!
-    env_file:
-      - ./x-agent/.env
-    volumes:
-      - ./x-agent/data:/app/data
-      - ./x-agent/logs:/app/logs
-    depends_on:
-      - openclaw
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/sse')"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -107,3 +82,7 @@ services:
 volumes:
   openclaw_data:
     driver: local
+
+networks:
+  x-agent-network:
+    driver: bridge

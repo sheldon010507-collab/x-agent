@@ -1,0 +1,286 @@
+"""
+database.py - Supabase 数据库操作封装
+负责所有表的 CRUD 操作
+"""
+from supabase import create_client, Client
+from typing import List, Dict, Optional, Any
+from datetime import datetime, date
+import uuid
+
+class Database:
+    """Supabase 数据库操作类"""
+    
+    def __init__(self, supabase_url: str, supabase_key: str):
+        """初始化数据库连接"""
+        self.client: Client = create_client(supabase_url, supabase_key)
+    
+    # ========== Trends 表操作 ==========
+    
+    def create_trend(self, niche: str, topic: str, source: str, score: float, 
+                     summary: str = None, citations: Dict = None, url: str = None) -> Dict:
+        """创建新的热点记录"""
+        data = {
+            'id': str(uuid.uuid4()),
+            'niche': niche,
+            'topic': topic,
+            'source': source,
+            'score': score,
+            'summary': summary,
+            'citations': citations,
+            'url': url,
+            'status': 'new'
+        }
+        
+        result = self.client.table('trends').insert(data).execute()
+        return result.data[0] if result.data else None
+    
+    def get_trends_by_score(self, min_score: float = 60, limit: int = 20) -> List[Dict]:
+        """获取高于指定分数的热点（按分数降序）"""
+        result = self.client.table('trends')\
+            .select('*')\
+            .gte('score', min_score)\
+            .eq('status', 'new')\
+            .order('score', desc=True)\
+            .limit(limit)\
+            .execute()
+        return result.data
+    
+    def get_trend_by_id(self, trend_id: str) -> Optional[Dict]:
+        """根据 ID 获取热点"""
+        result = self.client.table('trends')\
+            .select('*')\
+            .eq('id', trend_id)\
+            .execute()
+        return result.data[0] if result.data else None
+    
+    def update_trend_status(self, trend_id: str, status: str) -> None:
+        """更新热点状态"""
+        self.client.table('trends')\
+            .update({'status': status})\
+            .eq('id', trend_id)\
+            .execute()
+    
+    def get_high_score_trends(self, min_score: float = 80) -> List[Dict]:
+        """获取高分热点（≥80 分，用于立即推送）"""
+        return self.get_trends_by_score(min_score)
+    
+    def get_medium_score_trends(self, min_score: float = 60, max_score: float = 79.99) -> List[Dict]:
+        """获取中等分数热点（60-79 分，用于每日汇总）"""
+        result = self.client.table('trends')\
+            .select('*')\
+            .gte('score', min_score)\
+            .lt('score', max_score)\
+            .eq('status', 'new')\
+            .order('score', desc=True)\
+            .execute()
+        return result.data
+    
+    # ========== Content Queue 表操作 ==========
+    
+    def create_content(self, trend_id: str, type: str, content: str, 
+                       media_suggestion: str = None, status: str = 'draft') -> Dict:
+        """创建内容草稿"""
+        data = {
+            'id': str(uuid.uuid4()),
+            'trend_id': trend_id,
+            'type': type,
+            'content': content,
+            'media_suggestion': media_suggestion,
+            'status': status
+        }
+        
+        result = self.client.table('content_queue').insert(data).execute()
+        return result.data[0] if result.data else None
+    
+    def get_content_queue(self, status: str = 'draft', limit: int = 20) -> List[Dict]:
+        """获取待发布内容队列"""
+        result = self.client.table('content_queue')\
+            .select('*')\
+            .eq('status', status)\
+            .order('created_at', desc=True)\
+            .limit(limit)\
+            .execute()
+        return result.data
+    
+    def update_content_status(self, content_id: str, status: str) -> None:
+        """更新内容状态"""
+        self.client.table('content_queue')\
+            .update({'status': status})\
+            .eq('id', content_id)\
+            .execute()
+    
+    # ========== Daily Log 表操作 ==========
+    
+    def create_daily_log(self, date: date, posts_count: int = 0, comments_count: int = 0,
+                         likes_count: int = 0, rt_count: int = 0, top_engagement: int = 0,
+                         notes: str = None) -> Dict:
+        """创建每日记录"""
+        data = {
+            'id': str(uuid.uuid4()),
+            'date': date.isoformat(),
+            'posts_count': posts_count,
+            'comments_count': comments_count,
+            'likes_count': likes_count,
+            'rt_count': rt_count,
+            'top_engagement': top_engagement,
+            'notes': notes
+        }
+        
+        result = self.client.table('daily_log').insert(data).execute()
+        return result.data[0] if result.data else None
+    
+    def get_daily_log(self, date: date) -> Optional[Dict]:
+        """获取指定日期的记录"""
+        result = self.client.table('daily_log')\
+            .select('*')\n            .eq('date', date.isoformat())\
+            .execute()
+        return result.data[0] if result.data else None
+    
+    def update_daily_log(self, date: date, **kwargs) -> None:
+        """更新每日记录"""
+        self.client.table('daily_log')\
+            .update(kwargs)\
+            .eq('date', date.isoformat())\
+            .execute()
+    
+    # ========== Niche 表操作 ==========
+    
+    def get_current_niche(self) -> Optional[str]:
+        """获取当前激活的 Niche"""
+        result = self.client.table('niche')\
+            .select('name')\
+            .eq('is_active', True)\
+            .execute()
+        return result.data[0]['name'] if result.data else None
+    
+    def set_niche(self, niche_name: str, voice_file: str = None) -> None:
+        """切换 Niche"""
+        # 先停用所有 Niche
+        self.client.table('niche')\
+            .update({'is_active': False})\
+            .execute()
+        
+        # 激活指定 Niche
+        data = {
+            'name': niche_name,
+            'is_active': True,
+            'voice_file': voice_file or f'{niche_name}.txt'
+        }
+        
+        # 检查是否存在，存在则更新，不存在则插入
+        result = self.client.table('niche')\
+            .select('id')\
+            .eq('name', niche_name)\
+            .execute()
+        
+        if result.data:
+            self.client.table('niche')\
+                .update({'is_active': True, 'voice_file': data['voice_file']})\
+                .eq('name', niche_name)\
+                .execute()
+        else:
+            self.client.table('niche').insert(data).execute()
+    
+    # ========== Automation Settings 表操作 ==========
+    
+    def get_automation_settings(self) -> Dict:
+        """获取自动化设置"""
+        result = self.client.table('automation_settings')\
+            .select('*')\
+            .order('updated_at', desc=True)\
+            .limit(1)\
+            .execute()
+        
+        if result.data:
+            return result.data[0]
+        
+        # 如果不存在，创建默认设置
+        return self.create_default_automation_settings()
+    
+    def create_default_automation_settings(self) -> Dict:
+        """创建默认自动化设置"""
+        data = {
+            'id': str(uuid.uuid4()),
+            'auto_comment': True,
+            'comment_daily_limit': 15,
+            'auto_like': False,
+            'auto_rt': False,
+            'like_daily_limit': 30,
+            'rt_daily_limit': 10,
+            'updated_at': datetime.now().isoformat()
+        }
+        
+        result = self.client.table('automation_settings').insert(data).execute()
+        return result.data[0] if result.data else data
+    
+    def update_automation_settings(self, **kwargs) -> Dict:
+        """更新自动化设置"""
+        # 获取当前设置
+        current = self.get_automation_settings()
+        current_id = current.get('id')
+        
+        # 更新字段
+        update_data = {k: v for k, v in kwargs.items() if k != 'id'}
+        update_data['updated_at'] = datetime.now().isoformat()
+        
+        self.client.table('automation_settings')\
+            .update(update_data)\n            .eq('id', current_id)\
+            .execute()
+        
+        return self.get_automation_settings()
+    
+    # ========== Strategy 表操作 ==========
+    
+    def get_current_strategy(self, niche: str) -> Optional[Dict]:
+        """获取当前 Niche 的策略"""
+        result = self.client.table('strategy')\
+            .select('*')\n            .eq('niche', niche)\
+            .order('version', desc=True)\n            .limit(1)\n            .execute()
+        return result.data[0] if result.data else None
+    
+    def create_strategy(self, niche: str, version: int, content: str) -> Dict:
+        """创建新策略版本"""
+        data = {
+            'id': str(uuid.uuid4()),
+            'niche': niche,
+            'version': version,
+            'content': content
+        }
+        
+        result = self.client.table('strategy').insert(data).execute()
+        return result.data[0] if result.data else None
+    
+    # ========== 统计查询 ==========
+    
+    def get_today_stats(self, date: date = None) -> Dict:
+        """获取今日统计"""
+        if date is None:
+            date = datetime.now().date()
+        
+        # 内容生成统计
+        content_result = self.client.table('content_queue')\
+            .select('type, status')\n            .gte('created_at', date.isoformat())\n            .execute()
+        
+        # 热点统计
+        trends_result = self.client.table('trends')\n            .select('score, status')\n            .gte('created_at', date.isoformat())\n            .execute()
+        
+        return {
+            'content_generated': len(content_result.data),
+            'trends_found': len(trends_result.data),
+            'high_score_trends': len([t for t in trends_result.data if t.get('score', 0) >= 80])
+        }
+
+# 全局数据库实例（延迟初始化）
+db: Optional[Database] = None
+
+def init_database(supabase_url: str, supabase_key: str) -> Database:
+    """初始化数据库连接"""
+    global db
+    db = Database(supabase_url, supabase_key)
+    return db
+
+def get_database() -> Database:
+    """获取数据库实例"""
+    if db is None:
+        raise RuntimeError("数据库未初始化，请先调用 init_database()")
+    return db
