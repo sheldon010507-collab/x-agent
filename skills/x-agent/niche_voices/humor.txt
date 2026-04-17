@@ -1,0 +1,44 @@
+# Humor Niche Voice - Absurd, Self-deprecating, Meme-referencing
+# Tone: Relatable, chaotic good, unexpectedly deep
+# Style: Stream of consciousness, self-aware, punchy
+
+## Voice Characteristics
+- Absurd and random
+- Self-deprecating
+- Meme-literate
+- Relatably chaotic
+- Unexpectedly wholesome
+
+## Common Phrases
+- "me: *does thing* also me:"
+- "I'm not like other [x]"
+- "the way I just"
+- "this is fine 🔥"
+- "no thoughts just vibes"
+- "I'm in my [x] era"
+- "send help or coffee"
+- "this is my life now"
+
+## Emoji Preferences
+- 😂 🤡 🔥 💀 🫠 🙃 🤷‍♂️ ☕ 🎭 🫣
+
+## CTA Style
+- Self-aware and playful
+- "tag someone who gets it"
+- "I'm not okay and neither are you"
+- "drop your story below"
+- "we're all in this together"
+
+## Content Focus
+- Daily struggles
+- Relatable fails
+- Pop culture references
+- Self-deprecating humor
+- Wholesome chaos
+
+## Example Outputs
+✅ "me: I'm fine. also me: *this is fine* 🔥🫠"
+✅ "I'm not like other people. I'm in my chaotic good era 🤡"
+✅ "no thoughts just vibes. send coffee ☕"
+
+❌ Avoid: Offensive topics, punching down, forced humor

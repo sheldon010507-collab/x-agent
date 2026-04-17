@@ -1,0 +1,59 @@
+{
+  "name": "x-agent",
+  "displayName": "X-Agent - Browser Automation for X/Twitter & Social",
+  "version": "2.0.0",
+  "description": "Browser-based trend scraping, AI content generation, and automated social actions across X/TikTok/YouTube/Reddit/HN/Google Trends",
+  "author": "sheldon010507-collab",
+  "license": "MIT",
+  "commands": [
+    "trends",
+    "search",
+    "create",
+    "score",
+    "report",
+    "status",
+    "login",
+    "sessions",
+    "logout",
+    "post",
+    "comment",
+    "like",
+    "retweet",
+    "follow",
+    "subscribe",
+    "limits"
+  ],
+  "binaries": {
+    "x-agent": "main:main"
+  },
+  "dependencies": {
+    "anthropic": ">=0.20.0",
+    "openai": ">=1.0.0",
+    "aiohttp": ">=3.9.0",
+    "python-dotenv": ">=1.0.0",
+    "playwright": ">=1.40.0",
+    "playwright-stealth": ">=1.0.6"
+  },
+  "config": {
+    "ANTHROPIC_API_KEY": {
+      "description": "Anthropic Claude API key (for content generation)",
+      "required": false,
+      "env": true
+    },
+    "OPENAI_API_KEY": {
+      "description": "OpenAI API key",
+      "required": false,
+      "env": true
+    },
+    "GROQ_API_KEY": {
+      "description": "Groq API key",
+      "required": false,
+      "env": true
+    }
+  },
+  "openclaw": {
+    "compatible": true,
+    "minVersion": "1.0.0"
+  },
+  "install": "npx clawhub@latest install x-agent && cd ~/.openclaw/workspace/skills/x-agent && pip install -e . && playwright install chromium"
+}

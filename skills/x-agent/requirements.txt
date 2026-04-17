@@ -1,0 +1,10 @@
+anthropic>=0.20.0
+openai>=1.0.0
+aiohttp>=3.9.0
+python-dotenv>=1.0.0
+playwright>=1.40.0
+playwright-stealth>=1.0.6
+# Optional fallback APIs:
+# praw>=7.7.0           # Reddit API fallback (browser scraper is primary)
+# pytrends>=4.9.0       # Google Trends API fallback
+# groq>=0.4.0           # Groq LLM provider
