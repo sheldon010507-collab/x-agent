@@ -3,7 +3,7 @@
 ## 一键启动
 
 ```bash
-cd /path/to/x-agent/x-agent
+cd /path/to/x-agent
 
 # 1. 创建虚拟环境和安装依赖
 python3 -m venv venv

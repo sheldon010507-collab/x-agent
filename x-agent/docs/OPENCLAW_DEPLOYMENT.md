@@ -431,7 +431,7 @@ ssh root@your_server_ip
 
 # 2. 克隆并配置
 git clone https://github.com/sheldon010507-collab/x-agent.git
-cd x-agent/x-agent
+cd x-agent
 
 # 3. 创建独立用户（安全最佳实践）
 useradd -m -s /bin/bash xagent
@@ -455,9 +455,9 @@ After=network.target
 [Service]
 Type=simple
 User=xagent
-WorkingDirectory=/home/xagent/x-agent/x-agent
-EnvironmentFile=/home/xagent/x-agent/x-agent/.env
-ExecStart=/home/xagent/x-agent/x-agent/venv/bin/python main.py
+WorkingDirectory=/home/xagent/x-agent
+EnvironmentFile=/home/xagent/x-agent/.env
+ExecStart=/home/xagent/x-agent/venv/bin/python main.py
 Restart=always
 RestartSec=10
 

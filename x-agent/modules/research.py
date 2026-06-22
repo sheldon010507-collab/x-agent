@@ -31,8 +31,10 @@ import re
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 
 from .deduplicator import ContentDeduplicator
+from .marketing_analysis import MarketingAnalyzer
 from .research_optimization import ConcurrentLimiter, RateLimitConfig, gather_with_timeout
 
 try:
@@ -48,6 +50,18 @@ try:
     HAS_BS4 = True
 except ImportError:
     HAS_BS4 = False
+
+try:
+    from .last30days_reddit import RedditKeylessFetcher, RedditPipeline
+    _HAS_KEYLESS_REDDIT = True
+except ImportError:
+    _HAS_KEYLESS_REDDIT = False
+
+try:
+    from .reddit_playwright import RedditPlaywrightCrawler
+    _HAS_REDDIT_PLAYWRIGHT = True
+except ImportError:
+    _HAS_REDDIT_PLAYWRIGHT = False
 
 try:
     import praw
@@ -176,6 +190,129 @@ class RedditFetcher(PlatformFetcher):
             "fetched_at": datetime.now().isoformat(),
             "mock": True,
         }
+
+class RedditKeylessFetcher:
+    """keyless Reddit 抓取器 — 三层降级: .json → RSS → Playwright"""
+
+    _NICHE_SUBS = {
+        "ai_tools": ["artificial", "MachineLearning", "OpenAI", "ChatGPT"],
+        "crypto": ["CryptoCurrency", "bitcoin", "ethereum", "defi"],
+        "fitness": ["fitness", "bodybuilding", "xxfitness", "loseit"],
+        "beauty": ["MakeupAddiction", "SkincareAddiction", "Haircare"],
+        "adult": ["sex", "AskRedditAfterDark"],
+        "humor": ["funny", "meme", "dankmemes"],
+        "general": ["AskReddit", "todayilearned", "worldnews"],
+    }
+
+    # Entity resolution — inspired by last30days-skill Step 0
+    _PERSON_X_HANDLES = {
+        "sam_altman": ["sama"],
+        "dario_amodei": ["daborgeo"],
+        "elon_musk": ["elonmusk"],
+    }
+
+    _PRODUCT_SOURCES = {
+        "claude": {"x": ["anthropicai"], "subreddits": ["ClaudeAI", "AnthropicAI"]},
+        "chatgpt": {"x": ["OpenAI"], "subreddits": ["ChatGPT", "OpenAI"]},
+        "gemini": {"x": ["GoogleAI"], "subreddits": ["Bard", "GoogleGeminiAI"]},
+    }
+
+    def __init__(self):
+        self._pipeline = None
+        self._playwright_crawler = None
+        if _HAS_KEYLESS_REDDIT:
+            try:
+                pw = None
+                if _HAS_REDDIT_PLAYWRIGHT:
+                    pw = RedditPlaywrightCrawler(headless=True)
+                from .last30days_reddit.pipeline import RedditPipeline as _RP
+                self._pipeline = _RP(playwright_crawler=pw)
+            except Exception as e:
+                logger.debug(f"Keyless pipeline init failed: {e}")
+                self._pipeline = None
+        elif _HAS_REDDIT_PLAYWRIGHT:
+            self._playwright_crawler = RedditPlaywrightCrawler(headless=True)
+
+    def _subreddits(self, niche: str) -> list:
+        base = self._NICHE_SUBS.get(niche, self._NICHE_SUBS["general"])
+        # Entity resolution: check product sources for extra subreddits
+        key = niche.lower().replace(" ", "_")
+        product = self._PRODUCT_SOURCES.get(key)
+        if product and "subreddits" in product:
+            extra = [s for s in product["subreddits"] if s not in base]
+            return base + extra
+        return base
+
+    async def fetch(self, niche: str, days: int = 7, depth: str = "default") -> Dict:
+        subs = self._subreddits(niche)
+        if self._pipeline:
+            try:
+                result = await self._pipeline.search(
+                    topic=niche, depth=depth, subreddits=subs, days=days,
+                )
+                if result and result.get("posts"):
+                    return result
+            except Exception as e:
+                logger.warning(f"Keyless Reddit search failed: {e}")
+        if self._playwright_crawler:
+            try:
+                async with self._playwright_crawler as crawler:
+                    posts_raw = await crawler.search(
+                        query=niche, subreddits=subs[:2], limit=20,
+                    )
+                    posts = []
+                    for p in posts_raw:
+                        posts.append({
+                            "title": p.title,
+                            "score": p.upvotes,
+                            "url": p.url,
+                            "created_utc": p.created_utc.isoformat() if hasattr(p.created_utc, "isoformat") else str(p.created_utc),
+                            "num_comments": p.comment_count,
+                            "subreddit": p.subreddit,
+                            "likes": p.upvotes,
+                            "comments": p.comment_count,
+                            "top_comments": p.top_comments,
+                            "selftext": p.content[:500] if p.content else "",
+                        })
+                    return {
+                        "platform": "reddit", "niche": niche,
+                        "posts": posts, "fetched_at": datetime.now().isoformat(),
+                        "source": "playwright",
+                    }
+            except Exception as e:
+                logger.warning(f"Playwright Reddit failed: {e}")
+        return self._mock_data(niche)
+
+    def _mock_data(self, niche: str) -> Dict:
+        mock_posts = []
+        for i in range(5):
+            mock_posts.append({
+                "title": f"[Reddit] {niche} 热门讨论 #{i + 1}",
+                "score": random.randint(100, 5000),
+                "url": f"https://reddit.com/r/{niche}/mock_{i}",
+                "created_utc": datetime.now().isoformat(),
+                "num_comments": random.randint(10, 500),
+                "subreddit": niche,
+                "likes": random.randint(100, 5000),
+                "comments": random.randint(10, 500),
+            })
+        return {
+            "platform": "reddit", "niche": niche,
+            "posts": mock_posts,
+            "fetched_at": datetime.now().isoformat(), "mock": True,
+        }
+
+    async def get_trending(self, subreddit: str, limit: int = 25) -> List[Dict]:
+        if self._pipeline:
+            try:
+                result = await self._pipeline.search(
+                    topic="", depth="default", subreddits=[subreddit], days=7,
+                )
+                return result.get("posts", [])[:limit]
+            except Exception:
+                pass
+        return []
+
 
 
 class HackerNewsFetcher(PlatformFetcher):
@@ -1196,7 +1333,8 @@ class Researcher:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
         # 初始化各平台获取器
-        self.reddit_fetcher = RedditFetcher(config)
+        self.reddit_fetcher = RedditKeylessFetcher()
+        self.reddit_praw_fetcher = RedditFetcher(config)  # PRAW backup
         self.hn_fetcher = HackerNewsFetcher(config)
         self.trends_fetcher = GoogleTrendsFetcher(config)
         self.x_fetcher = XTrendsFetcher(config)
@@ -1211,6 +1349,7 @@ class Researcher:
         self.rate_limit_config = rate_limit_config or RateLimitConfig()
         self.concurrent_limiter = ConcurrentLimiter(self.rate_limit_config)
         self.deduplicator = ContentDeduplicator(threshold=0.75)
+        self.marketing_analyzer = MarketingAnalyzer()
 
         logger.info("✅ Researcher 初始化完成 (原生异步模式 + 真实爬虫)")
 
@@ -1267,6 +1406,9 @@ class Researcher:
 
         if "reddit" in source_list:
             tasks.append(limited_fetch("reddit", self.reddit_fetcher, niche, days))
+            # 如 keyless 全空，追加 PRAW 兜底
+            if isinstance(self.reddit_fetcher, RedditKeylessFetcher) and self.reddit_praw_fetcher:
+                tasks.append(limited_fetch("reddit_praw", self.reddit_praw_fetcher, niche, days))
 
         if "hackernews" in source_list or "hn" in source_list:
             tasks.append(limited_fetch("hackernews", self.hn_fetcher, niche, days))
@@ -1361,6 +1503,8 @@ class Researcher:
             logger.info(f"去重: {len(citations)} citations → {len(unique_citations)} unique")
             citations = unique_citations
 
+        citations = self._cluster_cross_source(citations)
+
         # 计算指标
         metrics = self._calculate_metrics(platform_data, total_posts)
 
@@ -1384,6 +1528,7 @@ class Researcher:
             "platform_data": platform_data,
             "created_at": datetime.now().isoformat(),
         }
+        result["marketing_analysis"] = self.marketing_analyzer.analyze(result)
 
         # 本地缓存
         timestamp = datetime.now().strftime("%Y%m%d_%H%M")
@@ -1396,6 +1541,52 @@ class Researcher:
             logger.warning(f"缓存失败: {e}")
 
         return result
+
+    def _cluster_cross_source(self, items: List[Dict], min_overlap: int = 2) -> List[Dict]:
+        """同一事件的 Reddit + X 结果合并为一个 cluster"""
+        from collections import defaultdict
+
+        def _keywords(text: str) -> set:
+            return set(re.findall(r"\b\w{4,}\b", (text or "").lower()))
+
+        clusters: Dict[str, List[Dict]] = defaultdict(list)
+
+        for item in items:
+            title = item.get("title") or item.get("text") or ""
+            url = item.get("url") or item.get("link") or ""
+            try:
+                domain = urlparse(url).netloc.lower()
+            except Exception:
+                domain = ""
+            keywords = _keywords(title)
+            if not domain:
+                continue
+
+            matched_key = None
+            for existing_key in clusters:
+                existing_domain, existing_keywords = existing_key.split("|", 1)
+                if domain == existing_domain:
+                    overlap = len(keywords & set(existing_keywords.split(",")))
+                    if overlap >= min_overlap:
+                        matched_key = existing_key
+                        break
+
+            if matched_key is None:
+                matched_key = f"{domain}|{','.join(sorted(keywords))}"
+                clusters[matched_key] = []
+            clusters[matched_key].append(item)
+
+        merged: List[Dict] = []
+        for group in clusters.values():
+            if len(group) == 1:
+                merged.append(group[0])
+                continue
+            representative = max(group, key=lambda x: x.get("score", 0) or 0)
+            representative = dict(representative)
+            representative["cluster_size"] = len(group)
+            representative["cluster_sources"] = list({g.get("platform", "unknown") for g in group})
+            merged.append(representative)
+        return merged
 
     def research_topic(
         self, niche: str, days: int = 7, sources: str = "x,reddit,youtube,web,tiktok,hackernews"
@@ -1575,6 +1766,9 @@ class Researcher:
             "platform_count": 0,
             "risk_score": 100.0,
             "summary": f"研究失败: {error}" if error else "无数据",
+            "marketing_analysis": self.marketing_analyzer.analyze(
+                {"niche": niche, "citations": [], "platforms": []}
+            ),
             "citations": [],
             "platforms": [],
             "created_at": datetime.now().isoformat(),

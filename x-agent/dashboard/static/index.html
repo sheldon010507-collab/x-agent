@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>X-Agent Dashboard</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, "Segoe UI", sans-serif; background: #0f172a; color: #e2e8f0; }
+.header { padding: 20px 32px; background: #1e293b; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+.header h1 { font-size: 22px; font-weight: 700; }
+.stats-bar { display: flex; gap: 20px; }
+.stat { background: #1e293b; border-radius: 8px; padding: 12px 20px; text-align: center; }
+.stat-value { font-size: 24px; font-weight: 700; color: #60a5fa; }
+.stat-label { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+.main { padding: 24px 32px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 16px; transition: border-color 0.2s; }
+.card:hover { border-color: #60a5fa; }
+.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.platform-name { font-weight: 600; font-size: 14px; }
+.badge { font-size: 11px; padding: 3px 10px; border-radius: 12px; font-weight: 600; }
+.badge-healthy { background: #166534; color: #4ade80; }
+.badge-warning { background: #854d0e; color: #facc15; }
+.badge-error { background: #991b1b; color: #f87171; }
+.badge-cooldown { background: #1e3a5f; color: #60a5fa; }
+.username { font-size: 12px; color: #94a3b8; margin-bottom: 8px; }
+.metrics { display: flex; gap: 16px; font-size: 12px; color: #94a3b8; }
+.metric span { color: #e2e8f0; }
+.footer { padding: 16px 32px; font-size: 12px; color: #64748b; text-align: center; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>X-Agent Dashboard</h1>
+  <div class="stats-bar">
+    <div class="stat"><div class="stat-value" id="total-accounts">0</div><div class="stat-label">Accounts</div></div>
+    <div class="stat"><div class="stat-value" id="total-runs">0</div><div class="stat-label">Total Runs</div></div>
+    <div class="stat"><div class="stat-value" id="success-rate">0%</div><div class="stat-label">Success Rate</div></div>
+  </div>
+</div>
+<div class="main">
+  <div class="grid" id="account-grid"></div>
+</div>
+<div class="footer">X-Agent v3.0 &mdash; Real-time Account Monitoring</div>
+
+<script>
+const statusMap = { healthy: 'healthy', rate_limited: 'warning', suspended: 'error', cooldown: 'cooldown', login_required: 'warning', error: 'error' };
+const badgeLabel = { healthy: 'HEALTHY', rate_limited: 'RATE LIMITED', suspended: 'SUSPENDED', cooldown: 'COOLDOWN', login_required: 'LOGIN NEEDED', error: 'ERROR' };
+const badgeClass = { healthy: 'badge-healthy', rate_limited: 'badge-warning', suspended: 'badge-error', cooldown: 'badge-cooldown', login_required: 'badge-warning', error: 'badge-error' };
+
+// Fallback data used only when the API and WebSocket are unavailable.
+const sampleAccounts = [
+  { platform: 'reddit', username: 'xagent_research1', status: 'healthy', daily_posts: 3, daily_likes: 12, daily_comments: 5 },
+  { platform: 'reddit', username: 'xagent_research2', status: 'healthy', daily_posts: 1, daily_likes: 8, daily_comments: 2 },
+  { platform: 'x', username: 'xagent_poster', status: 'healthy', daily_posts: 5, daily_likes: 20, daily_comments: 3 },
+  { platform: 'tiktok', username: 'xagent_shorts', status: 'cooldown', daily_posts: 0, daily_likes: 5, daily_comments: 1 },
+  { platform: 'youtube', username: 'xagent_longform', status: 'healthy', daily_posts: 1, daily_likes: 45, daily_comments: 0 },
+  { platform: 'instagram', username: 'xagent_visual', status: 'healthy', daily_posts: 2, daily_likes: 30, daily_comments: 4 },
+];
+
+function renderAccounts(accounts) {
+  const grid = document.getElementById('account-grid');
+  grid.innerHTML = accounts.map(a => {
+    const st = a.status || 'healthy';
+    return `<div class="card">
+      <div class="card-header">
+        <span class="platform-name">${a.platform.toUpperCase()}</span>
+        <span class="badge ${badgeClass[st] || 'badge-healthy'}">${badgeLabel[st] || 'UNKNOWN'}</span>
+      </div>
+      <div class="username">@${a.username}</div>
+      <div class="metrics">
+        <div class="metric">Posts: <span>${a.daily_posts}</span></div>
+        <div class="metric">Likes: <span>${a.daily_likes}</span></div>
+        <div class="metric">Comments: <span>${a.daily_comments}</span></div>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('total-accounts').textContent = accounts.length;
+}
+
+async function loadAccounts() {
+  try {
+    const response = await fetch('/api/accounts');
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const accounts = await response.json();
+    renderAccounts(Array.isArray(accounts) && accounts.length ? accounts : sampleAccounts);
+  } catch (error) {
+    renderAccounts(sampleAccounts);
+  }
+}
+
+// Attempt WebSocket connection.
+const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+const ws = new WebSocket(`${wsProtocol}//${window.location.host}/ws`);
+ws.onopen = () => console.log('Dashboard WS connected');
+ws.onmessage = (e) => {
+  const data = JSON.parse(e.data);
+  if (data.accounts) renderAccounts(data.accounts);
+};
+ws.onerror = () => renderAccounts(sampleAccounts);
+
+loadAccounts();
+</script>
+</body>
+</html>

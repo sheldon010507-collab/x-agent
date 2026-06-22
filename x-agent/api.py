@@ -18,6 +18,7 @@ Fixed: Supabase httpx compatibility (v2.5.0, httpx<0.25.0)
 """
 
 import logging
+import os
 import sys
 from contextlib import asynccontextmanager
 from datetime import date, datetime
@@ -26,12 +27,20 @@ from typing import Any, Dict, List, Optional
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Body, Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
 logger = logging.getLogger(__name__)
+
+
+def require_api_key(x_agent_api_key: Optional[str] = Header(default=None)) -> None:
+    expected = os.getenv("XAGENT_API_KEY")
+    if not expected:
+        raise HTTPException(status_code=503, detail="XAGENT_API_KEY is not configured")
+    if x_agent_api_key != expected:
+        raise HTTPException(status_code=401, detail="Invalid X-Agent API key")
 
 # ============ Pydantic 模型 ============
 
@@ -316,7 +325,7 @@ async def create_content(req: CreateRequest):
 
 
 @app.post("/approve/{content_id}", response_model=ApproveResponse)
-async def approve_content(content_id: str):
+async def approve_content(content_id: str, _: None = Depends(require_api_key)):
     """确认内容发布（draft → confirmed）"""
     db = app.state.db
     try:
@@ -330,6 +339,19 @@ async def approve_content(content_id: str):
         status="confirmed",
         message=f"内容 {content_id} 已确认，等待发布",
     )
+
+
+@app.post("/approve", response_model=ApproveResponse)
+async def approve_content_query(
+    content_id: Optional[str] = Query(default=None),
+    payload: Optional[Dict[str, str]] = Body(default=None),
+    _: None = Depends(require_api_key),
+):
+    """Compatibility endpoint for the original OpenClaw plan."""
+    resolved_id = content_id or (payload or {}).get("content_id")
+    if not resolved_id:
+        raise HTTPException(status_code=422, detail="content_id is required")
+    return await approve_content(resolved_id, None)
 
 
 @app.get("/report", response_model=ReportResponse)
@@ -378,6 +400,14 @@ async def get_report(
     )
 
 
+@app.get("/daily_report", response_model=ReportResponse)
+async def get_daily_report(
+    report_date: Optional[str] = Query(default=None, description="Date YYYY-MM-DD", alias="date"),
+):
+    """Compatibility endpoint for the original OpenClaw plan."""
+    return await get_report(report_date=report_date)
+
+
 @app.get("/status", response_model=StatusResponse)
 async def get_status():
     """系统状态"""
@@ -403,7 +433,7 @@ async def get_status():
 
 
 @app.get("/dms", response_model=DMsResponse)
-async def get_dms():
+async def get_dms(_: None = Depends(require_api_key)):
     """获取 X 私信列表（指纹浏览器）"""
     try:
         from modules.x_dm_monitor import XDMMonitor
@@ -424,7 +454,7 @@ async def get_dms():
 
 
 @app.post("/post", response_model=ActionResponse)
-async def post_tweet(req: PostRequest):
+async def post_tweet(req: PostRequest, _: None = Depends(require_api_key)):
     """发布推文到 X（Playwright 浏览器自动化）"""
     try:
         from modules.openclaw_bridge import OpenClawBridge
@@ -447,7 +477,7 @@ async def post_tweet(req: PostRequest):
 
 
 @app.post("/comment", response_model=ActionResponse)
-async def comment_tweet(req: CommentRequest):
+async def comment_tweet(req: CommentRequest, _: None = Depends(require_api_key)):
     """评论指定推文"""
     try:
         from modules.openclaw_bridge import OpenClawBridge
@@ -474,7 +504,7 @@ async def comment_tweet(req: CommentRequest):
 
 
 @app.post("/like", response_model=ActionResponse)
-async def like_tweet(req: LikeRequest):
+async def like_tweet(req: LikeRequest, _: None = Depends(require_api_key)):
     """点赞指定推文"""
     try:
         from modules.openclaw_bridge import OpenClawBridge
@@ -497,7 +527,7 @@ async def like_tweet(req: LikeRequest):
 
 
 @app.post("/retweet", response_model=ActionResponse)
-async def retweet_tweet(req: RetweetRequest):
+async def retweet_tweet(req: RetweetRequest, _: None = Depends(require_api_key)):
     """转发指定推文"""
     try:
         from modules.openclaw_bridge import OpenClawBridge

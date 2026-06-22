@@ -17,7 +17,7 @@ X-Agent 使用 **Playwright 无头浏览器自动化** 来实现 X (Twitter) 自
 ### 1. 安装 Python 包
 
 ```bash
-cd x-agent/x-agent
+cd x-agent
 pip install -r requirements.txt
 ```
 

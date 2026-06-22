@@ -508,7 +508,7 @@ services:
 
     volumes:
       # 挂载 x-agent 源代码
-      - ${OPENCLAW_WORKSPACE_DIR}/agents/xagent/x-agent/x-agent:/app/x-agent
+      - ${OPENCLAW_WORKSPACE_DIR}/agents/xagent/x-agent:/app/x-agent
       # 挂载配置文件
       - ${OPENCLAW_CONFIG_DIR}/xagent.env:/app/x-agent/.env
 
@@ -585,7 +585,7 @@ services:
 # 原有配置...
 
 # ========== X-Agent 配置 ==========
-XAGENT_TELEGRAM_BOT_TOKEN=8776781867:AAHUmMt19EV8JNFOtJrZ27PQa9R-_6v0WoU
+XAGENT_TELEGRAM_BOT_TOKEN=replace_with_token_from_botfather
 XAGENT_TELEGRAM_CHAT_ID=8749189654
 
 # X-Agent API 密钥（可选）

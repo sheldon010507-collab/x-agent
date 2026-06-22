@@ -31,8 +31,6 @@ services:
       - OPENCLAW_API_ENDPOINT=http://openclaw:18789
       - PYTHONUNBUFFERED=1
       - TZ=UTC
-      - X_USERNAME=@DoomieBabe
-      - X_PASSWORD=qazwsx789!
     env_file:
       - ./x-agent/.env
     volumes:
@@ -55,10 +53,9 @@ services:
       - APP_ENTRYPOINT=api.py
       - TELEGRAM_BOT_TOKEN=unused
       - OPENCLAW_API_ENDPOINT=http://openclaw:18789
+      - XAGENT_API_KEY=${XAGENT_API_KEY:?Set XAGENT_API_KEY in your environment or ./x-agent/.env}
       - PYTHONUNBUFFERED=1
       - TZ=UTC
-      - X_USERNAME=DoomieBabe
-      - X_PASSWORD=qazwsx789!
     env_file:
       - ./x-agent/.env
     volumes:
@@ -85,10 +82,9 @@ services:
     environment:
       - APP_ENTRYPOINT=mcp_server.py sse
       - OPENCLAW_API_ENDPOINT=http://openclaw:18789
+      - XAGENT_API_KEY=${XAGENT_API_KEY:?Set XAGENT_API_KEY in your environment or ./x-agent/.env}
       - PYTHONUNBUFFERED=1
       - TZ=UTC
-      - X_USERNAME=DoomieBabe
-      - X_PASSWORD=qazwsx789!
     env_file:
       - ./x-agent/.env
     volumes:

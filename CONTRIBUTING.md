@@ -7,7 +7,7 @@ Thank you for your interest in contributing to X-Agent!
 ```bash
 # Clone and setup
 git clone https://github.com/sheldon010507-collab/x-agent.git
-cd x-agent/x-agent
+cd x-agent
 pip install -r requirements.txt
 
 # Run tests

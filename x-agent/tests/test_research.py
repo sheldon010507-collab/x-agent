@@ -187,8 +187,29 @@ class TestResearchAsync:
     @pytest.mark.asyncio
     async def test_has_required_keys(self, researcher):
         result = await researcher.research_async("general")
-        for key in ["niche", "risk_score", "summary", "created_at"]:
+        for key in ["niche", "risk_score", "summary", "marketing_analysis", "created_at"]:
             assert key in result
+
+    @pytest.mark.asyncio
+    async def test_includes_marketing_analysis_without_new_agent(self, researcher):
+        researcher.x_fetcher.fetch = AsyncMock(
+            return_value={
+                "posts": [
+                    {
+                        "title": "Small teams need cheaper AI monitoring",
+                        "text": "Need a simple way to track Reddit and YouTube.",
+                        "url": "https://x.com/example/status/1",
+                    }
+                ]
+            }
+        )
+
+        result = await researcher.research_async("ai_tools", sources="x")
+
+        analysis = result["marketing_analysis"]
+        assert "lead-magnets" in analysis["enabled_skills"]
+        assert analysis["growth_opportunities"]["lead_magnets"]
+        assert analysis["prospecting_signals"]
 
     @pytest.mark.asyncio
     async def test_batch_returns_all_niches(self, researcher):

@@ -12,6 +12,7 @@ scheduler.py - 定时任务模块
 
 import asyncio
 import logging
+import os
 from datetime import datetime
 from typing import Dict, List, Optional
 
@@ -87,18 +88,50 @@ class SchedulerManager:
             logger.error(f"[Scheduler] 采集失败: {e}")
 
     async def _job_daily_review(self):
-        """每日复盘任务"""
-        logger.info("[Scheduler] 开始每日复盘")
+        """每日复盘 — 21:00 搜集热点 + 推送 Top-5 摘要到 Telegram"""
+        logger.info("[Scheduler] 开始每日复盘Brief")
 
         try:
-            from modules.generator import generate_daily_review
+            from modules.research import Researcher
+            from modules.scorer import TrendScorer
+            from config import config
 
-            today = datetime.now(UK_TIMEZONE).strftime("%Y-%m-%d")
-            report = await generate_daily_review(
-                date=today, niche="adult", stats={}, missed_trends=[]
+            researcher = Researcher(config=config)
+            result = await researcher.research_async(
+                niche="general",
+                days=1,
+                sources="reddit,hackernews,x",
+                timeout_secs=25.0,
             )
+            all_posts = []
+            for src, data in result.items():
+                if isinstance(data, dict) and "posts" in data:
+                    all_posts.extend(data["posts"])
 
-            logger.info(f"[Scheduler] 复盘完成")
+            scorer = TrendScorer(db=self.db)
+            scored = [scorer.calculate_score(p) for p in all_posts]
+            all_posts_with_score = [
+                {**p, "score": s} for p, s in zip(all_posts, scored)
+            ] if scored else all_posts
+            all_posts_with_score.sort(key=lambda x: x.get("score", 0), reverse=True)
+            top5 = all_posts_with_score[:5]
+
+            lines = ["📊 Daily Brief — " + datetime.now(UK_TIMEZONE).strftime("%Y-%m-%d")]
+            for i, p in enumerate(top5, 1):
+                lines.append(f"{i}. {p.get('title','')[:80]} (score:{p.get('score',0):.0f})")
+
+            brief = "\n".join(lines)
+
+            if self.bot:
+                chat_id = getattr(self.bot, "default_chat_id", None) or os.environ.get("TELEGRAM_CHAT_ID")
+                if chat_id:
+                    await self.bot.send_message(chat_id=chat_id, text=brief)
+                else:
+                    logger.info(f"[Daily Brief] {brief[:200]}...")
+            else:
+                logger.info(f"[Daily Brief] {brief[:200]}...")
+
+            logger.info(f"[Scheduler] 复盘完成: {len(top5)} 条摘要")
 
         except Exception as e:
             logger.error(f"[Scheduler] 复盘失败: {e}")

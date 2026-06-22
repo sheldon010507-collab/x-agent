@@ -44,7 +44,7 @@
 
 ```bash
 git clone https://github.com/sheldon010507-collab/x-agent.git
-cd x-agent/x-agent
+cd x-agent
 ```
 
 ### 2️⃣ 创建环境配置文件

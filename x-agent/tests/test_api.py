@@ -88,11 +88,13 @@ def make_app_state(app):
 
 
 @pytest.fixture
-def client():
+def client(monkeypatch):
     """返回已初始化的 TestClient（绕过 lifespan）"""
     from contextlib import asynccontextmanager
 
     import api as api_module
+
+    monkeypatch.setenv("XAGENT_API_KEY", "test-api-key")
 
     # 用空 lifespan 替换真实的，避免触发 Config() 校验
     @asynccontextmanager
@@ -106,6 +108,7 @@ def client():
     make_app_state(api_module.app)
 
     with TestClient(api_module.app, raise_server_exceptions=True) as c:
+        c.headers.update({"X-Agent-API-Key": "test-api-key"})
         yield c
 
     # 恢复原始 lifespan
@@ -190,6 +193,10 @@ class TestCreate:
 
 
 class TestApprove:
+    def test_approve_requires_api_key(self, client):
+        resp = client.post("/approve/test-content-id-001", headers={"X-Agent-API-Key": ""})
+        assert resp.status_code == 401
+
     def test_approve_returns_confirmed(self, client):
         resp = client.post("/approve/test-content-id-001")
         assert resp.status_code == 200
