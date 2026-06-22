@@ -42,6 +42,7 @@ def require_api_key(x_agent_api_key: Optional[str] = Header(default=None)) -> No
     if x_agent_api_key != expected:
         raise HTTPException(status_code=401, detail="Invalid X-Agent API key")
 
+
 # ============ Pydantic 模型 ============
 
 
@@ -168,6 +169,7 @@ async def lifespan(app: FastAPI):
         app.state.db = None
         try:
             from modules.database import init_database
+
             app.state.db = init_database(config.supabase_url, config.supabase_key)
             logger.info("✅ Database initialized")
         except Exception as db_err:
@@ -574,8 +576,13 @@ async def analyze_trends(req: AnalyzeRequest):
     try:
         report = await generator.llm_router.chat(
             messages=[
-                {"role": "system", "content": "你是专业的社交媒体运营分析师，擅长多平台趋势分析。请输出结构清晰的 Markdown 报告。"},
-                {"role": "user", "content": f"""请根据以下多平台搜索数据，为关键词「{req.keyword}」生成一份趋势分析报告（Markdown 格式）。
+                {
+                    "role": "system",
+                    "content": "你是专业的社交媒体运营分析师，擅长多平台趋势分析。请输出结构清晰的 Markdown 报告。",
+                },
+                {
+                    "role": "user",
+                    "content": f"""请根据以下多平台搜索数据，为关键词「{req.keyword}」生成一份趋势分析报告（Markdown 格式）。
 
 搜索数据：
 {summary_text}
@@ -585,7 +592,8 @@ async def analyze_trends(req: AnalyzeRequest):
 2. 热度排行（Top 5 话题）
 3. 平台汇聚性（哪些平台同时关注）
 4. 风险预警（如有敏感内容）
-5. 运营建议（发帖时机、话题切入角度）"""},
+5. 运营建议（发帖时机、话题切入角度）""",
+                },
             ],
         )
         return AnalyzeResponse(report=report)

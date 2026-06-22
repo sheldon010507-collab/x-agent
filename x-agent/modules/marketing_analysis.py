@@ -9,7 +9,6 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, Iterable, List
 
-
 MARKETING_SKILLS = [
     "product-marketing",
     "customer-research",
@@ -93,7 +92,9 @@ class MarketingAnalyzer:
         return citations
 
     def _platforms(self, research_result: Dict[str, Any]) -> List[str]:
-        platforms = research_result.get("platforms") or research_result.get("platform_sources") or []
+        platforms = (
+            research_result.get("platforms") or research_result.get("platform_sources") or []
+        )
         if not isinstance(platforms, list):
             return []
         return [str(platform) for platform in platforms if platform]

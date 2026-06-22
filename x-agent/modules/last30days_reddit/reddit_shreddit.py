@@ -39,10 +39,7 @@ def extract_post_ref(url: str) -> Optional[tuple]:
 
 
 def _svc_url(subreddit: str, post_id: str) -> str:
-    return (
-        f"https://www.reddit.com/svc/shreddit/comments/r/{subreddit}/t3_{post_id}"
-        f"?sort=top"
-    )
+    return f"https://www.reddit.com/svc/shreddit/comments/r/{subreddit}/t3_{post_id}" f"?sort=top"
 
 
 def _attr(tag: str, name: str) -> str:
@@ -66,7 +63,7 @@ def _body_for(html_text: str, thing_id: str) -> str:
     idx = html_text.find(anchor)
     if idx == -1:
         return ""
-    window = html_text[idx + len(anchor): idx + len(anchor) + 8000]
+    window = html_text[idx + len(anchor) : idx + len(anchor) + 8000]
     nxt = _NEXT_RTJSON.search(window)
     if nxt:
         window = window[: nxt.start()]
@@ -93,15 +90,17 @@ def parse_comments(html_text: str, limit: int = MAX_COMMENTS) -> List[Dict[str, 
         except ValueError:
             score = 0
         permalink = _attr(tag, "permalink")
-        comments.append({
-            "score": score,
-            "author": author,
-            "body": body[:300],
-            "excerpt": body[:200],
-            "permalink": permalink,
-            "date": _iso_to_date(_attr(tag, "created")),
-            "url": f"https://reddit.com{permalink}" if permalink else "",
-        })
+        comments.append(
+            {
+                "score": score,
+                "author": author,
+                "body": body[:300],
+                "excerpt": body[:200],
+                "permalink": permalink,
+                "date": _iso_to_date(_attr(tag, "created")),
+                "url": f"https://reddit.com{permalink}" if permalink else "",
+            }
+        )
 
     comments.sort(key=lambda c: c.get("score", 0), reverse=True)
     return comments[:limit]
@@ -142,8 +141,13 @@ class RedditShredditEnricher:
         insights = extract_comment_insights(comments)
         return {
             "top_comments": [
-                {"score": c["score"], "date": c["date"], "author": c["author"],
-                 "excerpt": c["excerpt"], "url": c["url"]}
+                {
+                    "score": c["score"],
+                    "date": c["date"],
+                    "author": c["author"],
+                    "excerpt": c["excerpt"],
+                    "url": c["url"],
+                }
                 for c in comments
             ],
             "comment_insights": insights,

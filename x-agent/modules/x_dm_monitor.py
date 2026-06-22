@@ -24,7 +24,9 @@ from typing import Callable, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 try:
-    from playwright.async_api import async_playwright, TimeoutError as PWTimeoutError
+    from playwright.async_api import TimeoutError as PWTimeoutError
+    from playwright.async_api import async_playwright
+
     HAS_PLAYWRIGHT = True
 except ImportError:
     HAS_PLAYWRIGHT = False
@@ -120,7 +122,9 @@ class XDMMonitor:
             data = json.loads(self.session_file.read_text())
             saved_at = data.get("saved_at", "")
             if saved_at:
-                age_hours = (datetime.now() - datetime.fromisoformat(saved_at)).total_seconds() / 3600
+                age_hours = (
+                    datetime.now() - datetime.fromisoformat(saved_at)
+                ).total_seconds() / 3600
                 if age_hours > 20:
                     logger.info("Session Cookies 已超过 20 小时，需要重新登录")
                     return None
@@ -130,10 +134,14 @@ class XDMMonitor:
 
     def _save_cookies(self, cookies: list):
         """保存 Session Cookies 到本地文件"""
-        self.session_file.write_text(json.dumps({
-            "saved_at": datetime.now().isoformat(),
-            "cookies": cookies,
-        }))
+        self.session_file.write_text(
+            json.dumps(
+                {
+                    "saved_at": datetime.now().isoformat(),
+                    "cookies": cookies,
+                }
+            )
+        )
         logger.debug("Session Cookies 已保存")
 
     # ─── 浏览器上下文 ──────────────────────────────────────────────────────────
@@ -258,9 +266,7 @@ class XDMMonitor:
 
                 # 判断是否需要重新登录
                 needs_login = (
-                    "/i/flow/login" in page.url
-                    or "/login" in page.url
-                    or not saved_cookies
+                    "/i/flow/login" in page.url or "/login" in page.url or not saved_cookies
                 )
                 if needs_login:
                     logger.info("需要登录...")

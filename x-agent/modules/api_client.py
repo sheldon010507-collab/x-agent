@@ -4,10 +4,11 @@ api_client.py - X-Agent API HTTP 客户端
 通过 HTTP 调用本地 X-Agent API 服务，提供给 Telegram Bot 使用
 """
 
-import httpx
 import logging
-from typing import Optional, Dict, List, Any
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +35,7 @@ class XAgentAPIClient:
             logger.error(f"Health check failed: {e}")
             return False
 
-    async def get_trends(
-        self, niche: str = "general", days: int = 7
-    ) -> Dict[str, Any]:
+    async def get_trends(self, niche: str = "general", days: int = 7) -> Dict[str, Any]:
         """
         获取热点趋势
 
@@ -58,9 +57,7 @@ class XAgentAPIClient:
             logger.error(f"Failed to get trends: {e}")
             return {"error": str(e), "trends": []}
 
-    async def create_content(
-        self, niche: str, content_type: str, topic: str
-    ) -> Dict[str, Any]:
+    async def create_content(self, niche: str, content_type: str, topic: str) -> Dict[str, Any]:
         """
         创建内容草稿
 
@@ -94,9 +91,7 @@ class XAgentAPIClient:
             批准结果
         """
         try:
-            response = await self.client.post(
-                f"{self.api_url}/approve/{content_id}"
-            )
+            response = await self.client.post(f"{self.api_url}/approve/{content_id}")
             response.raise_for_status()
             return response.json()
         except Exception as e:
@@ -117,9 +112,7 @@ class XAgentAPIClient:
             if not date:
                 date = datetime.now().strftime("%Y-%m-%d")
 
-            response = await self.client.get(
-                f"{self.api_url}/report", params={"date": date}
-            )
+            response = await self.client.get(f"{self.api_url}/report", params={"date": date})
             response.raise_for_status()
             return response.json()
         except Exception as e:

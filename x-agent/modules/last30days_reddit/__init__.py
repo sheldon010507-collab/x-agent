@@ -12,11 +12,11 @@ Tier 2  shreddit ``/svc/shreddit/`` partials — 拿真实 upvote / 评论数
 DM / 登录态页面。
 """
 
-from .reddit_keyless import RedditKeylessFetcher
-from .reddit_rss import RedditRSSFetcher
-from .reddit_listing import RedditListingFetcher
-from .reddit_shreddit import RedditShredditEnricher
 from .pipeline import RedditPipeline
+from .reddit_keyless import RedditKeylessFetcher
+from .reddit_listing import RedditListingFetcher
+from .reddit_rss import RedditRSSFetcher
+from .reddit_shreddit import RedditShredditEnricher
 
 __all__ = [
     "RedditKeylessFetcher",

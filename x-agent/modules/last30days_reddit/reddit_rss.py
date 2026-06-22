@@ -11,12 +11,13 @@ from __future__ import annotations
 
 import logging
 import re
-import xml.etree.ElementTree as ET
 from asyncio import get_event_loop
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from urllib.parse import quote_plus
+
+from defusedxml import ElementTree as ET
 
 from .config import DEPTH_LIMITS, FEED_TIMEOUT, LISTING_SORTS
 from .http import get_text_async, url_encode
@@ -98,31 +99,31 @@ def _parse_feed(xml_text: str, query: str = "") -> List[Dict[str, Any]]:
 
         relevance = round(token_overlap_relevance(query, title), 3) if query else 0.0
 
-        posts.append({
-            "id": "",
-            "title": title,
-            "url": url,
-            "score": 0,
-            "num_comments": 0,
-            "subreddit": subreddit,
-            "created_utc": _iso_to_epoch(updated),
-            "author": author,
-            "selftext": selftext,
-            "date": _iso_to_date(updated),
-            "engagement": {"score": 0, "num_comments": 0, "upvote_ratio": None},
-            "relevance": relevance,
-            "why_relevant": "Reddit RSS",
-            "metadata": {},
-        })
+        posts.append(
+            {
+                "id": "",
+                "title": title,
+                "url": url,
+                "score": 0,
+                "num_comments": 0,
+                "subreddit": subreddit,
+                "created_utc": _iso_to_epoch(updated),
+                "author": author,
+                "selftext": selftext,
+                "date": _iso_to_date(updated),
+                "engagement": {"score": 0, "num_comments": 0, "upvote_ratio": None},
+                "relevance": relevance,
+                "why_relevant": "Reddit RSS",
+                "metadata": {},
+            }
+        )
     return posts
 
 
 def _build_urls(query: str, depth: str, subreddits: Optional[List[str]]) -> List[str]:
     q = quote_plus(query)
-    urls: List[str] = [
-        f"https://www.reddit.com/search.rss?q={q}&sort=relevance&t=month"
-    ]
-    for raw_sub in (subreddits or []):
+    urls: List[str] = [f"https://www.reddit.com/search.rss?q={q}&sort=relevance&t=month"]
+    for raw_sub in subreddits or []:
         sub = raw_sub.removeprefix("r/").strip()
         if not sub:
             continue
@@ -150,7 +151,10 @@ class RedditRSSFetcher:
         all_posts: List[Dict[str, Any]] = []
         # 并发拉取（无 aiohttp 时退回空列表，但 get_text_async 返回 None）
         import asyncio
-        tasks = [get_text_async(url, timeout=FEED_TIMEOUT, accept="application/atom+xml") for url in urls]
+
+        tasks = [
+            get_text_async(url, timeout=FEED_TIMEOUT, accept="application/atom+xml") for url in urls
+        ]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         for xml_text in results:

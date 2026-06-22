@@ -28,7 +28,9 @@ async def test_create_saves_draft_before_confirmation():
 
     await bot.cmd_create(update, context)
 
-    db.create_content.assert_called_once_with("telegram-generated", "A", "draft text", status="draft")
+    db.create_content.assert_called_once_with(
+        "telegram-generated", "A", "draft text", status="draft"
+    )
     assert bot.user_states[123]["content_id"] == "content-1"
     assert any("draft text" in reply[0] for reply in message.replies)
 

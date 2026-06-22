@@ -63,6 +63,7 @@ def _get_config():
     global _config
     if _config is None:
         from config import Config
+
         _config = Config()
     return _config
 
@@ -71,6 +72,7 @@ def _get_llm_router():
     global _llm_router
     if _llm_router is None:
         from modules.llm_router import LLMRouter
+
         _llm_router = LLMRouter(_get_config())
     return _llm_router
 
@@ -79,6 +81,7 @@ def _get_researcher():
     global _researcher
     if _researcher is None:
         from modules.research import Researcher
+
         _researcher = Researcher(_get_config())
     return _researcher
 
@@ -87,6 +90,7 @@ def _get_generator(niche: str = "general"):
     global _generator
     if _generator is None or _generator.niche != niche:
         from modules.generator import ContentGenerator
+
         _generator = ContentGenerator(_get_llm_router(), niche)
     return _generator
 
@@ -95,6 +99,7 @@ def _get_scorer():
     global _scorer
     if _scorer is None:
         from modules.scorer import TrendScorer
+
         _scorer = TrendScorer()
     return _scorer
 
@@ -103,6 +108,7 @@ def _get_deduplicator():
     global _deduplicator
     if _deduplicator is None:
         from modules.deduplicator import ContentDeduplicator
+
         _deduplicator = ContentDeduplicator()
     return _deduplicator
 
@@ -274,6 +280,7 @@ async def post_tweet(content: str, variant: bool = True) -> str:
     """
     try:
         from modules.openclaw_bridge import OpenClawBridge
+
         bridge = OpenClawBridge()
         bridge.auto_post_enabled = True
         await bridge.initialize()
@@ -295,6 +302,7 @@ async def comment_tweet(url: str, content: str) -> str:
     """
     try:
         from modules.openclaw_bridge import OpenClawBridge
+
         bridge = OpenClawBridge()
         bridge.auto_comment_enabled = True
         await bridge.initialize()
@@ -317,6 +325,7 @@ async def like_tweet(url: str) -> str:
     """
     try:
         from modules.openclaw_bridge import OpenClawBridge
+
         bridge = OpenClawBridge()
         bridge.auto_like_enabled = True
         await bridge.initialize()
@@ -338,6 +347,7 @@ async def retweet_tweet(url: str, comment: str = "") -> str:
     """
     try:
         from modules.openclaw_bridge import OpenClawBridge
+
         bridge = OpenClawBridge()
         bridge.auto_rt_enabled = True
         await bridge.initialize()
@@ -363,6 +373,7 @@ async def get_dms(max_count: int = 20) -> str:
 
     try:
         from modules.x_dm_monitor import XDMMonitor
+
         monitor = XDMMonitor(config)
         dms = await monitor.fetch_dms()
         return json.dumps(
@@ -446,6 +457,7 @@ async def get_daily_report(report_date: str = "") -> str:
 
     try:
         from modules.database import init_database
+
         db = init_database(config.supabase_url, config.supabase_key)
     except Exception as e:
         return json.dumps({"error": f"数据库连接失败: {e}"}, ensure_ascii=False)
@@ -461,41 +473,49 @@ async def get_daily_report(report_date: str = "") -> str:
         return json.dumps({"error": f"获取日报失败: {e}"}, ensure_ascii=False)
 
     if not log:
-        return json.dumps({
-            "date": target_date.isoformat(),
-            "posts_count": 0,
-            "comments_count": 0,
-            "likes_count": 0,
-            "rt_count": 0,
-            "top_engagement": 0,
-            "notes": "暂无数据",
-        })
+        return json.dumps(
+            {
+                "date": target_date.isoformat(),
+                "posts_count": 0,
+                "comments_count": 0,
+                "likes_count": 0,
+                "rt_count": 0,
+                "top_engagement": 0,
+                "notes": "暂无数据",
+            }
+        )
 
-    return json.dumps({
-        "date": target_date.isoformat(),
-        "posts_count": log.get("posts_count", 0),
-        "comments_count": log.get("comments_count", 0),
-        "likes_count": log.get("likes_count", 0),
-        "rt_count": log.get("rt_count", 0),
-        "top_engagement": log.get("top_engagement", 0),
-        "notes": log.get("notes"),
-    }, ensure_ascii=False)
+    return json.dumps(
+        {
+            "date": target_date.isoformat(),
+            "posts_count": log.get("posts_count", 0),
+            "comments_count": log.get("comments_count", 0),
+            "likes_count": log.get("likes_count", 0),
+            "rt_count": log.get("rt_count", 0),
+            "top_engagement": log.get("top_engagement", 0),
+            "notes": log.get("notes"),
+        },
+        ensure_ascii=False,
+    )
 
 
 @mcp.tool()
 async def get_status() -> str:
     """获取 X-Agent 系统状态 — LLM 供应商/Niche/可用供应商列表"""
     config = _get_config()
-    return json.dumps({
-        "service": "x-agent-mcp",
-        "version": "1.0.0",
-        "llm_provider": config.llm.provider,
-        "llm_model": config.llm.model,
-        "available_providers": config.llm.get_available_providers(),
-        "x_configured": bool(getattr(config, "x_username", None)),
-        "supabase_configured": bool(config.supabase_url),
-        "timestamp": datetime.now().isoformat(),
-    }, ensure_ascii=False)
+    return json.dumps(
+        {
+            "service": "x-agent-mcp",
+            "version": "1.0.0",
+            "llm_provider": config.llm.provider,
+            "llm_model": config.llm.model,
+            "available_providers": config.llm.get_available_providers(),
+            "x_configured": bool(getattr(config, "x_username", None)),
+            "supabase_configured": bool(config.supabase_url),
+            "timestamp": datetime.now().isoformat(),
+        },
+        ensure_ascii=False,
+    )
 
 
 # ─── 启动入口 ──────────────────────────────────────────────────────────

@@ -29,11 +29,13 @@ db = None
 
 class DatabaseError(Exception):
     """数据库操作异常"""
+
     pass
 
 
 def db_operation(method):
     """数据库操作装饰器 — 统一捕获异常并记录日志"""
+
     @functools.wraps(method)
     def wrapper(self, *args, **kwargs):
         try:
@@ -43,6 +45,7 @@ def db_operation(method):
         except Exception as e:
             logger.error(f"[DB] {method.__name__} failed: {e}", exc_info=True)
             raise DatabaseError(f"操作失败 ({method.__name__}): {e}") from e
+
     return wrapper
 
 
@@ -186,8 +189,16 @@ class Database:
     # ========== Trends 表操作 ==========
 
     @db_operation
-    def create_trend(self, niche: str, topic: str, source: str, score: float,
-                     summary: str = None, citations: Dict = None, url: str = None) -> Dict:
+    def create_trend(
+        self,
+        niche: str,
+        topic: str,
+        source: str,
+        score: float,
+        summary: str = None,
+        citations: Dict = None,
+        url: str = None,
+    ) -> Dict:
         trend_id = str(uuid.uuid4())
         citations_str = json.dumps(citations) if citations else None
         cursor = self.conn.cursor()
@@ -197,8 +208,17 @@ class Database:
             (trend_id, niche, topic, source, score, summary, citations_str, url),
         )
         self.conn.commit()
-        return {"id": trend_id, "niche": niche, "topic": topic, "source": source,
-                "score": score, "summary": summary, "citations": citations, "url": url, "status": "new"}
+        return {
+            "id": trend_id,
+            "niche": niche,
+            "topic": topic,
+            "source": source,
+            "score": score,
+            "summary": summary,
+            "citations": citations,
+            "url": url,
+            "status": "new",
+        }
 
     @db_operation
     def get_trends_by_score(self, min_score: float = 60, limit: int = 20) -> List[Dict]:
@@ -249,7 +269,9 @@ class Database:
         return [dict(row) for row in cursor.fetchall()]
 
     @db_operation
-    def get_medium_score_trends(self, min_score: float = 60, max_score: float = 79.99) -> List[Dict]:
+    def get_medium_score_trends(
+        self, min_score: float = 60, max_score: float = 79.99
+    ) -> List[Dict]:
         cursor = self.conn.cursor()
         cursor.execute(
             "SELECT * FROM trends WHERE score >= ? AND score <= ? AND status = 'new' ORDER BY score DESC",
@@ -268,7 +290,13 @@ class Database:
             (content_id, trend_id, type, content, status),
         )
         self.conn.commit()
-        return {"id": content_id, "trend_id": trend_id, "type": type, "content": content, "status": status}
+        return {
+            "id": content_id,
+            "trend_id": trend_id,
+            "type": type,
+            "content": content,
+            "status": status,
+        }
 
     @db_operation
     def get_content_by_id(self, content_id: str) -> Optional[Dict]:
@@ -315,33 +343,36 @@ class Database:
     def create_account(self, account_data: Dict) -> Dict:
         account_id = account_data.get("id") or str(uuid.uuid4())
         cursor = self.conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT OR REPLACE INTO accounts
             (id, platform, username, display_name, password_hash, cookies,
              status, status_detail, daily_posts, daily_likes, daily_comments,
              daily_limit_posts, karma_or_followers, account_age_days,
              reputation_score, last_post_time, last_activity, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            account_id,
-            account_data.get("platform", ""),
-            account_data.get("username", ""),
-            account_data.get("display_name", ""),
-            account_data.get("password_hash", ""),
-            account_data.get("cookies", ""),
-            account_data.get("status", "active"),
-            account_data.get("status_detail", ""),
-            account_data.get("daily_posts", 0),
-            account_data.get("daily_likes", 0),
-            account_data.get("daily_comments", 0),
-            account_data.get("daily_limit_posts", 10),
-            account_data.get("karma_or_followers", 0),
-            account_data.get("account_age_days", 0),
-            account_data.get("reputation_score", 100.0),
-            account_data.get("last_post_time"),
-            account_data.get("last_activity", datetime.now().isoformat()),
-            account_data.get("created_at", datetime.now().isoformat()),
-        ))
+        """,
+            (
+                account_id,
+                account_data.get("platform", ""),
+                account_data.get("username", ""),
+                account_data.get("display_name", ""),
+                account_data.get("password_hash", ""),
+                account_data.get("cookies", ""),
+                account_data.get("status", "active"),
+                account_data.get("status_detail", ""),
+                account_data.get("daily_posts", 0),
+                account_data.get("daily_likes", 0),
+                account_data.get("daily_comments", 0),
+                account_data.get("daily_limit_posts", 10),
+                account_data.get("karma_or_followers", 0),
+                account_data.get("account_age_days", 0),
+                account_data.get("reputation_score", 100.0),
+                account_data.get("last_post_time"),
+                account_data.get("last_activity", datetime.now().isoformat()),
+                account_data.get("created_at", datetime.now().isoformat()),
+            ),
+        )
         self.conn.commit()
         return {"id": account_id, **{k: v for k, v in account_data.items() if k != "id"}}
 
@@ -366,16 +397,25 @@ class Database:
         account = self.get_account(account_id)
         if not account:
             return None
-        allowed = {"status", "status_detail", "daily_posts", "daily_likes",
-                   "daily_comments", "karma_or_followers", "reputation_score",
-                   "last_post_time", "last_activity", "daily_limit_posts"}
+        allowed = {
+            "status",
+            "status_detail",
+            "daily_posts",
+            "daily_likes",
+            "daily_comments",
+            "karma_or_followers",
+            "reputation_score",
+            "last_post_time",
+            "last_activity",
+            "daily_limit_posts",
+        }
         updates = {k: v for k, v in kwargs.items() if k in allowed}
         if not updates:
             return account
         set_clause = ", ".join(f"{k} = ?" for k in updates)
         values = list(updates.values()) + [account_id]
         cursor = self.conn.cursor()
-        cursor.execute(f"UPDATE accounts SET {set_clause} WHERE id = ?", values)
+        cursor.execute(f"UPDATE accounts SET {set_clause} WHERE id = ?", values)  # nosec B608
         self.conn.commit()
         return self.get_account(account_id)
 
@@ -403,7 +443,7 @@ class Database:
             return False
         cursor = self.conn.cursor()
         cursor.execute(
-            f"UPDATE accounts SET {col} = {col} + 1, last_activity = ? WHERE id = ?",
+            f"UPDATE accounts SET {col} = {col} + 1, last_activity = ? WHERE id = ?",  # nosec B608
             (datetime.now().isoformat(), account_id),
         )
         self.conn.commit()
@@ -415,40 +455,51 @@ class Database:
     def record_run(self, run_data: Dict) -> Dict:
         run_id = str(uuid.uuid4())
         cursor = self.conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO runs (id, account_id, platform, action, query, status,
                               items_found, items_new, items_duplicate,
                               token_count, cost, duration_seconds, error_message)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            run_id,
-            run_data.get("account_id"),
-            run_data.get("platform", ""),
-            run_data.get("action", ""),
-            run_data.get("query", ""),
-            run_data.get("status", "running"),
-            run_data.get("items_found", 0),
-            run_data.get("items_new", 0),
-            run_data.get("items_duplicate", 0),
-            run_data.get("token_count", 0),
-            run_data.get("cost", 0.0),
-            run_data.get("duration_seconds", 0),
-            run_data.get("error_message", ""),
-        ))
+        """,
+            (
+                run_id,
+                run_data.get("account_id"),
+                run_data.get("platform", ""),
+                run_data.get("action", ""),
+                run_data.get("query", ""),
+                run_data.get("status", "running"),
+                run_data.get("items_found", 0),
+                run_data.get("items_new", 0),
+                run_data.get("items_duplicate", 0),
+                run_data.get("token_count", 0),
+                run_data.get("cost", 0.0),
+                run_data.get("duration_seconds", 0),
+                run_data.get("error_message", ""),
+            ),
+        )
         self.conn.commit()
         return {"id": run_id, **run_data}
 
     @db_operation
     def update_run(self, run_id: str, **kwargs) -> Optional[Dict]:
-        allowed = {"status", "items_found", "items_new", "items_duplicate",
-                   "token_count", "cost", "duration_seconds", "error_message"}
+        allowed = {
+            "status",
+            "items_found",
+            "items_new",
+            "items_duplicate",
+            "token_count",
+            "cost",
+            "duration_seconds",
+            "error_message",
+        }
         updates = {k: v for k, v in kwargs.items() if k in allowed}
         if not updates:
             return self.get_run(run_id)
         set_clause = ", ".join(f"{k} = ?" for k in updates)
         values = list(updates.values()) + [run_id]
         cursor = self.conn.cursor()
-        cursor.execute(f"UPDATE runs SET {set_clause} WHERE id = ?", values)
+        cursor.execute(f"UPDATE runs SET {set_clause} WHERE id = ?", values)  # nosec B608
         self.conn.commit()
         return self.get_run(run_id)
 
@@ -491,23 +542,31 @@ class Database:
                 dup_count += 1
                 continue
             finding_id = str(uuid.uuid4())
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO findings (id, run_id, platform, url, title, content,
                                       author, subreddit_or_handle, upvotes, comment_count,
                                       engagement_score, top_comments, first_seen, last_seen, sighting_count)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                finding_id, run_id,
-                f.get("platform", ""), url,
-                f.get("title", ""), f.get("content", ""),
-                f.get("author", ""), f.get("subreddit_or_handle", ""),
-                f.get("upvotes", 0), f.get("comment_count", 0),
-                f.get("engagement_score", 0.0),
-                json.dumps(f.get("top_comments", [])),
-                datetime.now().isoformat(),
-                datetime.now().isoformat(),
-                1,
-            ))
+            """,
+                (
+                    finding_id,
+                    run_id,
+                    f.get("platform", ""),
+                    url,
+                    f.get("title", ""),
+                    f.get("content", ""),
+                    f.get("author", ""),
+                    f.get("subreddit_or_handle", ""),
+                    f.get("upvotes", 0),
+                    f.get("comment_count", 0),
+                    f.get("engagement_score", 0.0),
+                    json.dumps(f.get("top_comments", [])),
+                    datetime.now().isoformat(),
+                    datetime.now().isoformat(),
+                    1,
+                ),
+            )
             new_count += 1
         self.conn.commit()
         return {"new": new_count, "duplicate": dup_count}
@@ -556,10 +615,13 @@ class Database:
         stats["runs_last_24h"] = cursor.fetchone()["c"]
         cursor.execute("SELECT COUNT(*) as c FROM findings")
         stats["total_findings"] = cursor.fetchone()["c"]
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT COUNT(*) as c, SUM(engagement_score) as total_engagement
             FROM findings WHERE last_seen >= ?
-        """, ((datetime.now() - timedelta(days=1)).isoformat(),))
+        """,
+            ((datetime.now() - timedelta(days=1)).isoformat(),),
+        )
         row = cursor.fetchone()
         stats["findings_last_24h"] = row["c"] or 0
         stats["engagement_last_24h"] = round(row["total_engagement"] or 0, 1)
@@ -583,13 +645,19 @@ class Database:
         )
         row = cursor.fetchone()
         if row:
-            return {"posts_count": row[0], "comments_count": 0,
-                    "likes_count": 0, "rt_count": 0, "top_engagement": 0}
+            return {
+                "posts_count": row[0],
+                "comments_count": 0,
+                "likes_count": 0,
+                "rt_count": 0,
+                "top_engagement": 0,
+            }
         return None
 
     @db_operation
-    def save_report(self, content: str, report_type: str = "multi_platform",
-                    timestamp: datetime = None) -> Dict:
+    def save_report(
+        self, content: str, report_type: str = "multi_platform", timestamp: datetime = None
+    ) -> Dict:
         report_id = str(uuid.uuid4())
         created_at = (timestamp or datetime.now()).isoformat()
         cursor = self.conn.cursor()

@@ -53,12 +53,14 @@ except ImportError:
 
 try:
     from .last30days_reddit import RedditKeylessFetcher, RedditPipeline
+
     _HAS_KEYLESS_REDDIT = True
 except ImportError:
     _HAS_KEYLESS_REDDIT = False
 
 try:
     from .reddit_playwright import RedditPlaywrightCrawler
+
     _HAS_REDDIT_PLAYWRIGHT = True
 except ImportError:
     _HAS_REDDIT_PLAYWRIGHT = False
@@ -191,6 +193,7 @@ class RedditFetcher(PlatformFetcher):
             "mock": True,
         }
 
+
 class RedditKeylessFetcher:
     """keyless Reddit 抓取器 — 三层降级: .json → RSS → Playwright"""
 
@@ -226,6 +229,7 @@ class RedditKeylessFetcher:
                 if _HAS_REDDIT_PLAYWRIGHT:
                     pw = RedditPlaywrightCrawler(headless=True)
                 from .last30days_reddit.pipeline import RedditPipeline as _RP
+
                 self._pipeline = _RP(playwright_crawler=pw)
             except Exception as e:
                 logger.debug(f"Keyless pipeline init failed: {e}")
@@ -248,7 +252,10 @@ class RedditKeylessFetcher:
         if self._pipeline:
             try:
                 result = await self._pipeline.search(
-                    topic=niche, depth=depth, subreddits=subs, days=days,
+                    topic=niche,
+                    depth=depth,
+                    subreddits=subs,
+                    days=days,
                 )
                 if result and result.get("posts"):
                     return result
@@ -258,25 +265,35 @@ class RedditKeylessFetcher:
             try:
                 async with self._playwright_crawler as crawler:
                     posts_raw = await crawler.search(
-                        query=niche, subreddits=subs[:2], limit=20,
+                        query=niche,
+                        subreddits=subs[:2],
+                        limit=20,
                     )
                     posts = []
                     for p in posts_raw:
-                        posts.append({
-                            "title": p.title,
-                            "score": p.upvotes,
-                            "url": p.url,
-                            "created_utc": p.created_utc.isoformat() if hasattr(p.created_utc, "isoformat") else str(p.created_utc),
-                            "num_comments": p.comment_count,
-                            "subreddit": p.subreddit,
-                            "likes": p.upvotes,
-                            "comments": p.comment_count,
-                            "top_comments": p.top_comments,
-                            "selftext": p.content[:500] if p.content else "",
-                        })
+                        posts.append(
+                            {
+                                "title": p.title,
+                                "score": p.upvotes,
+                                "url": p.url,
+                                "created_utc": (
+                                    p.created_utc.isoformat()
+                                    if hasattr(p.created_utc, "isoformat")
+                                    else str(p.created_utc)
+                                ),
+                                "num_comments": p.comment_count,
+                                "subreddit": p.subreddit,
+                                "likes": p.upvotes,
+                                "comments": p.comment_count,
+                                "top_comments": p.top_comments,
+                                "selftext": p.content[:500] if p.content else "",
+                            }
+                        )
                     return {
-                        "platform": "reddit", "niche": niche,
-                        "posts": posts, "fetched_at": datetime.now().isoformat(),
+                        "platform": "reddit",
+                        "niche": niche,
+                        "posts": posts,
+                        "fetched_at": datetime.now().isoformat(),
                         "source": "playwright",
                     }
             except Exception as e:
@@ -286,33 +303,39 @@ class RedditKeylessFetcher:
     def _mock_data(self, niche: str) -> Dict:
         mock_posts = []
         for i in range(5):
-            mock_posts.append({
-                "title": f"[Reddit] {niche} 热门讨论 #{i + 1}",
-                "score": random.randint(100, 5000),
-                "url": f"https://reddit.com/r/{niche}/mock_{i}",
-                "created_utc": datetime.now().isoformat(),
-                "num_comments": random.randint(10, 500),
-                "subreddit": niche,
-                "likes": random.randint(100, 5000),
-                "comments": random.randint(10, 500),
-            })
+            mock_posts.append(
+                {
+                    "title": f"[Reddit] {niche} 热门讨论 #{i + 1}",
+                    "score": random.randint(100, 5000),
+                    "url": f"https://reddit.com/r/{niche}/mock_{i}",
+                    "created_utc": datetime.now().isoformat(),
+                    "num_comments": random.randint(10, 500),
+                    "subreddit": niche,
+                    "likes": random.randint(100, 5000),
+                    "comments": random.randint(10, 500),
+                }
+            )
         return {
-            "platform": "reddit", "niche": niche,
+            "platform": "reddit",
+            "niche": niche,
             "posts": mock_posts,
-            "fetched_at": datetime.now().isoformat(), "mock": True,
+            "fetched_at": datetime.now().isoformat(),
+            "mock": True,
         }
 
     async def get_trending(self, subreddit: str, limit: int = 25) -> List[Dict]:
         if self._pipeline:
             try:
                 result = await self._pipeline.search(
-                    topic="", depth="default", subreddits=[subreddit], days=7,
+                    topic="",
+                    depth="default",
+                    subreddits=[subreddit],
+                    days=7,
                 )
                 return result.get("posts", [])[:limit]
             except Exception:
                 pass
         return []
-
 
 
 class HackerNewsFetcher(PlatformFetcher):
@@ -519,7 +542,8 @@ class XTrendsFetcher(PlatformFetcher):
         """用 Google News RSS 为每个 X 热门标签获取真实新闻标题"""
         if not posts or not HAS_AIOHTTP:
             return posts
-        from xml.etree import ElementTree as ET
+        from defusedxml import ElementTree as ET
+
         enriched = []
         try:
             async with aiohttp.ClientSession(headers=self.HEADERS) as session:
@@ -560,7 +584,9 @@ class XTrendsFetcher(PlatformFetcher):
         """爬取 trends24.in"""
         try:
             async with aiohttp.ClientSession(headers=self.HEADERS) as session:
-                async with session.get("https://trends24.in/", timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                async with session.get(
+                    "https://trends24.in/", timeout=aiohttp.ClientTimeout(total=10)
+                ) as resp:
                     if resp.status != 200:
                         return None
                     html = await resp.text()
@@ -574,36 +600,40 @@ class XTrendsFetcher(PlatformFetcher):
                 name = tag.get_text(strip=True)
                 if name and len(name) > 1:
                     engagement_val = max(1000 - i * 20, 50)
-                    posts.append({
-                        "title": name,
-                        "engagement": engagement_val,
-                        "url": f"https://x.com/search?q={name.replace('#', '%23')}",
-                        "author": "X Trending",
-                        "created_at": datetime.now().isoformat(),
-                        "tags": [name.lstrip("#"), "trending"],
-                        "platform": "x",
-                        "likes": int(engagement_val * 0.6),
-                        "comments": int(engagement_val * 0.4),
-                    })
-
-            # 选择器 2：通用列表
-            if len(posts) < 10:
-                all_links = soup.select("a[href*='/search'], a[href*='/trend']")
-                for i, tag in enumerate(all_links[len(posts):]):
-                    name = tag.get_text(strip=True)
-                    if name and 2 < len(name) < 100:
-                        engagement_val = max(500 - i * 10, 20)
-                        posts.append({
+                    posts.append(
+                        {
                             "title": name,
                             "engagement": engagement_val,
                             "url": f"https://x.com/search?q={name.replace('#', '%23')}",
                             "author": "X Trending",
                             "created_at": datetime.now().isoformat(),
-                            "tags": [name.lstrip("#")],
+                            "tags": [name.lstrip("#"), "trending"],
                             "platform": "x",
                             "likes": int(engagement_val * 0.6),
                             "comments": int(engagement_val * 0.4),
-                        })
+                        }
+                    )
+
+            # 选择器 2：通用列表
+            if len(posts) < 10:
+                all_links = soup.select("a[href*='/search'], a[href*='/trend']")
+                for i, tag in enumerate(all_links[len(posts) :]):
+                    name = tag.get_text(strip=True)
+                    if name and 2 < len(name) < 100:
+                        engagement_val = max(500 - i * 10, 20)
+                        posts.append(
+                            {
+                                "title": name,
+                                "engagement": engagement_val,
+                                "url": f"https://x.com/search?q={name.replace('#', '%23')}",
+                                "author": "X Trending",
+                                "created_at": datetime.now().isoformat(),
+                                "tags": [name.lstrip("#")],
+                                "platform": "x",
+                                "likes": int(engagement_val * 0.6),
+                                "comments": int(engagement_val * 0.4),
+                            }
+                        )
                         if len(posts) >= 10:
                             break
 
@@ -616,7 +646,9 @@ class XTrendsFetcher(PlatformFetcher):
         """爬取 getdaytrends.com"""
         try:
             async with aiohttp.ClientSession(headers=self.HEADERS) as session:
-                async with session.get("https://getdaytrends.com/", timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                async with session.get(
+                    "https://getdaytrends.com/", timeout=aiohttp.ClientTimeout(total=10)
+                ) as resp:
                     if resp.status != 200:
                         return None
                     html = await resp.text()
@@ -630,17 +662,19 @@ class XTrendsFetcher(PlatformFetcher):
                 name = item.get_text(strip=True)
                 if name and 2 < len(name) < 100 and not name.startswith(("2026", "20", "http")):
                     engagement_val = max(800 - i * 15, 30)
-                    posts.append({
-                        "title": name,
-                        "engagement": engagement_val,
-                        "url": f"https://x.com/search?q={name.replace('#', '%23')}",
-                        "author": "X Trending",
-                        "created_at": datetime.now().isoformat(),
-                        "tags": [name.lstrip("#")],
-                        "platform": "x",
-                        "likes": int(engagement_val * 0.6),
-                        "comments": int(engagement_val * 0.4),
-                    })
+                    posts.append(
+                        {
+                            "title": name,
+                            "engagement": engagement_val,
+                            "url": f"https://x.com/search?q={name.replace('#', '%23')}",
+                            "author": "X Trending",
+                            "created_at": datetime.now().isoformat(),
+                            "tags": [name.lstrip("#")],
+                            "platform": "x",
+                            "likes": int(engagement_val * 0.6),
+                            "comments": int(engagement_val * 0.4),
+                        }
+                    )
                     if len(posts) >= 10:
                         break
 
@@ -652,30 +686,50 @@ class XTrendsFetcher(PlatformFetcher):
     def _generate_fallback_data(self, niche: str, count: int = 10) -> list:
         """生成高质量的备用数据（真实的热词）"""
         real_trends = [
-            "AI 开源项目", "Claude 发布", "OpenAI 更新",
-            "GPT-5 传闻", "Gemini 能力", "Llama 模型",
-            "React 新版本", "TypeScript 更新", "Web 开发趋势",
-            "机器学习框架", "数据科学工具", "云计算新闻",
-            "产品发布", "创业融资", "技术大会",
-            "开源社区", "GitHub 热项", "开发者工具",
-            "安全漏洞", "隐私保护", "Web3 动态",
-            "区块链", "NFT 市场", "加密货币行情",
-            "科技新闻", "硅谷动向", "初创公司",
+            "AI 开源项目",
+            "Claude 发布",
+            "OpenAI 更新",
+            "GPT-5 传闻",
+            "Gemini 能力",
+            "Llama 模型",
+            "React 新版本",
+            "TypeScript 更新",
+            "Web 开发趋势",
+            "机器学习框架",
+            "数据科学工具",
+            "云计算新闻",
+            "产品发布",
+            "创业融资",
+            "技术大会",
+            "开源社区",
+            "GitHub 热项",
+            "开发者工具",
+            "安全漏洞",
+            "隐私保护",
+            "Web3 动态",
+            "区块链",
+            "NFT 市场",
+            "加密货币行情",
+            "科技新闻",
+            "硅谷动向",
+            "初创公司",
         ]
         posts = []
         for i, trend in enumerate(real_trends[:count]):
             engagement_val = max(800 - i * 50, 50)
-            posts.append({
-                "title": trend,
-                "engagement": engagement_val,
-                "url": f"https://x.com/search?q={trend.replace(' ', '%20')}",
-                "author": "X Trending",
-                "created_at": datetime.now().isoformat(),
-                "tags": [trend.split()[0], "trending"],
-                "platform": "x",
-                "likes": int(engagement_val * 0.6),
-                "comments": int(engagement_val * 0.4),
-            })
+            posts.append(
+                {
+                    "title": trend,
+                    "engagement": engagement_val,
+                    "url": f"https://x.com/search?q={trend.replace(' ', '%20')}",
+                    "author": "X Trending",
+                    "created_at": datetime.now().isoformat(),
+                    "tags": [trend.split()[0], "trending"],
+                    "platform": "x",
+                    "likes": int(engagement_val * 0.6),
+                    "comments": int(engagement_val * 0.4),
+                }
+            )
         return posts
 
     def _fallback(self, niche: str) -> Dict:
@@ -708,7 +762,11 @@ class TikTokFetcher(PlatformFetcher):
             return self._fallback(niche)
 
         # 优先级：tokboard → TikTok 标签页 → 模拟数据
-        posts = await self._scrape_tokboard() or await self._scrape_tiktok_tag(niche) or self._generate_fallback_data(niche)
+        posts = (
+            await self._scrape_tokboard()
+            or await self._scrape_tiktok_tag(niche)
+            or self._generate_fallback_data(niche)
+        )
 
         if len(posts) < 10:
             posts.extend(self._generate_fallback_data(niche, count=max(0, 10 - len(posts))))
@@ -741,7 +799,9 @@ class TikTokFetcher(PlatformFetcher):
                 cols = row.select("td")
                 if len(cols) >= 2:
                     tag_el = cols[0].select_one("a")
-                    tag_name = tag_el.get_text(strip=True) if tag_el else cols[0].get_text(strip=True)
+                    tag_name = (
+                        tag_el.get_text(strip=True) if tag_el else cols[0].get_text(strip=True)
+                    )
                     if not tag_name.startswith("#"):
                         tag_name = f"#{tag_name}"
 
@@ -756,18 +816,20 @@ class TikTokFetcher(PlatformFetcher):
                     display_title = f"{tag_name} ({count_text} videos)" if count_text else tag_name
 
                     engagement_val = max(5000 - i * 200, 100)
-                    posts.append({
-                        "title": display_title,
-                        "tag": tag_name,
-                        "engagement": engagement_val,
-                        "url": f"https://www.tiktok.com/tag/{tag_name.lstrip('#')}",
-                        "author": "trending",
-                        "created_at": datetime.now().isoformat(),
-                        "tags": [tag_name.lstrip("#"), "tiktok", "trending"],
-                        "platform": "tiktok",
-                        "likes": int(engagement_val * 0.7),
-                        "comments": int(engagement_val * 0.3),
-                    })
+                    posts.append(
+                        {
+                            "title": display_title,
+                            "tag": tag_name,
+                            "engagement": engagement_val,
+                            "url": f"https://www.tiktok.com/tag/{tag_name.lstrip('#')}",
+                            "author": "trending",
+                            "created_at": datetime.now().isoformat(),
+                            "tags": [tag_name.lstrip("#"), "tiktok", "trending"],
+                            "platform": "tiktok",
+                            "likes": int(engagement_val * 0.7),
+                            "comments": int(engagement_val * 0.3),
+                        }
+                    )
             return posts
         except Exception as e:
             logger.warning(f"tokboard.com 爬取失败: {e}")
@@ -783,21 +845,25 @@ class TikTokFetcher(PlatformFetcher):
 
             soup = BeautifulSoup(html, "lxml")
             posts = []
-            for i, el in enumerate(soup.select('[data-e2e="challenge-item"] h3, [class*="DivVideoTitle"]')[:15]):
+            for i, el in enumerate(
+                soup.select('[data-e2e="challenge-item"] h3, [class*="DivVideoTitle"]')[:15]
+            ):
                 title = el.get_text(strip=True)
                 if title:
                     engagement_val = max(1000 - i * 50, 50)
-                    posts.append({
-                        "title": title,
-                        "engagement": engagement_val,
-                        "url": f"https://www.tiktok.com/tag/{niche}",
-                        "author": "tiktok_trending",
-                        "created_at": datetime.now().isoformat(),
-                        "tags": [niche, "tiktok"],
-                        "platform": "tiktok",
-                        "likes": int(engagement_val * 0.7),
-                        "comments": int(engagement_val * 0.3),
-                    })
+                    posts.append(
+                        {
+                            "title": title,
+                            "engagement": engagement_val,
+                            "url": f"https://www.tiktok.com/tag/{niche}",
+                            "author": "tiktok_trending",
+                            "created_at": datetime.now().isoformat(),
+                            "tags": [niche, "tiktok"],
+                            "platform": "tiktok",
+                            "likes": int(engagement_val * 0.7),
+                            "comments": int(engagement_val * 0.3),
+                        }
+                    )
             return posts
         except Exception as e:
             logger.warning(f"TikTok 标签页爬取失败: {e}")
@@ -806,26 +872,48 @@ class TikTokFetcher(PlatformFetcher):
     def _generate_fallback_data(self, niche: str, count: int = 10) -> list:
         """生成高质量的备用 TikTok 数据"""
         trending_hashtags = [
-            "#FYP", "#ForYou", "#Trending", "#Viral", "#Explore",
-            "#Challenge", "#Dance", "#Comedy", "#BeautyTips", "#LifeHacks",
-            "#DIY", "#Cooking", "#Travel", "#Fashion", "#Music",
-            "#Gaming", "#Education", "#Motivation", "#Pets", "#Sports",
-            "#Fitness", "#Skincare", "#Makeup", "#ProductReview", "#Unboxing",
+            "#FYP",
+            "#ForYou",
+            "#Trending",
+            "#Viral",
+            "#Explore",
+            "#Challenge",
+            "#Dance",
+            "#Comedy",
+            "#BeautyTips",
+            "#LifeHacks",
+            "#DIY",
+            "#Cooking",
+            "#Travel",
+            "#Fashion",
+            "#Music",
+            "#Gaming",
+            "#Education",
+            "#Motivation",
+            "#Pets",
+            "#Sports",
+            "#Fitness",
+            "#Skincare",
+            "#Makeup",
+            "#ProductReview",
+            "#Unboxing",
         ]
         posts = []
         for i, tag in enumerate(trending_hashtags[:count]):
             engagement_val = max(8000 - i * 500, 100)
-            posts.append({
-                "title": tag,
-                "engagement": engagement_val,
-                "url": f"https://www.tiktok.com/tag/{tag.lstrip('#')}",
-                "author": "TikTok Trending",
-                "created_at": datetime.now().isoformat(),
-                "tags": [tag.lstrip("#"), "trending"],
-                "platform": "tiktok",
-                "likes": int(engagement_val * 0.7),
-                "comments": int(engagement_val * 0.3),
-            })
+            posts.append(
+                {
+                    "title": tag,
+                    "engagement": engagement_val,
+                    "url": f"https://www.tiktok.com/tag/{tag.lstrip('#')}",
+                    "author": "TikTok Trending",
+                    "created_at": datetime.now().isoformat(),
+                    "tags": [tag.lstrip("#"), "trending"],
+                    "platform": "tiktok",
+                    "likes": int(engagement_val * 0.7),
+                    "comments": int(engagement_val * 0.3),
+                }
+            )
         return posts
 
     def _fallback(self, niche: str) -> Dict:
@@ -839,7 +927,8 @@ class TikTokFetcher(PlatformFetcher):
 
 
 try:
-    from playwright.async_api import async_playwright, TimeoutError as PWTimeoutError
+    from playwright.async_api import TimeoutError as PWTimeoutError
+    from playwright.async_api import async_playwright
 
     HAS_PLAYWRIGHT = True
 except ImportError:
@@ -890,9 +979,7 @@ class XPlaywrightFetcher(PlatformFetcher):
                     await page.wait_for_selector(
                         'input[name="password"], input[type="password"]', timeout=10000
                     )
-                    await page.fill(
-                        'input[name="password"], input[type="password"]', password
-                    )
+                    await page.fill('input[name="password"], input[type="password"]', password)
                     await page.keyboard.press("Enter")
 
                     # 等待登录完成（进入首页或搜索页）
@@ -923,7 +1010,11 @@ class XPlaywrightFetcher(PlatformFetcher):
 
                             # 提取用户名
                             user_el = await tweet.query_selector('[data-testid="User-Name"]')
-                            author = (await user_el.inner_text()).strip().split("\n")[0] if user_el else "unknown"
+                            author = (
+                                (await user_el.inner_text()).strip().split("\n")[0]
+                                if user_el
+                                else "unknown"
+                            )
 
                             # 提取点赞数
                             like_el = await tweet.query_selector('[data-testid="like"] span')
@@ -938,23 +1029,27 @@ class XPlaywrightFetcher(PlatformFetcher):
                             # 提取推文链接
                             link_el = await tweet.query_selector('a[href*="/status/"]')
                             href = await link_el.get_attribute("href") if link_el else ""
-                            tweet_url = f"https://x.com{href}" if href and href.startswith("/") else href
+                            tweet_url = (
+                                f"https://x.com{href}" if href and href.startswith("/") else href
+                            )
 
                             if not text:
                                 continue
 
                             engagement = likes + retweets * 2
-                            posts.append({
-                                "title": text[:280],
-                                "author": author,
-                                "engagement": engagement,
-                                "likes": likes,
-                                "comments": retweets,
-                                "url": tweet_url or f"https://x.com/search?q={niche}",
-                                "created_at": datetime.now().isoformat(),
-                                "tags": [niche, "x", "realtime"],
-                                "platform": "x",
-                            })
+                            posts.append(
+                                {
+                                    "title": text[:280],
+                                    "author": author,
+                                    "engagement": engagement,
+                                    "likes": likes,
+                                    "comments": retweets,
+                                    "url": tweet_url or f"https://x.com/search?q={niche}",
+                                    "created_at": datetime.now().isoformat(),
+                                    "tags": [niche, "x", "realtime"],
+                                    "platform": "x",
+                                }
+                            )
                         except Exception as te:
                             logger.debug(f"解析推文 {i} 失败: {te}")
                             continue
@@ -1030,7 +1125,12 @@ class TikTokPlaywrightFetcher(PlatformFetcher):
                     if not loaded:
                         logger.warning("TikTok 搜索页面未能加载视频卡片")
                         await browser.close()
-                        return {"platform": "tiktok", "niche": niche, "posts": [], "error": "页面加载失败"}
+                        return {
+                            "platform": "tiktok",
+                            "niche": niche,
+                            "posts": [],
+                            "error": "页面加载失败",
+                        }
 
                     # 滚动加载更多
                     for _ in range(3):
@@ -1086,17 +1186,19 @@ class TikTokPlaywrightFetcher(PlatformFetcher):
                         likes = _parse_count(like_text)
                         engagement = max(likes, 100 - i * 5)
 
-                        posts.append({
-                            "title": title,
-                            "author": item.get("author", "tiktok_user"),
-                            "engagement": engagement,
-                            "likes": likes,
-                            "comments": int(likes * 0.1),
-                            "url": item.get("url", f"https://www.tiktok.com/search?q={niche}"),
-                            "created_at": datetime.now().isoformat(),
-                            "tags": [niche, "tiktok", "realtime"],
-                            "platform": "tiktok",
-                        })
+                        posts.append(
+                            {
+                                "title": title,
+                                "author": item.get("author", "tiktok_user"),
+                                "engagement": engagement,
+                                "likes": likes,
+                                "comments": int(likes * 0.1),
+                                "url": item.get("url", f"https://www.tiktok.com/search?q={niche}"),
+                                "created_at": datetime.now().isoformat(),
+                                "tags": [niche, "tiktok", "realtime"],
+                                "platform": "tiktok",
+                            }
+                        )
 
                 except PWTimeoutError as e:
                     logger.warning(f"TikTok Playwright 超时: {e}")
@@ -1189,8 +1291,8 @@ class YouTubeFetcher(PlatformFetcher):
 
     def _parse_yt_search(self, html: str, niche: str) -> list:
         """从 YouTube 搜索页面 HTML 提取视频数据"""
-        import re
         import json as _json
+        import re
 
         posts = []
         match = re.search(r"var ytInitialData\s*=\s*({.*?});\s*</script>", html, re.DOTALL)
@@ -1205,8 +1307,11 @@ class YouTubeFetcher(PlatformFetcher):
 
         contents = _safe_deep_get(
             data,
-            "contents", "twoColumnSearchResultsRenderer",
-            "primaryContents", "sectionListRenderer", "contents",
+            "contents",
+            "twoColumnSearchResultsRenderer",
+            "primaryContents",
+            "sectionListRenderer",
+            "contents",
             default=[],
         )
         for section in contents:
@@ -1222,21 +1327,27 @@ class YouTubeFetcher(PlatformFetcher):
                 title = "".join(r.get("text", "") for r in title_runs if isinstance(r, dict))
                 # 安全提取 author
                 owner_runs = _safe_deep_get(video, "ownerText", "runs", default=[])
-                author = owner_runs[0].get("text", "") if owner_runs and isinstance(owner_runs[0], dict) else ""
+                author = (
+                    owner_runs[0].get("text", "")
+                    if owner_runs and isinstance(owner_runs[0], dict)
+                    else ""
+                )
                 view_text = _safe_deep_get(video, "viewCountText", "simpleText", default="")
                 engagement_val = 1000
-                posts.append({
-                    "title": title,
-                    "engagement": engagement_val,
-                    "url": f"https://www.youtube.com/watch?v={video_id}",
-                    "author": author,
-                    "created_at": datetime.now().isoformat(),
-                    "tags": [niche, "youtube", "trending"],
-                    "views": view_text,
-                    "platform": "youtube",
-                    "likes": int(engagement_val * 0.5),
-                    "comments": int(engagement_val * 0.5),
-                })
+                posts.append(
+                    {
+                        "title": title,
+                        "engagement": engagement_val,
+                        "url": f"https://www.youtube.com/watch?v={video_id}",
+                        "author": author,
+                        "created_at": datetime.now().isoformat(),
+                        "tags": [niche, "youtube", "trending"],
+                        "views": view_text,
+                        "platform": "youtube",
+                        "likes": int(engagement_val * 0.5),
+                        "comments": int(engagement_val * 0.5),
+                    }
+                )
                 if len(posts) >= 15:
                     return posts
         return posts
@@ -1244,8 +1355,9 @@ class YouTubeFetcher(PlatformFetcher):
     async def _scrape_trending(self) -> list:
         """爬取 YouTube 全球趋势页面"""
         try:
-            import re
             import json as _json
+            import re
+
             async with aiohttp.ClientSession(headers=self.HEADERS) as session:
                 url = "https://www.youtube.com/feed/trending"
                 async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
@@ -1272,8 +1384,11 @@ class YouTubeFetcher(PlatformFetcher):
                     shelves = _safe_deep_get(section, "itemSectionRenderer", "contents", default=[])
                     for shelf in shelves:
                         items = _safe_deep_get(
-                            shelf, "shelfRenderer", "content",
-                            "expandedShelfContentsRenderer", "items",
+                            shelf,
+                            "shelfRenderer",
+                            "content",
+                            "expandedShelfContentsRenderer",
+                            "items",
                             default=[],
                         )
                         if not isinstance(items, list):
@@ -1285,19 +1400,23 @@ class YouTubeFetcher(PlatformFetcher):
                             title_runs = _safe_deep_get(v, "title", "runs", default=[])
                             vid_id = v.get("videoId", "")
                             if title_runs and vid_id:
-                                title = "".join(r.get("text", "") for r in title_runs if isinstance(r, dict))
+                                title = "".join(
+                                    r.get("text", "") for r in title_runs if isinstance(r, dict)
+                                )
                                 engagement_val = 5000
-                                posts.append({
-                                    "title": title,
-                                    "engagement": engagement_val,
-                                    "url": f"https://www.youtube.com/watch?v={vid_id}",
-                                    "author": "",
-                                    "created_at": datetime.now().isoformat(),
-                                    "tags": ["trending", "youtube"],
-                                    "platform": "youtube",
-                                    "likes": int(engagement_val * 0.5),
-                                    "comments": int(engagement_val * 0.5),
-                                })
+                                posts.append(
+                                    {
+                                        "title": title,
+                                        "engagement": engagement_val,
+                                        "url": f"https://www.youtube.com/watch?v={vid_id}",
+                                        "author": "",
+                                        "created_at": datetime.now().isoformat(),
+                                        "tags": ["trending", "youtube"],
+                                        "platform": "youtube",
+                                        "likes": int(engagement_val * 0.5),
+                                        "comments": int(engagement_val * 0.5),
+                                    }
+                                )
                                 if len(posts) >= 15:
                                     return posts
             return posts
@@ -1437,7 +1556,9 @@ class Researcher:
             if platform in source_list:
                 if HAS_PLAYWRIGHT:
                     logger.info("使用 TikTok Playwright 真实爬虫（JS渲染）")
-                    tasks.append(limited_fetch("tiktok", self.tiktok_playwright_fetcher, niche, days))
+                    tasks.append(
+                        limited_fetch("tiktok", self.tiktok_playwright_fetcher, niche, days)
+                    )
                 else:
                     tasks.append(limited_fetch("tiktok", self.tiktok_fetcher, niche, days))
                 break
@@ -1838,11 +1959,13 @@ class Researcher:
 
                 all_citations.extend(result.get("citations", []))
 
-            layer_info.append({
-                "layer": layer,
-                "keywords": current_keywords.copy(),
-                "found": sum(len(r.get("citations", [])) for r in layer_results),
-            })
+            layer_info.append(
+                {
+                    "layer": layer,
+                    "keywords": current_keywords.copy(),
+                    "found": sum(len(r.get("citations", [])) for r in layer_results),
+                }
+            )
 
             # 提取下一层关键词
             if layer < layers and layer_results:
@@ -1863,7 +1986,9 @@ class Researcher:
                 seen_titles.add(t)
                 unique_citations.append(c)
 
-        total_posts = sum(len(d.get("posts", [])) for d in all_platform_data.values() if isinstance(d, dict))
+        total_posts = sum(
+            len(d.get("posts", [])) for d in all_platform_data.values() if isinstance(d, dict)
+        )
         metrics = self._calculate_metrics(all_platform_data, total_posts)
 
         layer_summary = " → ".join(
@@ -1887,14 +2012,80 @@ class Researcher:
     def _extract_keywords_from_results(self, results: List[Dict], exclude: str = "") -> List[str]:
         """从搜索结果中提取高频关键词，用于下一层搜索"""
         STOP_WORDS = {
-            "the", "a", "an", "is", "are", "was", "were", "be", "been",
-            "to", "of", "in", "for", "on", "with", "at", "by", "from",
-            "as", "it", "its", "this", "that", "and", "or", "but", "not",
-            "has", "have", "had", "will", "would", "could", "should", "can",
-            "about", "which", "who", "what", "how", "when", "where",
-            "的", "是", "在", "了", "和", "与", "或", "但", "不", "也", "都",
-            "这", "那", "我", "你", "他", "她", "它", "我们", "你们", "他们",
-            "一个", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十",
+            "the",
+            "a",
+            "an",
+            "is",
+            "are",
+            "was",
+            "were",
+            "be",
+            "been",
+            "to",
+            "of",
+            "in",
+            "for",
+            "on",
+            "with",
+            "at",
+            "by",
+            "from",
+            "as",
+            "it",
+            "its",
+            "this",
+            "that",
+            "and",
+            "or",
+            "but",
+            "not",
+            "has",
+            "have",
+            "had",
+            "will",
+            "would",
+            "could",
+            "should",
+            "can",
+            "about",
+            "which",
+            "who",
+            "what",
+            "how",
+            "when",
+            "where",
+            "的",
+            "是",
+            "在",
+            "了",
+            "和",
+            "与",
+            "或",
+            "但",
+            "不",
+            "也",
+            "都",
+            "这",
+            "那",
+            "我",
+            "你",
+            "他",
+            "她",
+            "它",
+            "我们",
+            "你们",
+            "他们",
+            "一个",
+            "一",
+            "二",
+            "三",
+            "四",
+            "五",
+            "六",
+            "七",
+            "八",
+            "九",
+            "十",
         }
         exclude_words = {w.lower() for w in re.split(r"\W+", exclude) if w}
 
@@ -1923,6 +2114,7 @@ class Researcher:
 
         if loop.is_running():
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(
                     asyncio.run,

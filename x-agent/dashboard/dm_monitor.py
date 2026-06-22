@@ -22,9 +22,11 @@ logger = logging.getLogger(__name__)
 
 # ─── 数据模型 ────────────────────────────────────────────────────────────
 
+
 @dataclass
 class DMMessage:
     """统一 DM 消息格式"""
+
     platform: str
     conversation_id: str
     sender: str
@@ -37,6 +39,7 @@ class DMMessage:
 
 
 # ─── X/Twitter DM 监控 ──────────────────────────────────────────────────
+
 
 class XDMMonitor:
     """X/Twitter 私信监控 — 基于 Playwright + 持久化 Cookie"""
@@ -53,6 +56,7 @@ class XDMMonitor:
         self._playwright_available = False
         try:
             from playwright.async_api import async_playwright
+
             self._async_playwright = async_playwright
             self._playwright_available = True
         except ImportError:
@@ -64,9 +68,11 @@ class XDMMonitor:
 
         try:
             from playwright.async_api import TimeoutError as PWTimeoutError
+
             HAS_TIMEOUT = True
         except ImportError:
             HAS_TIMEOUT = False
+
             class PWTimeoutError(Exception):
                 pass
 
@@ -75,16 +81,22 @@ class XDMMonitor:
             async with self._async_playwright() as pw:
                 browser = await pw.chromium.launch(
                     headless=True,
-                    args=["--no-sandbox", "--disable-setuid-sandbox",
-                          "--disable-dev-shm-usage", "--disable-blink-features=AutomationControlled",
-                          "--disable-features=VizDisplayCompositor", "--window-size=1280,800"],
+                    args=[
+                        "--no-sandbox",
+                        "--disable-setuid-sandbox",
+                        "--disable-dev-shm-usage",
+                        "--disable-blink-features=AutomationControlled",
+                        "--disable-features=VizDisplayCompositor",
+                        "--window-size=1280,800",
+                    ],
                 )
                 context = await browser.new_context(
                     user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                               "AppleWebKit/537.36 (KHTML, like Gecko) "
-                               "Chrome/124.0.0.0 Safari/537.36",
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/124.0.0.0 Safari/537.36",
                     viewport={"width": 1280, "height": 800},
-                    locale="en-US", timezone_id="America/New_York",
+                    locale="en-US",
+                    timezone_id="America/New_York",
                 )
                 # 注入 stealth JS（与 x_dm_monitor 一致）
                 await context.add_init_script(self._stealth_js())
@@ -95,9 +107,9 @@ class XDMMonitor:
                         saved = json.loads(self.session_file.read_text())
                         cookies = saved.get("cookies", [])
                         if cookies:
-                            age_hours = (datetime.now() - datetime.fromisoformat(
-                                saved.get("saved_at", "")
-                            )).total_seconds() / 3600
+                            age_hours = (
+                                datetime.now() - datetime.fromisoformat(saved.get("saved_at", ""))
+                            ).total_seconds() / 3600
                             if age_hours < 20:
                                 await context.add_cookies(cookies)
                                 logger.info(f"Loaded {len(cookies)} X session cookies")
@@ -110,7 +122,7 @@ class XDMMonitor:
                 try:
                     await page.goto(self.DM_URL, timeout=25000)
                     await asyncio_sleep(2)
-                    needs_login = ("/i/flow/login" in page.url or "/login" in page.url)
+                    needs_login = "/i/flow/login" in page.url or "/login" in page.url
                 except Exception:
                     needs_login = True
 
@@ -120,9 +132,14 @@ class XDMMonitor:
                         await browser.close()
                         return []
                     cookies = await context.cookies()
-                    self.session_file.write_text(json.dumps({
-                        "saved_at": datetime.now().isoformat(), "cookies": cookies,
-                    }))
+                    self.session_file.write_text(
+                        json.dumps(
+                            {
+                                "saved_at": datetime.now().isoformat(),
+                                "cookies": cookies,
+                            }
+                        )
+                    )
                     await page.goto(self.DM_URL, timeout=20000)
                     await asyncio_sleep(2)
                     try:
@@ -147,9 +164,14 @@ class XDMMonitor:
                         continue
 
                 cookies = await context.cookies()
-                self.session_file.write_text(json.dumps({
-                    "saved_at": datetime.now().isoformat(), "cookies": cookies,
-                }))
+                self.session_file.write_text(
+                    json.dumps(
+                        {
+                            "saved_at": datetime.now().isoformat(),
+                            "cookies": cookies,
+                        }
+                    )
+                )
                 await browser.close()
         except Exception as e:
             logger.error(f"X DM fetch error: {e}")
@@ -200,7 +222,7 @@ class XDMMonitor:
             unread_el = await el.query_selector('[data-testid="DM-unreadBadge"], .unread')
             unread = unread_el is not None
 
-            time_el = await el.query_selector('time')
+            time_el = await el.query_selector("time")
             ts = ""
             if time_el:
                 ts = await time_el.get_attribute("datetime") or ""
@@ -215,10 +237,14 @@ class XDMMonitor:
             conv_id = url.rsplit("/", 1)[-1] if url else f"x_{id(el)}"
 
             return DMMessage(
-                platform="x", conversation_id=conv_id,
-                sender=name, preview=preview[:200],
+                platform="x",
+                conversation_id=conv_id,
+                sender=name,
+                preview=preview[:200],
                 is_from_me=preview.startswith("You:"),
-                timestamp=ts, url=url, unread=unread,
+                timestamp=ts,
+                url=url,
+                unread=unread,
             )
         except Exception:
             return None
@@ -240,6 +266,7 @@ class XDMMonitor:
 
 # ─── Reddit 私信(消息)监控 ───────────────────────────────────────────────
 
+
 class RedditDMMonitor:
     """Reddit 消息/私信监控 — 通过 Playwright 登录态访问 inbox"""
 
@@ -252,6 +279,7 @@ class RedditDMMonitor:
         self._playwright_available = False
         try:
             from playwright.async_api import async_playwright
+
             self._async_playwright = async_playwright
             self._playwright_available = True
         except ImportError:
@@ -267,25 +295,37 @@ class RedditDMMonitor:
             return []
 
         try:
-            import asyncio, random as _rnd
+            import asyncio
+            import random as _rnd
+
             async with self._async_playwright() as pw:
                 browser = await pw.chromium.launch(
                     headless=True,
-                    args=["--no-sandbox", "--disable-setuid-sandbox",
-                          "--disable-dev-shm-usage", "--disable-blink-features=AutomationControlled",
-                          "--window-size=1920,1080"],
+                    args=[
+                        "--no-sandbox",
+                        "--disable-setuid-sandbox",
+                        "--disable-dev-shm-usage",
+                        "--disable-blink-features=AutomationControlled",
+                        "--window-size=1920,1080",
+                    ],
                 )
                 context = await browser.new_context(
-                    user_agent=acc.get("user_agent") or random.choice([
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36",
-                        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/120.0.0.0 Safari/537.36",
-                    ]),
+                    user_agent=acc.get("user_agent")
+                    or random.choice(
+                        [
+                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36",
+                            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/120.0.0.0 Safari/537.36",
+                        ]
+                    ),
                     viewport={"width": 1920, "height": 1080},
-                    locale="en-US", timezone_id="America/New_York",
+                    locale="en-US",
+                    timezone_id="America/New_York",
                 )
-                await context.add_init_script(RedditPlaywrightCrawler.STEALTH_JS
-                    if 'RedditPlaywrightCrawler' in globals()
-                    else "Object.defineProperty(navigator,'webdriver',{get:()=>undefined});")
+                await context.add_init_script(
+                    RedditPlaywrightCrawler.STEALTH_JS
+                    if "RedditPlaywrightCrawler" in globals()
+                    else "Object.defineProperty(navigator,'webdriver',{get:()=>undefined});"
+                )
                 cookies = json.loads(cookies_path.read_text())
                 await context.add_cookies(cookies)
                 page = await context.new_page()
@@ -299,7 +339,7 @@ class RedditDMMonitor:
                     return []
 
                 # 等待加载
-                for sel in ['[data-testid="message"]', 'shreddit-post', '.thing']:
+                for sel in ['[data-testid="message"]', "shreddit-post", ".thing"]:
                     try:
                         await page.wait_for_selector(sel, timeout=8000)
                         break
@@ -330,9 +370,7 @@ class RedditDMMonitor:
 
     async def _parse_reddit_message(self, el, account_id: str) -> Optional[DMMessage]:
         try:
-            sender_el = await el.query_selector(
-                '[data-testid="message-author"], a[href*="/user/"]'
-            )
+            sender_el = await el.query_selector('[data-testid="message-author"], a[href*="/user/"]')
             sender = (await sender_el.inner_text()).strip() if sender_el else "Unknown"
 
             preview_el = await el.query_selector(
@@ -340,7 +378,7 @@ class RedditDMMonitor:
             )
             preview = (await preview_el.inner_text()).strip()[:200] if preview_el else ""
 
-            time_el = await el.query_selector('time')
+            time_el = await el.query_selector("time")
             ts = await time_el.get_attribute("datetime") if time_el else ""
 
             unread_el = await el.query_selector('.new, [data-testid="unread"]')
@@ -350,13 +388,22 @@ class RedditDMMonitor:
             url = ""
             if url_el:
                 href = await url_el.get_attribute("href")
-                url = f"https://www.reddit.com{href}" if href and href.startswith("/") else (href or "")
+                url = (
+                    f"https://www.reddit.com{href}"
+                    if href and href.startswith("/")
+                    else (href or "")
+                )
 
             return DMMessage(
-                platform="reddit", conversation_id=url.rsplit("/", 1)[-1] or f"rd_{id(el)}",
-                sender=sender, preview=preview, is_from_me=False,
+                platform="reddit",
+                conversation_id=url.rsplit("/", 1)[-1] or f"rd_{id(el)}",
+                sender=sender,
+                preview=preview,
+                is_from_me=False,
                 timestamp=ts or datetime.now().isoformat(),
-                url=url, unread=unread, account_id=account_id,
+                url=url,
+                unread=unread,
+                account_id=account_id,
             )
         except Exception:
             return None
@@ -364,16 +411,21 @@ class RedditDMMonitor:
 
 # ─── 统一 DM 聚合器 ─────────────────────────────────────────────────────
 
+
 class AggregatedDMMonitor:
     """聚合 X + Reddit 的 DM 监控"""
 
-    def __init__(self, x_monitor: Optional[XDMMonitor] = None,
-                 reddit_monitor: Optional[RedditDMMonitor] = None):
+    def __init__(
+        self,
+        x_monitor: Optional[XDMMonitor] = None,
+        reddit_monitor: Optional[RedditDMMonitor] = None,
+    ):
         self.x = x_monitor or XDMMonitor()
         self.reddit = reddit_monitor or RedditDMMonitor()
 
     async def fetch_all(self, limit_per_platform: int = 20) -> List[Dict[str, Any]]:
         import asyncio
+
         results = await asyncio.gather(
             self.x.fetch_dms(limit=limit_per_platform),
             self.reddit.fetch_dms(limit=limit_per_platform),
@@ -384,27 +436,33 @@ class AggregatedDMMonitor:
             if isinstance(r, Exception):
                 continue
             for dm in r:
-                messages.append({
-                    "platform": dm.platform,
-                    "conversation_id": dm.conversation_id,
-                    "sender": dm.sender,
-                    "preview": dm.preview,
-                    "is_from_me": dm.is_from_me,
-                    "timestamp": dm.timestamp,
-                    "url": dm.url,
-                    "unread": dm.unread,
-                    "raw": dm.raw,
-                })
+                messages.append(
+                    {
+                        "platform": dm.platform,
+                        "conversation_id": dm.conversation_id,
+                        "sender": dm.sender,
+                        "preview": dm.preview,
+                        "is_from_me": dm.is_from_me,
+                        "timestamp": dm.timestamp,
+                        "url": dm.url,
+                        "unread": dm.unread,
+                        "raw": dm.raw,
+                    }
+                )
         messages.sort(key=lambda m: m.get("timestamp", ""), reverse=True)
         return messages
 
 
 # ─── 工具 ───────────────────────────────────────────────────────────────
 
+
 def asyncio_sleep(seconds: float):
     import asyncio
+
     return asyncio.sleep(seconds)
+
 
 def random_uniform(a: float, b: float) -> float:
     import random
+
     return random.uniform(a, b)

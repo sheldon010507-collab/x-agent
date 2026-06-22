@@ -89,20 +89,26 @@ class RedditPipeline:
             if isinstance(p, dict):
                 posts.append(p)
             else:
-                posts.append({
-                    "id": p.id,
-                    "title": p.title,
-                    "url": p.url,
-                    "score": p.upvotes,
-                    "num_comments": p.comment_count,
-                    "subreddit": p.subreddit,
-                    "author": p.author,
-                    "date": p.created_utc.isoformat() if hasattr(p.created_utc, "isoformat") else str(p.created_utc),
-                    "engagement": {"score": p.upvotes, "num_comments": p.comment_count},
-                    "top_comments": p.top_comments,
-                    "selftext": p.content[:500] if p.content else "",
-                    "metadata": {},
-                })
+                posts.append(
+                    {
+                        "id": p.id,
+                        "title": p.title,
+                        "url": p.url,
+                        "score": p.upvotes,
+                        "num_comments": p.comment_count,
+                        "subreddit": p.subreddit,
+                        "author": p.author,
+                        "date": (
+                            p.created_utc.isoformat()
+                            if hasattr(p.created_utc, "isoformat")
+                            else str(p.created_utc)
+                        ),
+                        "engagement": {"score": p.upvotes, "num_comments": p.comment_count},
+                        "top_comments": p.top_comments,
+                        "selftext": p.content[:500] if p.content else "",
+                        "metadata": {},
+                    }
+                )
         return self._format_result(posts, source="playwright")
 
     def _empty_result(self, topic: str) -> Dict[str, Any]:

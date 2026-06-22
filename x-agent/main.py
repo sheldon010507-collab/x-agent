@@ -24,18 +24,19 @@ from pathlib import Path
 # 添加项目路径
 sys.path.insert(0, str(Path(__file__).parent))
 
+from telegram.ext import CallbackQueryHandler, CommandHandler
+
 from config import config
+from modules.api_client import XAgentAPIClient
+from modules.bot_api_commands import BotAPICommands
 from modules.bot_v0_final import create_bot_v0_final as create_bot
 from modules.database import get_database, init_database
 from modules.generator import ContentGenerator
 from modules.llm_router import LLMRouter
 from modules.openclaw_bridge import create_openclaw_bridge
-from modules.scheduler import create_scheduler
-from modules.api_client import XAgentAPIClient
-from modules.bot_api_commands import BotAPICommands
 from modules.research import Researcher
+from modules.scheduler import create_scheduler
 from modules.scorer import TrendScorer
-from telegram.ext import CommandHandler, CallbackQueryHandler
 
 log_dir = Path(__file__).parent / "data"
 log_dir.mkdir(exist_ok=True)
@@ -140,7 +141,9 @@ class XAgentApp:
             raise
 
         # 5.5 初始化 API 客户端和注册命令处理器
-        logger.info(f"[DEBUG] Starting API commands initialization... bot={self.bot}, bot.application={getattr(self.bot, 'application', 'N/A') if self.bot else 'N/A'}")
+        logger.info(
+            f"[DEBUG] Starting API commands initialization... bot={self.bot}, bot.application={getattr(self.bot, 'application', 'N/A') if self.bot else 'N/A'}"
+        )
         try:
             self.api_client = XAgentAPIClient("http://x-agent-api:8000")
             logger.info("[DEBUG] XAgentAPIClient created successfully")
@@ -167,10 +170,13 @@ class XAgentApp:
                 )
                 logger.info("✅ API commands registered (status, trends, generate, report)")
             else:
-                logger.warning(f"[DEBUG] Skipped API handler registration: bot={bool(self.bot)}, bot.application={bool(getattr(self.bot, 'application', None)) if self.bot else False}")
+                logger.warning(
+                    f"[DEBUG] Skipped API handler registration: bot={bool(self.bot)}, bot.application={bool(getattr(self.bot, 'application', None)) if self.bot else False}"
+                )
         except Exception as e:
             logger.warning(f"⚠️  API commands initialization failed: {e}")
             import traceback
+
             logger.warning(traceback.format_exc())
             # 不中断启动，只记录警告
 

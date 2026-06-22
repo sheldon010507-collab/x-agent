@@ -76,22 +76,24 @@ def parse_cards(html_text: str, query: str = "") -> List[Dict[str, Any]]:
         created = _attr(tag, "created-timestamp")
         url = f"https://www.reddit.com{permalink}"
 
-        posts.append({
-            "id": "",
-            "title": title,
-            "url": url,
-            "score": score,
-            "num_comments": num_comments,
-            "subreddit": subreddit,
-            "created_utc": _to_epoch(created),
-            "author": author if author not in ("[deleted]", "[removed]") else "[deleted]",
-            "selftext": "",
-            "date": _to_date(created),
-            "engagement": {"score": score, "num_comments": num_comments, "upvote_ratio": None},
-            "relevance": round(token_overlap_relevance(query, title), 3) if query else 0.0,
-            "why_relevant": "Reddit listing",
-            "metadata": {"post_id": _post_id(permalink)},
-        })
+        posts.append(
+            {
+                "id": "",
+                "title": title,
+                "url": url,
+                "score": score,
+                "num_comments": num_comments,
+                "subreddit": subreddit,
+                "created_utc": _to_epoch(created),
+                "author": author if author not in ("[deleted]", "[removed]") else "[deleted]",
+                "selftext": "",
+                "date": _to_date(created),
+                "engagement": {"score": score, "num_comments": num_comments, "upvote_ratio": None},
+                "relevance": round(token_overlap_relevance(query, title), 3) if query else 0.0,
+                "why_relevant": "Reddit listing",
+                "metadata": {"post_id": _post_id(permalink)},
+            }
+        )
     return posts
 
 
@@ -129,6 +131,7 @@ class RedditListingFetcher:
         jobs = [(sub, sort) for sub in subreddits for sort in sorts]
 
         import asyncio
+
         tasks = [self._fetch_one(sub, s, query) for sub, s in jobs]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 

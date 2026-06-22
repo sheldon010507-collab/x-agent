@@ -40,8 +40,10 @@ class RedditKeylessFetcher:
         """一次性 legacy .json 尝试（同步，配合线程池）。"""
         try:
             from .http import get_text
+
             limit = DEPTH_LIMITS.get(depth, DEPTH_LIMITS["default"])
             from urllib.parse import quote_plus
+
             url = (
                 f"https://www.reddit.com/search.json"
                 f"?q={quote_plus(topic)}&sort=relevance&t=month&limit={limit}&raw_json=1"
@@ -50,6 +52,7 @@ class RedditKeylessFetcher:
             if not raw:
                 return []
             import json
+
             data = json.loads(raw)
             children = data.get("data", {}).get("children", [])
             posts = []
@@ -66,27 +69,35 @@ class RedditKeylessFetcher:
                 date_str = None
                 if created_utc:
                     try:
-                        from datetime import datetime as _dt, timezone as _tz
+                        from datetime import datetime as _dt
+                        from datetime import timezone as _tz
+
                         dt = _dt.fromtimestamp(float(created_utc), tz=_tz.utc)
                         date_str = dt.strftime("%Y-%m-%d")
                     except Exception:
                         pass
-                posts.append({
-                    "id": "",
-                    "title": str(post.get("title", "")).strip(),
-                    "url": f"https://www.reddit.com{permalink}",
-                    "score": score,
-                    "num_comments": num_comments,
-                    "subreddit": str(post.get("subreddit", "")).strip(),
-                    "created_utc": float(created_utc) if created_utc else None,
-                    "author": str(post.get("author", "[deleted]")),
-                    "selftext": str(post.get("selftext", ""))[:500],
-                    "date": date_str,
-                    "engagement": {"score": score, "num_comments": num_comments, "upvote_ratio": post.get("upvote_ratio")},
-                    "relevance": 0.5,
-                    "why_relevant": "Reddit .json",
-                    "metadata": {},
-                })
+                posts.append(
+                    {
+                        "id": "",
+                        "title": str(post.get("title", "")).strip(),
+                        "url": f"https://www.reddit.com{permalink}",
+                        "score": score,
+                        "num_comments": num_comments,
+                        "subreddit": str(post.get("subreddit", "")).strip(),
+                        "created_utc": float(created_utc) if created_utc else None,
+                        "author": str(post.get("author", "[deleted]")),
+                        "selftext": str(post.get("selftext", ""))[:500],
+                        "date": date_str,
+                        "engagement": {
+                            "score": score,
+                            "num_comments": num_comments,
+                            "upvote_ratio": post.get("upvote_ratio"),
+                        },
+                        "relevance": 0.5,
+                        "why_relevant": "Reddit .json",
+                        "metadata": {},
+                    }
+                )
             # 去重
             seen, unique = set(), []
             for p in posts:
@@ -168,7 +179,9 @@ class RedditKeylessFetcher:
             rss_posts = await self._rss.search_rss(topic, depth=depth, subreddits=subreddits)
 
             if subreddits:
-                listing_posts = await self._listing.fetch_listings(subreddits, depth=depth, query=topic)
+                listing_posts = await self._listing.fetch_listings(
+                    subreddits, depth=depth, query=topic
+                )
                 score_source = listing_posts
             else:
                 listing_posts = []
@@ -210,8 +223,7 @@ class RedditKeylessFetcher:
         # 日期过滤
         if from_date and to_date:
             posts = [
-                p for p in posts
-                if p.get("date") is None or (from_date <= p["date"] <= to_date)
+                p for p in posts if p.get("date") is None or (from_date <= p["date"] <= to_date)
             ]
 
         # 排序

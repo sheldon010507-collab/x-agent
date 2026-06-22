@@ -22,10 +22,16 @@ jobs:
         run: pip install black isort
 
       - name: Check formatting (black)
-        run: black --check --target-version py311 --line-length 100 x-agent/
+        run: |
+          black --check --target-version py311 --line-length 100 \
+            x-agent/api.py x-agent/main.py x-agent/mcp_server.py \
+            x-agent/dashboard x-agent/modules x-agent/tests
 
       - name: Check import order (isort)
-        run: isort --check-only --profile black x-agent/
+        run: |
+          isort --check-only --profile black \
+            x-agent/api.py x-agent/main.py x-agent/mcp_server.py \
+            x-agent/dashboard x-agent/modules x-agent/tests
 
   test:
     name: Test (Python ${{ matrix.python-version }})

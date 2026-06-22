@@ -8,7 +8,6 @@ from typing import Dict, List, Optional
 
 from playwright.async_api import Browser, BrowserContext, Playwright
 
-
 DEFAULT_LAUNCH_ARGS = [
     "--disable-blink-features=AutomationControlled",
     "--no-sandbox",
@@ -68,7 +67,11 @@ class BrowserPool:
 
     async def start(self, *, headless: bool = True, launch_args: Optional[List[str]] = None):
         if self._playwright is None:
-            self._playwright = await __import__("playwright.async_api", fromlist=["async_playwright"]).async_playwright().start()
+            self._playwright = (
+                await __import__("playwright.async_api", fromlist=["async_playwright"])
+                .async_playwright()
+                .start()
+            )
         if self._browser is None:
             self._browser = await self._playwright.chromium.launch(
                 headless=headless,
@@ -97,10 +100,13 @@ class BrowserPool:
         await self.start(headless=headless, launch_args=launch_args)
         if launch_args is not None:
             await self._browser.close()
-            self._browser = await self._playwright.chromium.launch(headless=headless, args=launch_args)
+            self._browser = await self._playwright.chromium.launch(
+                headless=headless, args=launch_args
+            )
 
         kwargs = {
-            "user_agent": user_agent or "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "user_agent": user_agent
+            or "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
             "viewport": viewport or {"width": 1280, "height": 800},
             "locale": locale,
             "timezone_id": timezone_id,
@@ -119,7 +125,9 @@ class BrowserPool:
                     logger = __import__("logging").getLogger(__name__)
                     logger.info(f"Loaded {account_id} cookies from {cookies_file}")
                 except Exception as exc:
-                    __import__("logging").getLogger(__name__).debug(f"Cookie load failed for {account_id}: {exc}")
+                    __import__("logging").getLogger(__name__).debug(
+                        f"Cookie load failed for {account_id}: {exc}"
+                    )
         self._contexts[account_id] = context
         return context
 

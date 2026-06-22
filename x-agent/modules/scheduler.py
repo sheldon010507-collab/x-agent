@@ -92,9 +92,9 @@ class SchedulerManager:
         logger.info("[Scheduler] 开始每日复盘Brief")
 
         try:
+            from config import config
             from modules.research import Researcher
             from modules.scorer import TrendScorer
-            from config import config
 
             researcher = Researcher(config=config)
             result = await researcher.research_async(
@@ -110,9 +110,9 @@ class SchedulerManager:
 
             scorer = TrendScorer(db=self.db)
             scored = [scorer.calculate_score(p) for p in all_posts]
-            all_posts_with_score = [
-                {**p, "score": s} for p, s in zip(all_posts, scored)
-            ] if scored else all_posts
+            all_posts_with_score = (
+                [{**p, "score": s} for p, s in zip(all_posts, scored)] if scored else all_posts
+            )
             all_posts_with_score.sort(key=lambda x: x.get("score", 0), reverse=True)
             top5 = all_posts_with_score[:5]
 
@@ -123,7 +123,9 @@ class SchedulerManager:
             brief = "\n".join(lines)
 
             if self.bot:
-                chat_id = getattr(self.bot, "default_chat_id", None) or os.environ.get("TELEGRAM_CHAT_ID")
+                chat_id = getattr(self.bot, "default_chat_id", None) or os.environ.get(
+                    "TELEGRAM_CHAT_ID"
+                )
                 if chat_id:
                     await self.bot.send_message(chat_id=chat_id, text=brief)
                 else:

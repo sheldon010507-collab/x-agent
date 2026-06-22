@@ -13,8 +13,8 @@ Reddit Playwright 爬虫模块 — 融合 keyless + shreddit partials
 
 from __future__ import annotations
 
-import html as _html
 import asyncio
+import html as _html
 import json
 import logging
 import random
@@ -32,7 +32,7 @@ from playwright.async_api import (
     async_playwright,
 )
 
-from .browser_pool import BrowserPool, REDDIT_LAUNCH_ARGS
+from .browser_pool import REDDIT_LAUNCH_ARGS, BrowserPool
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +71,7 @@ Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 4});
 @dataclass
 class RedditAccount:
     """Reddit 账号配置"""
+
     id: str
     username: str
     password: str
@@ -89,6 +90,7 @@ class RedditAccount:
 @dataclass
 class RedditPost:
     """标准化 Reddit 帖子数据"""
+
     id: str
     title: str
     content: str
@@ -130,8 +132,18 @@ class RedditPlaywrightCrawler:
 
     # 默认多账号配置
     DEFAULT_ACCOUNTS: List[Dict[str, Any]] = [
-        {"id": "reddit_1", "username": "xagent_research1", "password": "", "cookies_file": "data/cookies/reddit_1.json"},
-        {"id": "reddit_2", "username": "xagent_research2", "password": "", "cookies_file": "data/cookies/reddit_2.json"},
+        {
+            "id": "reddit_1",
+            "username": "xagent_research1",
+            "password": "",
+            "cookies_file": "data/cookies/reddit_1.json",
+        },
+        {
+            "id": "reddit_2",
+            "username": "xagent_research2",
+            "password": "",
+            "cookies_file": "data/cookies/reddit_2.json",
+        },
     ]
 
     BROWSER_ARGS: List[str] = [
@@ -161,14 +173,16 @@ class RedditPlaywrightCrawler:
         raw_accounts = accounts or self.DEFAULT_ACCOUNTS
         self.accounts: List[RedditAccount] = []
         for acc in raw_accounts:
-            self.accounts.append(RedditAccount(
-                id=acc["id"],
-                username=acc["username"],
-                password=acc.get("password", ""),
-                cookies_file=acc.get("cookies_file", f"data/cookies/{acc['id']}.json"),
-                user_agent=acc.get("user_agent", random.choice(USER_AGENTS)),
-                proxy=acc.get("proxy"),
-            ))
+            self.accounts.append(
+                RedditAccount(
+                    id=acc["id"],
+                    username=acc["username"],
+                    password=acc.get("password", ""),
+                    cookies_file=acc.get("cookies_file", f"data/cookies/{acc['id']}.json"),
+                    user_agent=acc.get("user_agent", random.choice(USER_AGENTS)),
+                    proxy=acc.get("proxy"),
+                )
+            )
 
         self.current_account_idx = 0
         self.data_dir = Path(data_dir)
@@ -382,7 +396,7 @@ class RedditPlaywrightCrawler:
                 logger.warning(f"Fetch attempt {attempt + 1} failed: {e}")
                 if attempt == self.max_retries - 1:
                     raise
-                await asyncio.sleep(2 ** attempt)
+                await asyncio.sleep(2**attempt)
 
         for pd in parsed_posts:
             posts.append(RedditPost(**pd))
@@ -437,27 +451,34 @@ class RedditPlaywrightCrawler:
             subreddit = card.get("subreddit-name", "")
             created = card.get("created-timestamp", "")
 
-            posts.append({
-                "id": card.get("post-id", "") or f"sp_{random.randint(10000, 99999)}",
-                "title": title[:300],
-                "content": "",
-                "author": author if author not in ("[deleted]", "[removed]") else "[deleted]",
-                "subreddit": subreddit,
-                "upvotes": score,
-                "comment_count": nc,
-                "created_utc": self._parse_created(created),
-                "url": card.get("url", f"https://www.reddit.com{permalink}"),
-                "permalink": f"https://www.reddit.com{permalink}",
-                "engagement_score": score + nc * 3,
-                "is_self": False,
-                "thumbnail": None,
-            })
+            posts.append(
+                {
+                    "id": card.get("post-id", "") or f"sp_{random.randint(10000, 99999)}",
+                    "title": title[:300],
+                    "content": "",
+                    "author": author if author not in ("[deleted]", "[removed]") else "[deleted]",
+                    "subreddit": subreddit,
+                    "upvotes": score,
+                    "comment_count": nc,
+                    "created_utc": self._parse_created(created),
+                    "url": card.get("url", f"https://www.reddit.com{permalink}"),
+                    "permalink": f"https://www.reddit.com{permalink}",
+                    "engagement_score": score + nc * 3,
+                    "is_self": False,
+                    "thumbnail": None,
+                }
+            )
         return posts
 
     async def _extract_dom_posts(self, limit: int) -> List[Dict]:
         """DOM 解析回退方案。"""
         posts: List[Dict] = []
-        for selector in ["[data-testid='post-container']", ".Post", "[data-click-id='body']", "shreddit-post"]:
+        for selector in [
+            "[data-testid='post-container']",
+            ".Post",
+            "[data-click-id='body']",
+            "shreddit-post",
+        ]:
             elements = await self._page.query_selector_all(selector)
             if elements:
                 for el in elements[:limit]:
@@ -590,16 +611,25 @@ class RedditPlaywrightCrawler:
                     author_el = await c_el.query_selector("a[href^='/user/']")
                     text_el = await c_el.query_selector("[data-testid='comment-body']")
                     if text_el:
-                        comments.append({
-                            "author": (await author_el.inner_text()) if author_el else "",
-                            "text": (await text_el.inner_text()).strip()[:300],
-                        })
+                        comments.append(
+                            {
+                                "author": (await author_el.inner_text()) if author_el else "",
+                                "text": (await text_el.inner_text()).strip()[:300],
+                            }
+                        )
                 except Exception:
                     continue
             return RedditPost(
-                id=post_id, title="", content=content,
-                author="", subreddit="", upvotes=0, comment_count=len(comments),
-                created_utc=datetime.now(), url=url, permalink=url,
+                id=post_id,
+                title="",
+                content=content,
+                author="",
+                subreddit="",
+                upvotes=0,
+                comment_count=len(comments),
+                created_utc=datetime.now(),
+                url=url,
+                permalink=url,
                 top_comments=comments,
             )
         except Exception as e:
@@ -615,7 +645,8 @@ class RedditPlaywrightCrawler:
             if self._page:
                 await self._page.goto(
                     "https://www.reddit.com/settings/",
-                    wait_until="domcontentloaded", timeout=15000,
+                    wait_until="domcontentloaded",
+                    timeout=15000,
                 )
                 karma = "0"
                 for sel in ["[data-testid='karma']", "[class*='karma']"]:
@@ -641,7 +672,9 @@ class RedditPlaywrightCrawler:
                     "daily_likes": 0,
                     "daily_comments": 0,
                     "daily_limit_posts": 10,
-                    "account_age_days": max(1, int((datetime.now() - self.start_time).total_seconds() / 86400)),
+                    "account_age_days": max(
+                        1, int((datetime.now() - self.start_time).total_seconds() / 86400)
+                    ),
                 }
         except Exception as e:
             return {
@@ -694,15 +727,17 @@ class RedditPlaywrightCrawler:
                 status = await self.get_account_status()
                 results.append(status)
             except Exception as e:
-                results.append({
-                    "platform": "reddit",
-                    "account_id": acc.id,
-                    "username": acc.username,
-                    "status": "error",
-                    "status_detail": str(e)[:100],
-                    "request_count": acc.request_count,
-                    "last_activity": datetime.now().isoformat(),
-                })
+                results.append(
+                    {
+                        "platform": "reddit",
+                        "account_id": acc.id,
+                        "username": acc.username,
+                        "status": "error",
+                        "status_detail": str(e)[:100],
+                        "request_count": acc.request_count,
+                        "last_activity": datetime.now().isoformat(),
+                    }
+                )
         self.current_account_idx = original_idx
         return results
 
@@ -714,10 +749,7 @@ class RedditPlaywrightCrawler:
         if not ref:
             return {"top_comments": [], "comment_insights": [], "num_comments": None}
         sub, post_id = ref
-        url = (
-            f"https://www.reddit.com/svc/shreddit/comments/r/{sub}/t3_{post_id}"
-            f"?sort=top"
-        )
+        url = f"https://www.reddit.com/svc/shreddit/comments/r/{sub}/t3_{post_id}" f"?sort=top"
         try:
             resp = await self._page.request.get(url, timeout=timeout)
             html_text = await resp.text()
@@ -739,6 +771,7 @@ class RedditPlaywrightCrawler:
 
 # ─── 模块级帮助函数 ─────────────────────────────────────────────────────────
 
+
 def _extract_post_ref(url: str) -> Optional[tuple]:
     m = re.search(r"/r/([^/]+)/comments/([A-Za-z0-9]+)", url or "")
     if not m:
@@ -749,6 +782,7 @@ def _extract_post_ref(url: str) -> Optional[tuple]:
 def _parse_shreddit_comments(html_text: str) -> Dict[str, Any]:
     """解析 <shreddit-comment> HTML 块为结构化评论。"""
     import html as _html
+
     _comment_start = re.compile(r"<shreddit-comment(?=[\s>])[^>]*>")
     _total = re.compile(r'total-comments="(\d+)"')
     _para = re.compile(r"<p[^>]*>(.*?)</p>", re.S)
@@ -771,12 +805,17 @@ def _parse_shreddit_comments(html_text: str) -> Dict[str, Any]:
         except ValueError:
             score = 0
         permalink = _re_attr(tag, "permalink")
-        comments.append({
-            "score": score, "author": author, "body": body[:300],
-            "excerpt": body[:200], "permalink": permalink,
-            "date": _re_iso_date(_re_attr(tag, "created")),
-            "url": f"https://reddit.com{permalink}" if permalink else "",
-        })
+        comments.append(
+            {
+                "score": score,
+                "author": author,
+                "body": body[:300],
+                "excerpt": body[:200],
+                "permalink": permalink,
+                "date": _re_iso_date(_re_attr(tag, "created")),
+                "url": f"https://reddit.com{permalink}" if permalink else "",
+            }
+        )
 
     comments.sort(key=lambda c: c.get("score", 0), reverse=True)
     insights = [c["body"][:80] + "…" for c in comments[:5] if c["body"]]
@@ -792,6 +831,7 @@ def _parse_shreddit_comments(html_text: str) -> Dict[str, Any]:
 
 def _re_attr(tag: str, name: str) -> str:
     import html as _html
+
     m = re.search(rf'\b{name}="([^"]*)"', tag)
     return _html.unescape(m.group(1)) if m else ""
 
@@ -812,7 +852,7 @@ def _extract_body(html_text: str, thing_id: str, _para, _tag, _ws, _next) -> str
     idx = html_text.find(anchor)
     if idx == -1:
         return ""
-    window = html_text[idx + len(anchor): idx + len(anchor) + 8000]
+    window = html_text[idx + len(anchor) : idx + len(anchor) + 8000]
     nxt = _next.search(window)
     if nxt:
         window = window[: nxt.start()]

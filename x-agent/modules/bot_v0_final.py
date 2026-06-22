@@ -106,7 +106,9 @@ class XAgentBotV0Final:
         ]
         return {
             "summary": "\n\n".join(part for part in summary_parts if part),
-            "source": state.get("source") or research.get("source") or ",".join(research.get("platforms", [])),
+            "source": state.get("source")
+            or research.get("source")
+            or ",".join(research.get("platforms", [])),
             "score": state.get("score") or research.get("relevance_score") or 50.0,
         }
 
@@ -150,7 +152,9 @@ class XAgentBotV0Final:
         if not topics:
             await self._reply(update, "No trend items found.")
             return
-        await self._reply(update, "Top trend items:\n" + "\n".join(f"{i}. {t}" for i, t in enumerate(topics, 1)))
+        await self._reply(
+            update, "Top trend items:\n" + "\n".join(f"{i}. {t}" for i, t in enumerate(topics, 1))
+        )
 
     async def cmd_create(self, update, context) -> None:
         user_id = self._user_id(update)
@@ -197,21 +201,31 @@ class XAgentBotV0Final:
         }
         await self._send_draft(update, user_id, content, content_id)
 
-    async def _send_draft(self, update, user_id: int, content: str, content_id: Optional[str]) -> None:
+    async def _send_draft(
+        self, update, user_id: int, content: str, content_id: Optional[str]
+    ) -> None:
         try:
             from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-            keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton("Confirm publish", callback_data=f"confirm_publish_{user_id}")],
-                [InlineKeyboardButton("Regenerate", callback_data=f"regenerate_{user_id}")],
-                [InlineKeyboardButton("Skip", callback_data=f"skip_{user_id}")],
-            ])
+            keyboard = InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "Confirm publish", callback_data=f"confirm_publish_{user_id}"
+                        )
+                    ],
+                    [InlineKeyboardButton("Regenerate", callback_data=f"regenerate_{user_id}")],
+                    [InlineKeyboardButton("Skip", callback_data=f"skip_{user_id}")],
+                ]
+            )
             await update.message.reply_text(
                 f"Draft ({content_id or 'not saved'}):\n\n{content or '[empty draft]'}",
                 reply_markup=keyboard,
             )
         except Exception:
-            await self._reply(update, f"Draft ({content_id or 'not saved'}):\n\n{content or '[empty draft]'}")
+            await self._reply(
+                update, f"Draft ({content_id or 'not saved'}):\n\n{content or '[empty draft]'}"
+            )
 
     async def button_callback(self, update, context) -> None:
         query = getattr(update, "callback_query", None)
@@ -229,11 +243,19 @@ class XAgentBotV0Final:
             try:
                 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-                markup = InlineKeyboardMarkup([
-                    [InlineKeyboardButton("Final confirm", callback_data=f"final_confirm_publish_{user_id}")],
-                    [InlineKeyboardButton("Cancel", callback_data=f"skip_{user_id}")],
-                ])
-                await query.edit_message_text("Second confirmation required before publishing.", reply_markup=markup)
+                markup = InlineKeyboardMarkup(
+                    [
+                        [
+                            InlineKeyboardButton(
+                                "Final confirm", callback_data=f"final_confirm_publish_{user_id}"
+                            )
+                        ],
+                        [InlineKeyboardButton("Cancel", callback_data=f"skip_{user_id}")],
+                    ]
+                )
+                await query.edit_message_text(
+                    "Second confirmation required before publishing.", reply_markup=markup
+                )
             except Exception:
                 await query.edit_message_text("Second confirmation required before publishing.")
             return
@@ -255,7 +277,11 @@ class XAgentBotV0Final:
 
         if action == "regenerate":
             topic = state.get("topic") or state.get("search_keyword") or "current trend"
-            fake_update = type("UpdateProxy", (), {"message": query.message, "effective_user": getattr(query, "from_user", None)})()
+            fake_update = type(
+                "UpdateProxy",
+                (),
+                {"message": query.message, "effective_user": getattr(query, "from_user", None)},
+            )()
             fake_context = type("ContextProxy", (), {"args": topic.split()})()
             await self.cmd_create(fake_update, fake_context)
             return
@@ -289,7 +315,9 @@ class XAgentBotV0Final:
         await self._reply(update, "Settings: manual approval is enabled; auto-publish is disabled.")
 
     async def cmd_help(self, update, context) -> None:
-        await self._reply(update, "Use /search <keyword>, then /create <topic>. Drafts require two confirmations.")
+        await self._reply(
+            update, "Use /search <keyword>, then /create <topic>. Drafts require two confirmations."
+        )
 
     async def send_message(self, chat_id=None, text: str = "", **kwargs) -> None:
         if self.application and chat_id:

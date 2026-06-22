@@ -3,14 +3,15 @@
 
 Usage: python dashboard/launch.py
 """
+
 import asyncio
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from dashboard.app import Platform, _make_account, account_pool, update_account_status_task
 from dashboard.app import app  # noqa: F401
+from dashboard.app import Platform, _make_account, account_pool, update_account_status_task
 
 
 def init_sample_accounts():

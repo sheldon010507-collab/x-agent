@@ -12,8 +12,23 @@ from typing import Iterable, List, Set
 
 _TOKEN_RE = re.compile(r"[A-Za-z0-9]+|[一-鿿]+")
 _STOP = {
-    "the", "a", "an", "of", "to", "and", "or", "is", "are",
-    "for", "with", "on", "in", "by", "this", "that", "it",
+    "the",
+    "a",
+    "an",
+    "of",
+    "to",
+    "and",
+    "or",
+    "is",
+    "are",
+    "for",
+    "with",
+    "on",
+    "in",
+    "by",
+    "this",
+    "that",
+    "it",
 }
 
 

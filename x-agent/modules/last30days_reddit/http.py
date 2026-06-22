@@ -73,7 +73,7 @@ async def get_text_async(
         except Exception as e:  # pragma: no cover - 网络错误时
             last_err = e
             logger.debug(f"get_text_async ({url}) attempt {attempt} failed: {e}")
-            await _sleep(0.5 * (2 ** attempt))
+            await _sleep(0.5 * (2**attempt))
 
     logger.debug(f"get_text_async gave up on {url}: {last_err}")
     return None
@@ -113,7 +113,7 @@ def get_text(
                 return body.decode("utf-8", errors="replace")
             except Exception as e:
                 last_err = e
-                time.sleep(0.5 * (2 ** attempt))
+                time.sleep(0.5 * (2**attempt))
         logger.debug(f"get_text gave up on {url}: {last_err}")
         return None
 

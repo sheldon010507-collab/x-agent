@@ -457,7 +457,9 @@ class ContentGenerator:
                 posts = data["posts"][:5]  # 取前 5 条
                 total_posts += len(posts)
                 platform_trends = [p.get("title", "")[:60] for p in posts]
-                trends_info.append(f"**{platform.upper()}**:\n" + "\n".join(f"- {t}" for t in platform_trends))
+                trends_info.append(
+                    f"**{platform.upper()}**:\n" + "\n".join(f"- {t}" for t in platform_trends)
+                )
 
         trends_text = "\n\n".join(trends_info)
 
@@ -473,10 +475,12 @@ class ContentGenerator:
 简要分析：主要趋势、热度排名、平台特点、建议。不要过长。"""
 
         try:
-            report = await self.llm_router.chat([
-                {"role": "system", "content": "你是数据分析师。用简洁中文总结趋势。"},
-                {"role": "user", "content": prompt}
-            ])
+            report = await self.llm_router.chat(
+                [
+                    {"role": "system", "content": "你是数据分析师。用简洁中文总结趋势。"},
+                    {"role": "user", "content": prompt},
+                ]
+            )
             return report
         except Exception as e:
             # 返回备用报告格式

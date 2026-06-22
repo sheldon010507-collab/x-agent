@@ -8,6 +8,7 @@ FastAPI + WebSocket + SQLite 持久化 + 实时数据可视化
 - 真实 account pool 基于 DB
 - 升级 Dashboard 前端 (历史图表、活动日志、账号卡片)
 """
+
 import asyncio
 import json
 import logging
@@ -30,6 +31,7 @@ app = FastAPI(title="X-Agent Dashboard", version="2.0.0")
 # 数据模型
 # ---------------------------------------------------------------------------
 
+
 class Platform(str, Enum):
     REDDIT = "reddit"
     X = "x"
@@ -37,6 +39,7 @@ class Platform(str, Enum):
     TIKTOK = "tiktok"
     YOUTUBE = "youtube"
     HACKERNEWS = "hackernews"
+
 
 class AccountStatus(str, Enum):
     HEALTHY = "healthy"
@@ -46,10 +49,12 @@ class AccountStatus(str, Enum):
     LOGIN_REQUIRED = "login_required"
     ERROR = "error"
 
+
 class AlertLevel(str, Enum):
     INFO = "info"
     WARNING = "warning"
     CRITICAL = "critical"
+
 
 @dataclass
 class SystemAlert:
@@ -72,9 +77,11 @@ class SystemAlert:
             "resolved": self.resolved,
         }
 
+
 # ---------------------------------------------------------------------------
 # DB-backed Account Pool
 # ---------------------------------------------------------------------------
+
 
 class AccountPool:
     """多平台账号池 — 基于 SQLite 持久化"""
@@ -92,10 +99,16 @@ class AccountPool:
     def add_account(self, account) -> Dict:
         db_account = {
             "id": account.id,
-            "platform": account.platform.value if hasattr(account.platform, "value") else account.platform,
+            "platform": (
+                account.platform.value if hasattr(account.platform, "value") else account.platform
+            ),
             "username": account.username,
             "display_name": getattr(account, "display_name", ""),
-            "status": getattr(account, "status", AccountStatus.HEALTHY).value if hasattr(getattr(account, "status", AccountStatus.HEALTHY), "value") else str(getattr(account, "status", "active")),
+            "status": (
+                getattr(account, "status", AccountStatus.HEALTHY).value
+                if hasattr(getattr(account, "status", AccountStatus.HEALTHY), "value")
+                else str(getattr(account, "status", "active"))
+            ),
             "status_detail": getattr(account, "status_detail", ""),
             "daily_posts": getattr(account, "daily_posts", 0),
             "daily_likes": getattr(account, "daily_likes", 0),
@@ -216,11 +229,16 @@ class AccountPool:
 
     # ----- 告警管理 -----
 
-    def add_alert(self, level: AlertLevel, platform: Platform, account_id: str, message: str) -> SystemAlert:
+    def add_alert(
+        self, level: AlertLevel, platform: Platform, account_id: str, message: str
+    ) -> SystemAlert:
         self._alert_counter += 1
         alert = SystemAlert(
             id=f"alert_{self._alert_counter}_{uuid.uuid4().hex[:8]}",
-            level=level, platform=platform, account_id=account_id, message=message,
+            level=level,
+            platform=platform,
+            account_id=account_id,
+            message=message,
         )
         self._alerts.append(alert)
         if self._db:
@@ -228,8 +246,13 @@ class AccountPool:
                 cursor = self._db.conn.cursor()
                 cursor.execute(
                     "INSERT INTO alerts (id, level, platform, account_id, message) VALUES (?, ?, ?, ?, ?)",
-                    (alert.id, alert.level.value, platform.value if hasattr(platform, "value") else str(platform),
-                     account_id, message),
+                    (
+                        alert.id,
+                        alert.level.value,
+                        platform.value if hasattr(platform, "value") else str(platform),
+                        account_id,
+                        message,
+                    ),
                 )
                 self._db.conn.commit()
             except Exception as e:
@@ -252,8 +275,16 @@ class AccountPool:
 
     def get_platform_summary(self) -> Dict[str, Any]:
         accounts = self.get_all_accounts()
-        summary = defaultdict(lambda: {"total": 0, "healthy": 0, "rate_limited": 0,
-                                        "suspended": 0, "total_posts_today": 0, "total_likes_today": 0})
+        summary = defaultdict(
+            lambda: {
+                "total": 0,
+                "healthy": 0,
+                "rate_limited": 0,
+                "suspended": 0,
+                "total_posts_today": 0,
+                "total_likes_today": 0,
+            }
+        )
         for a in accounts:
             p = a.get("platform", "unknown")
             summary[p]["total"] += 1
@@ -282,6 +313,7 @@ account_pool = AccountPool()
 # WebSocket 连接管理
 # ---------------------------------------------------------------------------
 
+
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
@@ -309,11 +341,13 @@ class ConnectionManager:
     async def send_personal(self, websocket: WebSocket, message: Dict[str, Any]):
         await websocket.send_json(message)
 
+
 manager = ConnectionManager()
 
 # ---------------------------------------------------------------------------
 # FastAPI 路由
 # ---------------------------------------------------------------------------
+
 
 @app.get("/")
 async def dashboard():
@@ -322,10 +356,16 @@ async def dashboard():
         return FileResponse(static_index)
     return HTMLResponse(content=DASHBOARD_HTML)
 
+
 @app.get("/api/accounts")
 async def list_accounts(platform: Optional[str] = None):
-    accounts = account_pool.get_accounts_by_platform(platform) if platform else account_pool.get_all_accounts()
+    accounts = (
+        account_pool.get_accounts_by_platform(platform)
+        if platform
+        else account_pool.get_all_accounts()
+    )
     return {"accounts": accounts, "total": len(accounts)}
+
 
 @app.get("/api/accounts/{account_id}")
 async def get_account(account_id: str):
@@ -334,6 +374,7 @@ async def get_account(account_id: str):
         raise HTTPException(status_code=404, detail="Account not found")
     return account
 
+
 @app.post("/api/accounts/{account_id}/status")
 async def update_account_status(account_id: str, status: str, detail: str = ""):
     account = account_pool.update_account(account_id, status=status, status_detail=detail)
@@ -341,6 +382,7 @@ async def update_account_status(account_id: str, status: str, detail: str = ""):
         raise HTTPException(status_code=404, detail="Account not found")
     await manager.broadcast({"type": "account_update", "data": account})
     return account
+
 
 @app.get("/api/summary")
 async def get_summary():
@@ -351,10 +393,12 @@ async def get_summary():
         "timestamp": datetime.now().isoformat(),
     }
 
+
 @app.get("/api/alerts")
 async def get_alerts(resolved: Optional[bool] = None):
     alerts = account_pool.get_alerts(resolved)
     return {"alerts": [a.to_dict() for a in alerts], "total": len(alerts)}
+
 
 @app.post("/api/alerts/{alert_id}/resolve")
 async def resolve_alert(alert_id: str):
@@ -362,13 +406,17 @@ async def resolve_alert(alert_id: str):
         return {"success": True}
     raise HTTPException(status_code=404, detail="Alert not found")
 
+
 @app.post("/api/reset-daily")
 async def reset_daily():
     account_pool.reset_daily_counters()
     return {"success": True, "message": "Daily counters reset"}
 
+
 @app.get("/api/runs")
-async def get_runs(platform: Optional[str] = None, account_id: Optional[str] = None, limit: int = 50):
+async def get_runs(
+    platform: Optional[str] = None, account_id: Optional[str] = None, limit: int = 50
+):
     """获取最近的 run 记录"""
     runs = account_pool.get_recent_runs(limit)
     if platform:
@@ -377,13 +425,17 @@ async def get_runs(platform: Optional[str] = None, account_id: Optional[str] = N
         runs = [r for r in runs if r.get("account_id") == account_id]
     return {"runs": runs[:limit], "total": len(runs)}
 
+
 @app.get("/api/runs/{run_id}/findings")
 async def get_run_findings(run_id: str):
     findings = account_pool.get_findings_by_run(run_id)
     return {"findings": findings, "total": len(findings)}
 
+
 @app.get("/api/posts")
-async def get_posts(platform: Optional[str] = None, account_id: Optional[str] = None, days: int = 7, limit: int = 50):
+async def get_posts(
+    platform: Optional[str] = None, account_id: Optional[str] = None, days: int = 7, limit: int = 50
+):
     """获取最近发现/发布的帖子列表"""
     runs = account_pool.get_recent_runs(limit=limit * 3)
     cutoff = (datetime.now() - timedelta(days=days)).isoformat()
@@ -397,43 +449,50 @@ async def get_posts(platform: Optional[str] = None, account_id: Optional[str] = 
             continue
         findings = account_pool.get_findings_by_run(run["id"])
         for f in findings:
-            posts.append({
-                "id": f.get("id", ""),
-                "run_id": run["id"],
-                "account_id": run.get("account_id", ""),
-                "platform": run.get("platform", ""),
-                "title": f.get("title", ""),
-                "url": f.get("url", ""),
-                "upvotes": f.get("upvotes", 0),
-                "comments": f.get("comment_count", 0),
-                "engagement": f.get("engagement_score", 0),
-                "posted_at": run.get("started_at", ""),
-                "status": run.get("status", ""),
-                "author": f.get("author", ""),
-                "subreddit": f.get("subreddit_or_handle", ""),
-            })
+            posts.append(
+                {
+                    "id": f.get("id", ""),
+                    "run_id": run["id"],
+                    "account_id": run.get("account_id", ""),
+                    "platform": run.get("platform", ""),
+                    "title": f.get("title", ""),
+                    "url": f.get("url", ""),
+                    "upvotes": f.get("upvotes", 0),
+                    "comments": f.get("comment_count", 0),
+                    "engagement": f.get("engagement_score", 0),
+                    "posted_at": run.get("started_at", ""),
+                    "status": run.get("status", ""),
+                    "author": f.get("author", ""),
+                    "subreddit": f.get("subreddit_or_handle", ""),
+                }
+            )
     posts.sort(key=lambda p: p.get("posted_at", ""), reverse=True)
     return {"posts": posts[:limit], "total": len(posts)}
+
 
 # ---------------------------------------------------------------------------
 # WebSocket
 # ---------------------------------------------------------------------------
 
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
-        await manager.send_personal(websocket, {
-            "type": "init",
-            "data": {
-                "accounts": account_pool.get_all_accounts(),
-                "summary": account_pool.get_platform_summary(),
-                "stats": account_pool.get_stats(),
-                "alerts": [a.to_dict() for a in account_pool.get_alerts(resolved=False)[:10]],
-                "recent_runs": account_pool.get_recent_runs(20),
-                "dm_messages": [],
-            }
-        })
+        await manager.send_personal(
+            websocket,
+            {
+                "type": "init",
+                "data": {
+                    "accounts": account_pool.get_all_accounts(),
+                    "summary": account_pool.get_platform_summary(),
+                    "stats": account_pool.get_stats(),
+                    "alerts": [a.to_dict() for a in account_pool.get_alerts(resolved=False)[:10]],
+                    "recent_runs": account_pool.get_recent_runs(20),
+                    "dm_messages": [],
+                },
+            },
+        )
         while True:
             data = await websocket.receive_text()
             message = json.loads(data)
@@ -442,15 +501,18 @@ async def websocket_endpoint(websocket: WebSocket):
             if action == "ping":
                 await manager.send_personal(websocket, {"type": "pong"})
             elif action == "refresh":
-                await manager.send_personal(websocket, {
-                    "type": "update",
-                    "data": {
-                        "accounts": account_pool.get_all_accounts(),
-                        "summary": account_pool.get_platform_summary(),
-                        "stats": account_pool.get_stats(),
-                        "recent_runs": account_pool.get_recent_runs(20),
-                    }
-                })
+                await manager.send_personal(
+                    websocket,
+                    {
+                        "type": "update",
+                        "data": {
+                            "accounts": account_pool.get_all_accounts(),
+                            "summary": account_pool.get_platform_summary(),
+                            "stats": account_pool.get_stats(),
+                            "recent_runs": account_pool.get_recent_runs(20),
+                        },
+                    },
+                )
     except WebSocketDisconnect:
         manager.disconnect(websocket)
     except Exception as e:
@@ -462,11 +524,13 @@ async def websocket_endpoint(websocket: WebSocket):
 # DM / 消息监控 API
 # ---------------------------------------------------------------------------
 
+
 @app.get("/api/dm/{platform}")
 async def get_dms(platform: str, limit: int = 20):
     """获取指定平台的 DM/消息列表。platform: x | reddit"""
     try:
         from .dm_monitor import AggregatedDMMonitor
+
         monitor = AggregatedDMMonitor()
         if platform == "all":
             messages = await monitor.fetch_all(limit_per_platform=limit)
@@ -474,6 +538,7 @@ async def get_dms(platform: str, limit: int = 20):
             messages = await monitor.x.fetch_dms(limit=limit)
         elif platform == "reddit":
             from .dm_monitor import RedditDMMonitor
+
             rd_monitor = RedditDMMonitor()
             messages = await rd_monitor.fetch_dms(limit=limit)
         else:
@@ -485,11 +550,13 @@ async def get_dms(platform: str, limit: int = 20):
         logger.error(f"DM fetch error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.post("/api/dm/{platform}/refresh")
 async def refresh_dms(platform: str):
     """手动触发 DM 刷新，结果通过 WebSocket 推送"""
     try:
         from .dm_monitor import AggregatedDMMonitor
+
         monitor = AggregatedDMMonitor()
         if platform == "all":
             messages = await monitor.fetch_all(limit_per_platform=20)
@@ -497,15 +564,18 @@ async def refresh_dms(platform: str):
             messages = await monitor.x.fetch_dms(limit=20)
         elif platform == "reddit":
             from .dm_monitor import RedditDMMonitor
+
             rd_monitor = RedditDMMonitor()
             messages = await rd_monitor.fetch_dms(limit=20)
         else:
             raise HTTPException(status_code=400, detail=f"Unknown: {platform}")
 
-        await manager.broadcast({
-            "type": "dm_update",
-            "data": {"platform": platform, "messages": messages, "count": len(messages)},
-        })
+        await manager.broadcast(
+            {
+                "type": "dm_update",
+                "data": {"platform": platform, "messages": messages, "count": len(messages)},
+            }
+        )
         return {"success": True, "count": len(messages)}
     except HTTPException:
         raise
@@ -517,6 +587,7 @@ async def refresh_dms(platform: str):
 # ---------------------------------------------------------------------------
 # 后台任务
 # ---------------------------------------------------------------------------
+
 
 async def update_account_status_task():
     """定期检查账号状态并推送更新"""
@@ -545,30 +616,34 @@ async def update_account_status_task():
             telemetry_stats = {}
             try:
                 from modules.quality_telemetry import telemetry as _tel
+
                 telemetry_stats = _tel.global_stats()
             except ImportError:
                 pass
 
-            await manager.broadcast({
-                "type": "update",
-                "data": {
-                    "accounts": accounts,
-                    "summary": account_pool.get_platform_summary(),
-                    "stats": account_pool.get_stats(),
-                    "telemetry": telemetry_stats,
-                    "recent_runs": account_pool.get_recent_runs(20),
-                    "timestamp": datetime.now().isoformat(),
+            await manager.broadcast(
+                {
+                    "type": "update",
+                    "data": {
+                        "accounts": accounts,
+                        "summary": account_pool.get_platform_summary(),
+                        "stats": account_pool.get_stats(),
+                        "telemetry": telemetry_stats,
+                        "recent_runs": account_pool.get_recent_runs(20),
+                        "timestamp": datetime.now().isoformat(),
+                    },
                 }
-            })
+            )
         except Exception as e:
             logger.error(f"Status update error: {e}")
         await asyncio.sleep(60)
+
 
 # ---------------------------------------------------------------------------
 # Dashboard HTML - 升级版 v2
 # ---------------------------------------------------------------------------
 
-DASHBOARD_HTML = '''<!DOCTYPE html>
+DASHBOARD_HTML = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -1129,15 +1204,17 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 </body>
-</html>'''
+</html>"""
 
 # ---------------------------------------------------------------------------
 # 启动入口
 # ---------------------------------------------------------------------------
 
+
 def init_sample_accounts():
     """初始化示例账号（实际应从数据库/配置文件读取）"""
     from dashboard.app import Platform
+
     samples = [
         ("reddit_1", Platform.REDDIT, "xagent_research1", "Research Bot 1", 10),
         ("reddit_2", Platform.REDDIT, "xagent_research2", "Research Bot 2", 10),
@@ -1153,8 +1230,9 @@ def init_sample_accounts():
         if not existing:
             account_pool.add_account(_make_account(acc_id, platform, username, display, limit))
 
+
 def _make_account(acc_id, platform, username, display, daily_limit):
-    fake = type('Account', (), {})()
+    fake = type("Account", (), {})()
     fake.id = acc_id
     fake.platform = platform
     fake.username = username
@@ -1173,8 +1251,10 @@ def _make_account(acc_id, platform, username, display, daily_limit):
     fake.created_at = datetime.now().isoformat()
     return fake
 
+
 if __name__ == "__main__":
     import uvicorn
+
     print("X-Agent Dashboard v2 Starting...")
     init_sample_accounts()
     uvicorn.run(app, host="0.0.0.0", port=8080)
